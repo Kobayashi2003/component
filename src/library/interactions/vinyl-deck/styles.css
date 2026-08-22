@@ -1,0 +1,322 @@
+.vinyl-deck {
+  --focus-ink: #171a1d;
+  --focus-paper: #f3f3f1;
+  --focus-display-font: 'Bahnschrift SemiCondensed', 'Agency FB', Eurostile, 'Arial Narrow', sans-serif;
+  --focus-data-font: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+  display: grid;
+  position: relative;
+  min-height: 660px;
+  padding: clamp(30px, 4vw, 58px);
+  grid-template-columns: minmax(168px, .7fr) minmax(600px, 2.4fr) minmax(168px, .7fr);
+  align-items: center;
+  gap: clamp(20px, 3vw, 48px);
+  overflow: hidden;
+  color: var(--focus-ink);
+  background: var(--focus-paper);
+  font-family: var(--focus-data-font);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.vinyl-deck__background,
+.vinyl-deck__background > i { position: absolute; inset: 0; pointer-events: none; }
+.vinyl-deck__background { z-index: 0; overflow: hidden; }
+.vinyl-deck__background-grid {
+  inset: 6% 3% !important;
+  background:
+    linear-gradient(rgba(24, 27, 30, .04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 27, 30, .04) 1px, transparent 1px);
+  background-size: 88px 88px;
+  clip-path: polygon(0 0, 72% 0, 72% 10%, 100% 10%, 100% 86%, 92% 86%, 92% 100%, 0 100%);
+}
+.vinyl-deck__background-axis {
+  background:
+    linear-gradient(119deg, transparent 0 76.6%, rgba(24, 27, 30, .05) 76.7% 76.9%, transparent 77%),
+    linear-gradient(32deg, transparent 0 17.8%, color-mix(in srgb, var(--focus-accent) 10%, transparent) 17.9% 18.1%, transparent 18.2%),
+    linear-gradient(90deg, rgba(24, 27, 30, .04) 1px, transparent 1px);
+  background-size: auto, auto, 25% 100%;
+}
+.vinyl-deck__background-controls {
+  position: absolute;
+  z-index: 4;
+  right: clamp(16px, 2.4vw, 34px);
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 9px;
+  border: 1px solid rgba(23, 26, 29, .18);
+  background: rgba(243, 243, 241, .86);
+  box-shadow: var(--focus-shadow-small-x) var(--focus-shadow-small-y) 6px rgba(9, 12, 14, .13);
+  backdrop-filter: blur(8px);
+}
+.vinyl-deck__background-controls label { display: flex; align-items: center; gap: 7px; color: #44494c; font: 600 7px/1 var(--focus-data-font); letter-spacing: .08em; text-transform: uppercase; }
+.vinyl-deck__file-control { cursor: pointer; }
+.vinyl-deck__file-control input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.vinyl-deck__file-control::after { padding: 4px 6px; border: 1px solid #6c7174; color: #222629; content: 'Select'; }
+.vinyl-deck__angle-control input { width: 72px; accent-color: var(--focus-accent); }
+.vinyl-deck__background-controls label:focus-within { outline: 2px solid var(--focus-accent); outline-offset: 3px; }
+
+.vinyl-deck__information,
+.vinyl-deck__summary {
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  padding-top: 9px;
+  opacity: 0;
+  animation: vinyl-deck-copy-in 420ms ease 1s forwards;
+}
+.vinyl-deck__section-label {
+  display: flex;
+  align-items: center;
+  margin: 0 0 34px;
+  font: 700 15px/1 var(--focus-display-font);
+  font-stretch: condensed;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.vinyl-deck__section-label i { display: inline-block; width: 9px; height: 9px; margin-right: 10px; border: 2px solid currentColor; transform: rotate(45deg); }
+.vinyl-deck__section-label small { margin-left: auto; color: #8b8f91; font: 600 7px/1 var(--focus-data-font); letter-spacing: .08em; }
+.vinyl-deck dl { position: relative; margin: 0; padding-left: 12px; }
+.vinyl-deck dl::before { position: absolute; inset: 0 auto 0 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--focus-accent) 0 10px, transparent 10px 14px); content: ''; }
+.vinyl-deck dl div { display: grid; grid-template-columns: 22px 1fr; gap: 7px; }
+.vinyl-deck dl div + div { margin-top: 23px; }
+.vinyl-deck dl b { color: #9da0a2; font: 500 7px/1 var(--focus-data-font); }
+.vinyl-deck dl span { min-width: 0; }
+.vinyl-deck dt { margin-bottom: 5px; color: #33373a; font: 700 9px/1 var(--focus-display-font); letter-spacing: .1em; text-transform: uppercase; }
+.vinyl-deck dd { margin: 0; color: var(--focus-accent); font: 600 11px/1.35 var(--focus-data-font); letter-spacing: -.03em; overflow-wrap: anywhere; text-transform: uppercase; }
+
+.vinyl-deck__machine { position: relative; z-index: 2; width: 100%; overflow: visible; color: var(--focus-ink); }
+.vinyl-deck__machine path,
+.vinyl-deck__machine circle,
+.vinyl-deck__machine rect,
+.vinyl-deck__machine line { vector-effect: non-scaling-stroke; }
+.vinyl-deck__blueprint {
+  fill: none;
+  stroke: #5f6467;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.25;
+  opacity: 0;
+  pointer-events: none;
+  animation: vinyl-deck-blueprint-life 920ms ease forwards;
+}
+.vinyl-deck__blueprint > * {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vinyl-deck-blueprint-draw 680ms cubic-bezier(.25, .75, .25, 1) 40ms forwards;
+}
+.vinyl-deck__hardware {
+  opacity: 0;
+  animation: vinyl-deck-hardware-in 420ms cubic-bezier(.2, .8, .2, 1) 700ms forwards;
+}
+.vinyl-deck__side-mode {
+  cursor: pointer;
+  outline: none;
+  transform-box: fill-box;
+  transform-origin: right center;
+  transition: transform 130ms cubic-bezier(.2, .8, .2, 1), filter 130ms ease;
+}
+.vinyl-deck__side-mode > path:first-child {
+  fill: #292d30;
+  stroke: #111416;
+  stroke-width: 3;
+  filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 2px rgba(9, 12, 14, .24));
+  transition: fill 140ms ease, stroke 140ms ease;
+}
+.vinyl-deck__side-mode-label { fill: #f0f1f0; stroke: none; font: 800 9px/1 var(--focus-data-font); dominant-baseline: middle; letter-spacing: .02em; pointer-events: none; }
+.vinyl-deck__side-mode:hover,
+.vinyl-deck__side-mode:focus-visible { transform: translateX(-2px); }
+.vinyl-deck__side-mode:active { transform: translateX(2px); }
+.vinyl-deck__side-mode.is-active { transform: translateX(3px) scaleX(.96); filter: brightness(.88); }
+.vinyl-deck__side-mode.is-active:hover,
+.vinyl-deck__side-mode.is-active:focus-visible { transform: translateX(2px) scaleX(.965); }
+.vinyl-deck__side-mode.is-active:active { transform: translateX(5px) scaleX(.94); }
+.vinyl-deck__side-mode.is-active > path:first-child {
+  fill: #1c2528;
+  stroke: var(--focus-accent);
+  filter: drop-shadow(1px 1px 1px rgba(9, 12, 14, .2));
+}
+.vinyl-deck__side-mode.is-active .vinyl-deck__side-mode-label { fill: var(--focus-accent); }
+.vinyl-deck__assembly { opacity: 0; pointer-events: none; animation: vinyl-deck-assemble 540ms cubic-bezier(.2, .8, .2, 1) 80ms forwards; }
+.vinyl-deck__hit-area { pointer-events: all; }
+.vinyl-deck__seam { fill: none; stroke: #777b7d; stroke-width: 1.5; }
+.vinyl-deck__screw { opacity: .85; }
+.vinyl-deck__module-bed {
+  filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 2px rgba(9, 12, 14, .16));
+}
+.vinyl-deck__module-bed--left { opacity: .72; }
+.vinyl-deck__module-bed--right { opacity: .66; }
+
+.vinyl-deck__draw { fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: vinyl-deck-draw 620ms cubic-bezier(.25, .75, .25, 1) forwards; }
+.vinyl-deck__segmented-ring { fill: none; opacity: 0; stroke-dashoffset: .18; animation: vinyl-deck-ring-in 520ms ease forwards; }
+.ring-01 { animation-delay: 500ms; }
+.ring-02 { animation-delay: 570ms; }
+.ring-03 { animation-delay: 640ms; }
+.ring-04 { animation-delay: 710ms; }
+.draw-01 { animation-delay: 40ms; }
+.draw-02 { animation-delay: 100ms; }
+.draw-03 { animation-delay: 160ms; }
+.draw-04 { animation-delay: 220ms; }
+.draw-05 { animation-delay: 280ms; }
+.draw-06 { animation-delay: 340ms; }
+.draw-07 { animation-delay: 400ms; }
+.draw-08 { animation-delay: 460ms; }
+.draw-09 { animation-delay: 520ms; }
+.draw-10 { animation-delay: 580ms; }
+.draw-11 { animation-delay: 640ms; }
+.draw-12 { animation-delay: 700ms; }
+.draw-13 { animation-delay: 760ms; }
+.draw-14 { animation-delay: 820ms; }
+
+.vinyl-deck__chassis { filter: drop-shadow(var(--focus-shadow-x) var(--focus-shadow-y) 8px rgba(9, 12, 14, .28)); }
+.vinyl-deck__svg-control { color: #f3f3f1; cursor: pointer; outline: none; transform-box: fill-box; transform-origin: center; transition: transform 120ms ease; }
+.vinyl-deck__svg-control--previous,
+.vinyl-deck__svg-control--next { transform: translateX(-10px); }
+.vinyl-deck__svg-control--enter { transform: translateX(10px); }
+.vinyl-deck__key-face { filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 2px rgba(9, 12, 14, .26)); }
+.vinyl-deck__svg-control text { fill: currentColor; stroke: none; font: 700 17px/1 var(--focus-display-font); font-stretch: condensed; letter-spacing: .14em; pointer-events: none; }
+.vinyl-deck__svg-control .vinyl-deck__key-code { fill: #8e9395; font: 600 7px/1 var(--focus-data-font); letter-spacing: .12em; }
+.vinyl-deck__control-outline,
+.vinyl-deck__key-accent { transition: stroke 140ms ease, filter 140ms ease; }
+.vinyl-deck__svg-control--previous:hover,
+.vinyl-deck__svg-control--previous:focus-visible,
+.vinyl-deck__svg-control--next:hover,
+.vinyl-deck__svg-control--next:focus-visible { transform: translate(-10px, -2px); }
+.vinyl-deck__svg-control--enter:hover,
+.vinyl-deck__svg-control--enter:focus-visible { transform: translate(10px, -2px); }
+.vinyl-deck__svg-control:hover .vinyl-deck__control-outline,
+.vinyl-deck__svg-control:focus-visible .vinyl-deck__control-outline { stroke: var(--focus-accent); }
+.vinyl-deck__svg-control--previous:active,
+.vinyl-deck__svg-control--next:active { transform: translate(-10px, 2px); }
+.vinyl-deck__svg-control--enter:active { transform: translate(10px, 2px); }
+.vinyl-deck__svg-control--enter,
+.vinyl-deck__meter { filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 2px rgba(9, 12, 14, .22)); }
+.vinyl-deck__key-inset { transition: stroke 120ms ease, transform 120ms ease; }
+.vinyl-deck__svg-control--enter:active .vinyl-deck__key-inset {
+  stroke: #303538;
+  transform: translateY(1px);
+}
+
+.vinyl-deck__pitch text,
+.vinyl-deck__dial text,
+.vinyl-deck__meter text { fill: #3b4043; stroke: none; font: 600 8px/1 var(--focus-data-font); letter-spacing: .1em; }
+.vinyl-deck__meter text { fill: #aeb2b4; font-size: 7px; }
+.vinyl-deck__dial { cursor: grab; outline: none; touch-action: none; }
+.vinyl-deck__dial:active { cursor: grabbing; }
+.vinyl-deck__dial:focus-visible > circle:first-of-type { stroke: var(--focus-accent); stroke-width: 5; }
+.vinyl-deck__dial-mount { filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 2px rgba(9, 12, 14, .22)); }
+.vinyl-deck__dial-knob {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 110ms cubic-bezier(.2, .8, .2, 1), filter 110ms ease;
+}
+.vinyl-deck__dial:active .vinyl-deck__dial-knob {
+  transform: scale(.975);
+  filter: brightness(.9);
+}
+.vinyl-deck__volume-pointer {
+  transform: rotate(var(--focus-volume-angle));
+  transform-origin: 128px 426px;
+  transition: transform 210ms cubic-bezier(.18, .72, .16, 1);
+}
+.vinyl-deck__dial .vinyl-deck__volume-value { fill: #596064; font-size: 7px; letter-spacing: .05em; }
+.vinyl-deck__dial-tick line { stroke: #676c6f; stroke-width: 1.25; stroke-linecap: round; }
+.vinyl-deck__dial-tick circle { fill: var(--focus-accent); stroke: #171a1d; stroke-width: 1; }
+.vinyl-deck__dial-tick.is-charged line { stroke: var(--focus-accent); stroke-width: 2; opacity: .78; }
+.vinyl-deck__dial-tick.is-selected line { stroke: var(--focus-accent); stroke-width: 3; filter: drop-shadow(0 0 1px color-mix(in srgb, var(--focus-accent) 60%, transparent)); }
+
+.vinyl-deck__platter {
+  transform: translateX(var(--focus-drag)) rotate(var(--focus-drag-rotation));
+  transform-box: fill-box;
+  transform-origin: center;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+  transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+  filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 4px rgba(9, 12, 14, .3));
+}
+.vinyl-deck__platter:active { cursor: grabbing; }
+.vinyl-deck__platter:focus-visible .vinyl-deck__platter-outline { stroke: var(--focus-accent); stroke-width: 6; }
+.vinyl-deck__rings { transform-box: fill-box; transform-origin: center; }
+.vinyl-deck__rotor { transform-box: fill-box; transform-origin: center; will-change: transform; }
+.vinyl-deck__art { transform-box: fill-box; transform-origin: center; }
+.vinyl-deck__art text { stroke: none; font-family: var(--focus-data-font); pointer-events: none; }
+.vinyl-deck__cover-title,
+.vinyl-deck__cover-author { fill: #f6f6f3; stroke: none; text-transform: uppercase; }
+.vinyl-deck__cover-title { font: 700 17px/1 var(--focus-display-font); letter-spacing: .08em; }
+.vinyl-deck__cover-author { font: 600 7px/1 var(--focus-data-font); letter-spacing: .16em; }
+.is-switching-next .vinyl-deck__art { animation: vinyl-deck-swap-next 360ms cubic-bezier(.2, .8, .2, 1); }
+.is-switching-previous .vinyl-deck__art { animation: vinyl-deck-swap-previous 360ms cubic-bezier(.2, .8, .2, 1); }
+
+.vinyl-deck__tonearm { filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 3px rgba(9, 12, 14, .24)); }
+.vinyl-deck__tonearm-arm {
+  transform: rotate(-13deg);
+  transform-origin: 680px 111px;
+  transition: transform 760ms cubic-bezier(.34, .08, .2, 1);
+}
+.is-tonearm-ready.is-playing .vinyl-deck__tonearm-arm {
+  transform: rotate(var(--focus-track-angle));
+}
+.is-tonearm-ready.is-paused .vinyl-deck__tonearm-arm {
+  transform: rotate(-13deg);
+}
+.vinyl-deck__status-light { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--focus-accent) 72%, transparent)); animation: vinyl-deck-light 2.6s steps(2, end) 1.2s infinite; }
+.vinyl-deck__meter line { transition: y2 45ms linear, opacity 80ms ease; }
+
+.vinyl-deck__summary { display: flex; flex-direction: column; justify-content: space-between; }
+.vinyl-deck__counter,
+.vinyl-deck__statement { width: 100%; }
+.vinyl-deck__counter span { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; font: 700 24px/1 var(--focus-display-font); font-stretch: condensed; letter-spacing: .1em; text-transform: uppercase; }
+.vinyl-deck__counter span i { width: 7px; height: 7px; border: 2px solid var(--focus-ink); border-radius: 50%; }
+.vinyl-deck__counter strong { font: 600 17px/1 var(--focus-data-font); letter-spacing: .05em; }
+.vinyl-deck__counter strong em { color: #a6aaac; font-style: normal; }
+.vinyl-deck__progress { width: min(100%, 150px); height: 3px; margin: 17px 0 8px; overflow: hidden; background: #d0d2d2; }
+.vinyl-deck__progress i { display: block; height: 100%; background: var(--focus-accent); transition: width 360ms ease; }
+.vinyl-deck__counter small,
+.vinyl-deck__statement small { color: #85898b; font: 500 7px/1 var(--focus-data-font); letter-spacing: .11em; }
+.vinyl-deck__statement { margin-bottom: 20%; }
+.vinyl-deck__statement p { margin: 0 0 16px; color: var(--focus-accent); font: 700 clamp(18px, 1.75vw, 24px)/1.03 var(--focus-display-font); font-stretch: semi-condensed; letter-spacing: -.025em; }
+.vinyl-deck__section-label,
+.vinyl-deck__svg-control text,
+.vinyl-deck__counter span,
+.vinyl-deck__statement p { font-variation-settings: 'wdth' 78; }
+.vinyl-deck--empty { min-height: 240px; place-items: center; }
+
+@keyframes vinyl-deck-assemble { from { opacity: 0; transform: translateY(7px) scale(.992); } to { opacity: 1; transform: none; } }
+@keyframes vinyl-deck-blueprint-draw { to { stroke-dashoffset: 0; } }
+@keyframes vinyl-deck-blueprint-life { 0% { opacity: 0; } 12%, 72% { opacity: .7; } 100% { opacity: 0; } }
+@keyframes vinyl-deck-hardware-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes vinyl-deck-draw { to { stroke-dashoffset: 0; } }
+@keyframes vinyl-deck-ring-in { to { opacity: 1; stroke-dashoffset: 0; } }
+@keyframes vinyl-deck-copy-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes vinyl-deck-light { 0%, 82% { opacity: 1; } 83%, 100% { opacity: .42; } }
+@keyframes vinyl-deck-swap-next { from { opacity: 0; transform: translateX(13%) rotate(7deg); } }
+@keyframes vinyl-deck-swap-previous { from { opacity: 0; transform: translateX(-13%) rotate(-7deg); } }
+
+@media (max-width: 1180px) {
+  .vinyl-deck { grid-template-columns: minmax(148px, .62fr) minmax(540px, 2.3fr) minmax(148px, .62fr); gap: 24px; padding-inline: 24px; }
+}
+@media (max-width: 1000px) {
+  .vinyl-deck { min-height: auto; grid-template-columns: 1fr; }
+  .vinyl-deck__information,
+  .vinyl-deck__summary { display: none; }
+  .vinyl-deck__machine { max-width: 820px; margin: 0 auto; }
+}
+@media (max-width: 680px) { .vinyl-deck { padding: 8px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-deck__assembly,
+  .vinyl-deck__hardware,
+  .vinyl-deck__information,
+  .vinyl-deck__summary { opacity: 1; animation: none; }
+  .vinyl-deck__blueprint { display: none; }
+  .vinyl-deck__draw { stroke-dashoffset: 0; animation: none; }
+  .vinyl-deck__segmented-ring { opacity: 1; stroke-dashoffset: 0; animation: none; }
+  .vinyl-deck__rings,
+  .vinyl-deck__meter line,
+  .vinyl-deck__status-light,
+  .vinyl-deck__tonearm-arm { animation: none !important; }
+  .vinyl-deck__platter,
+  .vinyl-deck__tonearm-arm { transition-duration: .01ms; }
+}
