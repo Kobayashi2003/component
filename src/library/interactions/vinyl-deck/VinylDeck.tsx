@@ -8,6 +8,7 @@ import type { VinylDeckAudioSnapshot, VinylDeckAudioSource } from './hooks/useVi
 import { useVinylDeckMeter } from './hooks/useVinylDeckMeter'
 import { extractAudioMetadata } from './utils/extractAudioMetadata'
 
+// Public component contract ----------------------------------------------------
 export interface VinylDeckProps {
   items: VinylDeckItem[]
   source?: VinylDeckAudioSource
@@ -67,17 +68,23 @@ export function VinylDeck({
   onAudioFilesChange,
   onError,
 }: VinylDeckProps) {
+  // Playlist and user-provided media -------------------------------------------
   const [index, setIndex] = useState(() => Math.max(0, Math.min(items.length - 1, initialIndex)))
+
+  // Controlled / uncontrolled deck settings -----------------------------------
   const [internalVolume, setInternalVolume] = useState(defaultVolume)
   const [internalShadowAngle, setInternalShadowAngle] = useState(defaultShadowAngle)
   const [internalAutoAdvance, setInternalAutoAdvance] = useState(defaultAutoAdvance)
   const [internalShuffle, setInternalShuffle] = useState(defaultShuffle)
+
+  // Transient UI state and resource bookkeeping --------------------------------
   const [uploadedItems, setUploadedItems] = useState<VinylDeckItem[]>([])
   const [direction, setDirection] = useState<'previous' | 'next' | null>(null)
   const directionTimerRef = useRef<number | undefined>(undefined)
   const coverUrlsRef = useRef<string[]>([])
   const uploadGenerationRef = useRef(0)
 
+  // Normalized state consumed by the render layer ------------------------------
   const activeItems = uploadedItems.length ? uploadedItems : items
   const safeIndex = activeItems.length ? Math.min(index, activeItems.length - 1) : 0
   const item = activeItems[safeIndex]
@@ -87,6 +94,7 @@ export function VinylDeck({
   const shuffle = controlledShuffle ?? internalShuffle
   const activeSource = source ?? item?.audio
 
+  // Track navigation ------------------------------------------------------------
   const select = useCallback((step: -1 | 1) => {
     if (activeItems.length < 2) return
     const nextIndex = shuffle && step > 0
@@ -105,6 +113,7 @@ export function VinylDeck({
     return true
   }, [activeItems.length, autoAdvance, select])
 
+  // Audio engine + visualization data ------------------------------------------
   const { elementRef, analyserRef, playing, togglePlayback } = useVinylDeckAudio({
     source: activeSource,
     volume,
@@ -120,12 +129,14 @@ export function VinylDeck({
   })
   const meterLevels = useVinylDeckMeter(analyserRef, playing, Boolean(activeSource))
 
+  // Resource cleanup ------------------------------------------------------------
   useEffect(() => () => {
     if (directionTimerRef.current !== undefined) window.clearTimeout(directionTimerRef.current)
   }, [])
 
   useEffect(() => () => coverUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
 
+  // Controlled / uncontrolled setters -----------------------------------------
   const changeVolume = useCallback((next: number | ((current: number) => number)) => {
     const resolved = Math.max(0, Math.min(100, typeof next === 'function' ? next(volume) : next))
     if (controlledVolume === undefined) setInternalVolume(resolved)
@@ -149,6 +160,7 @@ export function VinylDeck({
     onShuffleChange?.(next)
   }, [controlledShuffle, onShuffleChange, shuffle])
 
+  // Local-file ingestion --------------------------------------------------------
   const loadAudioFiles = useCallback((files: File[]) => {
     const generation = uploadGenerationRef.current + 1
     uploadGenerationRef.current = generation
@@ -184,6 +196,7 @@ export function VinylDeck({
 
   if (!item) return <section className="vinyl-deck vinyl-deck--empty">No tracks</section>
 
+  // React -> CSS visual-state bridge -------------------------------------------
   const shadowRadians = (shadowAngle * Math.PI) / 180
   const style = {
     '--focus-accent': item.accent ?? '#43bdd8',
@@ -194,8 +207,10 @@ export function VinylDeck({
     '--focus-shadow-small-y': `${Math.sin(shadowRadians) * 4}px`,
   } as CSSProperties
 
+  // Composition ----------------------------------------------------------------
   return (
     <section className={`vinyl-deck ${playing ? 'is-playing' : 'is-paused'}`} style={style} aria-label="Vinyl media deck">
+      {/* Environment / optional development controls */}
       {showBackground && (
         <VinylDeckBackground
           controls={backgroundControls}
@@ -204,8 +219,11 @@ export function VinylDeck({
           onAudioFilesChange={loadAudioFiles}
         />
       )}
+
+      {/* The media element is intentionally separate from the SVG control surface. */}
       <audio ref={elementRef} preload="metadata" crossOrigin="anonymous" />
 
+      {/* Left metadata rail */}
       <aside className="vinyl-deck__information">
         <h2 className="vinyl-deck__section-label"><i />Information <small>UNIT / 01</small></h2>
         <dl>
@@ -220,6 +238,7 @@ export function VinylDeck({
         </dl>
       </aside>
 
+      {/* Central interactive SVG machine */}
       <VinylTurntable
         item={item}
         index={safeIndex}
@@ -239,6 +258,7 @@ export function VinylDeck({
         onVolumeChange={changeVolume}
       />
 
+      {/* Right status / editorial rail */}
       <aside className="vinyl-deck__summary">
         <div className="vinyl-deck__counter">
           <span><i />Work</span>

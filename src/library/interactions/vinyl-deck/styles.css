@@ -1,3 +1,7 @@
+/* ==========================================================================
+   01. ROOT / DESIGN TOKENS / PAGE LAYOUT
+   ========================================================================== */
+
 .vinyl-deck {
   --focus-ink: #171a1d;
   --focus-paper: #f3f3f1;
@@ -17,6 +21,10 @@
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ==========================================================================
+   02. BACKGROUND ENVIRONMENT + OPTIONAL CONTROLS
+   ========================================================================== */
 
 .vinyl-deck__background,
 .vinyl-deck__background > i { position: absolute; inset: 0; pointer-events: none; }
@@ -57,6 +65,10 @@
 .vinyl-deck__angle-control input { width: 72px; accent-color: var(--focus-accent); }
 .vinyl-deck__background-controls label:focus-within { outline: 2px solid var(--focus-accent); outline-offset: 3px; }
 
+/* ==========================================================================
+   03. COPY RAILS / SHARED TYPOGRAPHY
+   ========================================================================== */
+
 .vinyl-deck__information,
 .vinyl-deck__summary {
   position: relative;
@@ -86,6 +98,11 @@
 .vinyl-deck dt { margin-bottom: 5px; color: #33373a; font: 700 9px/1 var(--focus-display-font); letter-spacing: .1em; text-transform: uppercase; }
 .vinyl-deck dd { margin: 0; color: var(--focus-accent); font: 600 11px/1.35 var(--focus-data-font); letter-spacing: -.03em; overflow-wrap: anywhere; text-transform: uppercase; }
 
+/* ==========================================================================
+   04. SVG MACHINE / CONSTRUCTION PIPELINE
+   Blueprint -> assembly -> hardware -> interactive state
+   ========================================================================== */
+
 .vinyl-deck__machine { position: relative; z-index: 2; width: 100%; overflow: visible; color: var(--focus-ink); }
 .vinyl-deck__machine path,
 .vinyl-deck__machine circle,
@@ -110,6 +127,8 @@
   opacity: 0;
   animation: vinyl-deck-hardware-in 420ms cubic-bezier(.2, .8, .2, 1) 700ms forwards;
 }
+
+/* Side-mode switches -------------------------------------------------------- */
 .vinyl-deck__side-mode {
   cursor: pointer;
   outline: none;
@@ -138,6 +157,8 @@
   filter: drop-shadow(1px 1px 1px rgba(9, 12, 14, .2));
 }
 .vinyl-deck__side-mode.is-active .vinyl-deck__side-mode-label { fill: var(--focus-accent); }
+
+/* Chassis / staged line drawing -------------------------------------------- */
 .vinyl-deck__assembly { opacity: 0; pointer-events: none; animation: vinyl-deck-assemble 540ms cubic-bezier(.2, .8, .2, 1) 80ms forwards; }
 .vinyl-deck__hit-area { pointer-events: all; }
 .vinyl-deck__seam { fill: none; stroke: #777b7d; stroke-width: 1.5; }
@@ -169,6 +190,7 @@
 .draw-13 { animation-delay: 760ms; }
 .draw-14 { animation-delay: 820ms; }
 
+/* Transport buttons --------------------------------------------------------- */
 .vinyl-deck__chassis { filter: drop-shadow(var(--focus-shadow-x) var(--focus-shadow-y) 8px rgba(9, 12, 14, .28)); }
 .vinyl-deck__svg-control { color: #f3f3f1; cursor: pointer; outline: none; transform-box: fill-box; transform-origin: center; transition: transform 120ms ease; }
 .vinyl-deck__svg-control--previous,
@@ -198,6 +220,7 @@
   transform: translateY(1px);
 }
 
+/* Utility modules: labels, meter and volume dial --------------------------- */
 .vinyl-deck__pitch text,
 .vinyl-deck__dial text,
 .vinyl-deck__meter text { fill: #3b4043; stroke: none; font: 600 8px/1 var(--focus-data-font); letter-spacing: .1em; }
@@ -226,6 +249,7 @@
 .vinyl-deck__dial-tick.is-charged line { stroke: var(--focus-accent); stroke-width: 2; opacity: .78; }
 .vinyl-deck__dial-tick.is-selected line { stroke: var(--focus-accent); stroke-width: 3; filter: drop-shadow(0 0 1px color-mix(in srgb, var(--focus-accent) 60%, transparent)); }
 
+/* Platter / record ---------------------------------------------------------- */
 .vinyl-deck__platter {
   transform: translateX(var(--focus-drag)) rotate(var(--focus-drag-rotation));
   transform-box: fill-box;
@@ -249,6 +273,7 @@
 .is-switching-next .vinyl-deck__art { animation: vinyl-deck-swap-next 360ms cubic-bezier(.2, .8, .2, 1); }
 .is-switching-previous .vinyl-deck__art { animation: vinyl-deck-swap-previous 360ms cubic-bezier(.2, .8, .2, 1); }
 
+/* Tonearm ------------------------------------------------------------------ */
 .vinyl-deck__tonearm { filter: drop-shadow(var(--focus-shadow-small-x) var(--focus-shadow-small-y) 3px rgba(9, 12, 14, .24)); }
 .vinyl-deck__tonearm-arm {
   transform: rotate(-13deg);
@@ -263,6 +288,10 @@
 }
 .vinyl-deck__status-light { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--focus-accent) 72%, transparent)); animation: vinyl-deck-light 2.6s steps(2, end) 1.2s infinite; }
 .vinyl-deck__meter line { transition: y2 45ms linear, opacity 80ms ease; }
+
+/* ==========================================================================
+   05. RIGHT SUMMARY RAIL
+   ========================================================================== */
 
 .vinyl-deck__summary { display: flex; flex-direction: column; justify-content: space-between; }
 .vinyl-deck__counter,
@@ -283,6 +312,10 @@
 .vinyl-deck__statement p { font-variation-settings: 'wdth' 78; }
 .vinyl-deck--empty { min-height: 240px; place-items: center; }
 
+/* ==========================================================================
+   06. MOTION TIMELINE
+   ========================================================================== */
+
 @keyframes vinyl-deck-assemble { from { opacity: 0; transform: translateY(7px) scale(.992); } to { opacity: 1; transform: none; } }
 @keyframes vinyl-deck-blueprint-draw { to { stroke-dashoffset: 0; } }
 @keyframes vinyl-deck-blueprint-life { 0% { opacity: 0; } 12%, 72% { opacity: .7; } 100% { opacity: 0; } }
@@ -294,6 +327,10 @@
 @keyframes vinyl-deck-swap-next { from { opacity: 0; transform: translateX(13%) rotate(7deg); } }
 @keyframes vinyl-deck-swap-previous { from { opacity: 0; transform: translateX(-13%) rotate(-7deg); } }
 
+/* ==========================================================================
+   07. RESPONSIVE LAYOUT
+   ========================================================================== */
+
 @media (max-width: 1180px) {
   .vinyl-deck { grid-template-columns: minmax(148px, .62fr) minmax(540px, 2.3fr) minmax(148px, .62fr); gap: 24px; padding-inline: 24px; }
 }
@@ -304,6 +341,10 @@
   .vinyl-deck__machine { max-width: 820px; margin: 0 auto; }
 }
 @media (max-width: 680px) { .vinyl-deck { padding: 8px; } }
+
+/* ==========================================================================
+   08. ACCESSIBILITY / REDUCED MOTION
+   ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
   .vinyl-deck__assembly,
