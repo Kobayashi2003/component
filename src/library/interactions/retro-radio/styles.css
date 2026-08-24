@@ -1,0 +1,646 @@
+/* ========================================================================== 
+   01. ROOM / DESIGN TOKENS
+   ========================================================================== */
+
+.retro-radio {
+  --retro-paper: #f4e8cf;
+  --retro-brass: #c9a24b;
+  --retro-brass-light: #ecd48f;
+  --retro-font-display: "Bodoni MT", Didot, "Songti SC", STSong, Georgia, serif;
+  --retro-font-serif: Georgia, "Songti SC", STSong, serif;
+  --retro-font-ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --retro-font-mech:
+    Consolas, "SFMono-Regular", "DejaVu Sans Mono", "Courier New", monospace;
+  --retro-font-brush: STKaiti, KaiTi, "Kaiti SC", "楷体", serif;
+  position: relative;
+  isolation: isolate;
+  min-height: 680px;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 42px);
+  color: var(--retro-paper);
+  background: #170f08;
+  font-family: var(--retro-font-serif);
+}
+
+.retro-radio * {
+  box-sizing: border-box;
+}
+
+.retro-radio button {
+  font: inherit;
+}
+
+.retro-radio__background {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  background-color: #170f08;
+  background-image:
+    radial-gradient(
+      ellipse at 50% 4%,
+      rgba(78, 54, 28, 0.42),
+      rgba(10, 7, 3, 0.92) 68%
+    ),
+    var(--retro-dark-texture);
+  background-repeat: no-repeat, repeat;
+}
+
+.retro-radio__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background: repeating-linear-gradient(
+    112deg,
+    transparent 0 4px,
+    rgba(255, 255, 255, 0.025) 5px,
+    transparent 6px
+  );
+}
+
+.retro-radio__horizon {
+  position: absolute;
+  right: 4%;
+  bottom: 8%;
+  left: 4%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(201, 162, 75, 0.22),
+    transparent
+  );
+}
+
+/* The file input remains keyboard-accessible while the brass label supplies
+   the compact environment control used by the vinyl-deck showcase. */
+.retro-radio__music-control {
+  position: absolute;
+  z-index: 4;
+  right: clamp(16px, 2.4vw, 34px);
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(280px, calc(100% - 32px));
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 162, 75, 0.38);
+  color: var(--retro-paper);
+  background: rgba(17, 10, 5, 0.82);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  font: 600 8px/1 var(--retro-font-ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.retro-radio__music-control span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retro-radio__music-control::after {
+  flex: none;
+  padding: 5px 7px;
+  border: 1px solid var(--retro-brass);
+  color: var(--retro-brass-light);
+  content: "Select";
+}
+
+.retro-radio__music-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.retro-radio__music-control:focus-within {
+  outline: 2px solid var(--retro-brass-light);
+  outline-offset: 3px;
+}
+
+/* ========================================================================== 
+   02. TITLE / CENTERED SHOWCASE STAGE
+   ========================================================================== */
+
+.retro-radio__header {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.retro-radio__header h2 {
+  margin: 0 0 5px;
+  font-size: clamp(26px, 3vw, 42px);
+  font-weight: 500;
+  font-family: var(--retro-font-display);
+  letter-spacing: 0.12em;
+}
+
+.retro-radio__header p {
+  margin: 0;
+  color: color-mix(in srgb, currentColor 52%, transparent);
+  font: 11px/1.5 var(--retro-font-ui);
+  letter-spacing: 0.04em;
+}
+
+.retro-radio__stage {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 100%);
+  margin: clamp(126px, 15vw, 160px) auto 0;
+}
+
+/* ========================================================================== 
+   03. CABINET / ANTENNA / SURFACE
+   ========================================================================== */
+
+.retro-radio__body {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 660 / 340;
+  perspective: 1100px;
+  filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.6));
+  animation: retro-radio-arrive 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.retro-radio__tilt {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.retro-radio__body.is-switching .retro-radio__tilt {
+  animation: retro-radio-wob 480ms ease;
+}
+
+.retro-radio__cabinet {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Antenna hardware --------------------------------------------------------- */
+
+.retro-radio__antenna {
+  filter: drop-shadow(0 0 4px rgba(216, 200, 158, 0.25));
+}
+
+.retro-radio__antenna-hit {
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+}
+
+.retro-radio__antenna-hit:active {
+  cursor: grabbing;
+}
+
+.retro-radio__antenna-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: retro-radio-antenna-glow 1.1s ease-in-out infinite;
+}
+
+.retro-radio__antenna-spark path {
+  fill: none;
+  stroke: #cfefff;
+  stroke-width: 1;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px #8fdcff);
+}
+
+/* Cabinet face ------------------------------------------------------------- */
+
+/* ========================================================================== 
+   04. CRT STATE MACHINE
+   Only the view selected by data-view participates in layout.
+   ========================================================================== */
+
+.retro-radio__screen {
+  position: absolute;
+  z-index: 3;
+  top: 11.8%;
+  left: 50.3%;
+  width: 42.4%;
+  height: 37.6%;
+  overflow: hidden;
+  border-radius: 10px;
+  color: #86f29f;
+  background: #0a1408;
+  container-type: size;
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.9),
+    inset 0 0 60px rgba(60, 180, 80, 0.06),
+    0 1px 0 rgba(255, 220, 150, 0.15);
+}
+
+.retro-radio__crt-view {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    ellipse at 50% 42%,
+    #16341a,
+    #0c1e0d 60%,
+    #071206
+  );
+  animation: retro-radio-channel-in 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.retro-radio__screen[data-view="mode"] .retro-radio__crt-mode,
+.retro-radio__screen[data-view="vol"] .retro-radio__crt-volume,
+.retro-radio__screen[data-view="play"] .retro-radio__crt-play,
+.retro-radio__screen[data-view="viz"] .retro-radio__crt-viz {
+  display: flex;
+}
+
+.retro-radio__crt-mode {
+  flex-direction: column;
+}
+
+.retro-radio__glyph {
+  color: #9dffb0;
+  font: 700 52cqh/1 var(--retro-font-brush);
+  text-shadow:
+    0 0 8px rgba(120, 255, 150, 0.7),
+    0 0 18px rgba(80, 220, 110, 0.5);
+}
+
+.retro-radio__crt-mode strong {
+  margin-top: 5cqh;
+  color: #7fe89a;
+  opacity: 0.82;
+  font: 400 9cqh/1 var(--retro-font-ui);
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+}
+
+.retro-radio__crt-mode small {
+  margin-top: 2cqh;
+  color: #5fca79;
+  opacity: 0.6;
+  font: 7cqh/1 var(--retro-font-mech);
+}
+
+.retro-radio__crt-volume {
+  flex-direction: column;
+}
+
+.retro-radio__crt-volume > span {
+  color: #7fe89a;
+  font: 400 8cqh/1 var(--retro-font-ui);
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+}
+
+.retro-radio__volume-bar {
+  position: relative;
+  width: 62cqw;
+  height: 10cqh;
+  margin: 8cqh 0 5cqh;
+  padding: 2px;
+  border: 1px solid rgba(157, 255, 176, 0.5);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(157, 255, 176, 0.14) 0 calc(5% - 2px),
+    transparent calc(5% - 2px) 5%
+  );
+  box-shadow: inset 0 0 8px rgba(120, 255, 150, 0.2);
+}
+
+.retro-radio__volume-bar i {
+  position: absolute;
+  inset: 2px;
+  clip-path: inset(0 calc(100% - var(--retro-volume)) 0 0);
+  background: repeating-linear-gradient(
+    90deg,
+    #7fe89a 0 calc(5% - 2px),
+    transparent calc(5% - 2px) 5%
+  );
+  filter: drop-shadow(0 0 3px rgba(120, 255, 150, 0.8));
+  transition: clip-path 70ms linear;
+}
+
+.retro-radio__crt-volume strong {
+  color: #9dffb0;
+  font: 400 10cqh/1 var(--retro-font-mech);
+}
+
+.retro-radio__crt-play {
+  flex-direction: column;
+}
+
+.retro-radio__crt-play span {
+  margin-bottom: 6cqh;
+  color: #9dffb0;
+  font: 500 30cqh/1 var(--retro-font-ui);
+  text-shadow: 0 0 11px rgba(120, 255, 150, 0.6);
+}
+
+.retro-radio__crt-play strong {
+  color: #7fe89a;
+  font: 400 8cqh/1 var(--retro-font-ui);
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+}
+
+.retro-radio__crt-viz {
+  flex-direction: column;
+}
+
+.retro-radio__crt-viz > span {
+  position: absolute;
+  top: 5cqh;
+  right: 7cqw;
+  font: 400 8cqh/1 var(--retro-font-brush);
+  text-shadow: 0 0 8px rgba(120, 255, 150, 0.7);
+}
+
+.retro-radio__crt-viz > strong {
+  position: absolute;
+  bottom: 4cqh;
+  left: 8cqw;
+  right: 8cqw;
+  overflow: hidden;
+  color: #5fca79;
+  opacity: 0.7;
+  font: 400 7cqh/1 var(--retro-font-mech);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retro-radio__spectrum-canvas {
+  position: absolute;
+  right: 8cqw;
+  bottom: 20cqh;
+  left: 8cqw;
+  width: 84cqw;
+  height: 64cqh;
+  filter: drop-shadow(0 0 3px rgba(127, 232, 154, 0.5));
+}
+
+.retro-radio__scanlines,
+.retro-radio__screen-flicker,
+.retro-radio__boot-line {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.retro-radio__scanlines {
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.34) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+}
+
+.retro-radio__screen-flicker {
+  inset: 0;
+  opacity: 1;
+  background: rgba(140, 255, 160, 0.03);
+  animation: retro-radio-flicker 120ms steps(2) infinite;
+}
+
+.retro-radio__boot-line {
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 3px;
+  opacity: 0;
+  background: #c9ffcf;
+  box-shadow: 0 0 14px #9dffb0;
+}
+
+.retro-radio__screen.is-booting .retro-radio__boot-line {
+  animation: retro-radio-boot 700ms ease;
+}
+
+/* ========================================================================== 
+   05. SOURCE-ALIGNED KNOBS
+   Percentages intentionally match the original radio implementation.
+   ========================================================================== */
+
+.retro-radio__knob {
+  position: absolute;
+  z-index: 6;
+  top: 61.6%;
+  width: 10.5%;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 36% 28%,
+      rgba(255, 244, 214, 0.85),
+      transparent 40%
+    ),
+    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.5), transparent 60%),
+    repeating-conic-gradient(from 0deg, #3a2a15 0 3deg, #241708 3deg 6deg),
+    radial-gradient(circle at 50% 45%, #6a5228 0%, #3a2810 72%, #1c1206 100%);
+  box-shadow:
+    0 5px 10px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 3px #7a5c28,
+    inset 0 0 0 4px #3a2a12,
+    inset 0 3px 4px rgba(255, 240, 200, 0.3),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  touch-action: none;
+  transform-origin: center;
+  transition:
+    box-shadow 150ms ease,
+    filter 120ms ease;
+}
+
+.retro-radio__knob:active {
+  cursor: grabbing;
+  filter: brightness(0.82);
+}
+
+.retro-radio__knob--tune.is-detent {
+  box-shadow:
+    0 5px 10px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 3px #c79a44,
+    inset 0 0 0 4px #3a2a12,
+    inset 0 3px 4px rgba(255, 240, 200, 0.3),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.5),
+    0 0 14px 3px rgba(255, 184, 84, 0.6);
+}
+
+.retro-radio__knob:focus-visible {
+  outline: 2px solid var(--retro-brass-light);
+  outline-offset: 4px;
+}
+
+.retro-radio__knob i {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  width: 3px;
+  height: 30%;
+  border-radius: 2px;
+  background: linear-gradient(#f4e2b4, #b98f3e);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  transform: translateX(-50%);
+}
+
+.retro-radio__knob--tune {
+  left: 57.5%;
+  transform: rotate(var(--retro-tune-angle));
+}
+
+.retro-radio__knob--volume {
+  left: 75%;
+  transform: rotate(var(--retro-volume-angle));
+}
+
+.retro-radio.is-playing .retro-radio__knob--volume::after {
+  position: absolute;
+  inset: 24%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(157, 255, 176, 0.9),
+    transparent 70%
+  );
+  animation: retro-radio-pulse 1.4s ease-in-out infinite;
+  content: "";
+}
+
+/* ========================================================================== 
+   06. FALLBACK / MOTION / RESPONSIVE RULES
+   ========================================================================== */
+
+.retro-radio--empty {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+}
+
+@keyframes retro-radio-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes retro-radio-wob {
+  0%,
+  100% {
+    translate: 0;
+    rotate: 0deg;
+  }
+  22% {
+    translate: -3px 1px;
+    rotate: -0.5deg;
+  }
+  44% {
+    translate: 3px -1px;
+    rotate: 0.5deg;
+  }
+  68% {
+    translate: -2px 0;
+    rotate: -0.25deg;
+  }
+}
+
+@keyframes retro-radio-pulse {
+  50% {
+    opacity: 0.6;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes retro-radio-antenna-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes retro-radio-channel-in {
+  from {
+    opacity: 0.1;
+    transform: scaleY(0.08);
+    filter: brightness(2);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleY(1.04);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes retro-radio-flicker {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes retro-radio-boot {
+  0% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(0.2);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(60) scaleX(1);
+  }
+}
+
+@media (max-width: 700px) {
+  .retro-radio {
+    min-height: 560px;
+    padding: 22px 12px;
+  }
+
+  .retro-radio__header h2 {
+    font-size: 27px;
+  }
+
+  .retro-radio__header p {
+    font-size: 10px;
+  }
+
+  .retro-radio__stage {
+    margin-top: clamp(96px, 26vw, 132px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retro-radio__body,
+  .retro-radio__tilt,
+  .retro-radio__screen-flicker,
+  .retro-radio__antenna-glow,
+  .retro-radio__knob--volume::after {
+    animation: none !important;
+  }
+}

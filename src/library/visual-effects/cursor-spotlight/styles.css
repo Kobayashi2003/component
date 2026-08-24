@@ -1,0 +1,207 @@
+/* ========================================================================== 
+   01. REUSABLE LIGHT LAYER
+   The component writes position, intensity, and shadow vectors as CSS vars.
+   ========================================================================== */
+
+.cursor-spotlight {
+  --spotlight-x: 50%;
+  --spotlight-y: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.cursor-spotlight__diffuse,
+.cursor-spotlight__core {
+  position: absolute;
+  z-index: 5;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 240ms ease;
+}
+.cursor-spotlight__diffuse {
+  top: var(--spotlight-y);
+  left: var(--spotlight-x);
+  width: calc(var(--spotlight-radius) * 2);
+  height: calc(var(--spotlight-radius) * 2);
+  background: radial-gradient(
+    circle,
+    color-mix(
+        in srgb,
+        var(--spotlight-color) var(--spotlight-strength),
+        transparent
+      )
+      0,
+    color-mix(in srgb, var(--spotlight-color) 12%, transparent) 28%,
+    transparent var(--spotlight-softness)
+  );
+  filter: blur(18px);
+  mix-blend-mode: screen;
+}
+.cursor-spotlight__core {
+  top: var(--spotlight-y);
+  left: var(--spotlight-x);
+  width: calc(var(--spotlight-radius) * 0.34);
+  height: calc(var(--spotlight-radius) * 0.34);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--spotlight-color) 20%, transparent),
+    transparent 72%
+  );
+  filter: blur(10px);
+  mix-blend-mode: screen;
+}
+.cursor-spotlight.is-active .cursor-spotlight__diffuse,
+.cursor-spotlight.is-active .cursor-spotlight__core {
+  opacity: 1;
+}
+/* ========================================================================== 
+   02. DEMO ENVIRONMENT
+   Mid-tone slate keeps both additive light and dark cast shadows visible.
+   ========================================================================== */
+
+.spotlight-demo {
+  min-height: 600px;
+  color: #eef3f6;
+  background: #30383e;
+  font-family: Arial, sans-serif;
+}
+.spotlight-surface {
+  position: relative;
+  min-height: 600px;
+  background: radial-gradient(circle at 50% 42%, #566169, #2b3237 70%);
+}
+.spotlight-hint {
+  position: absolute;
+  top: 28px;
+  left: 30px;
+  color: #636b72;
+  font:
+    10px/1 "DM Mono",
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+/* Lit object --------------------------------------------------------------- */
+
+.material-slab {
+  position: absolute;
+  z-index: 2;
+  top: 48%;
+  left: 44%;
+  display: grid;
+  width: min(390px, 52vw);
+  aspect-ratio: 1.55;
+  place-items: end start;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 32px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.018)
+    ),
+    #4c565d;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.07),
+    var(--spotlight-shadow-x) var(--spotlight-shadow-y)
+      var(--spotlight-shadow-blur) rgba(0, 0, 0, 0.86);
+  transform: translate(-50%, -50%) rotate(-5deg)
+    rotateX(calc(var(--spotlight-ny, 0) * -2deg))
+    rotateY(calc(var(--spotlight-nx, 0) * 2deg));
+  transform-style: preserve-3d;
+  transition: box-shadow 80ms linear;
+  will-change: transform, box-shadow;
+}
+.material-slab::before {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 22px;
+  content: "";
+}
+.material-slab span {
+  color: #596168;
+  font:
+    9px/1 "DM Mono",
+    monospace;
+  letter-spacing: 0.14em;
+}
+/* Parameter panel ---------------------------------------------------------- */
+
+.spotlight-controls {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  right: clamp(18px, 4vw, 42px);
+  width: 210px;
+  padding: 18px;
+  border: 1px solid rgba(219, 238, 255, 0.18);
+  background: rgba(31, 37, 42, 0.88);
+  backdrop-filter: blur(14px);
+  transform: translateY(-50%);
+}
+.spotlight-controls label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 15px;
+  color: #8a939a;
+  font:
+    10px/1 "DM Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.spotlight-controls output {
+  color: #d9e0e4;
+}
+.spotlight-controls input {
+  grid-column: 1/-1;
+  width: 100%;
+  margin-top: 9px;
+  accent-color: var(--spotlight-color);
+}
+.spotlight-colors {
+  display: flex;
+  gap: 9px;
+}
+.spotlight-colors button {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #111518;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.spotlight-colors button[aria-pressed="true"] {
+  outline: 1px solid #fff;
+  outline-offset: 2px;
+}
+/* ========================================================================== 
+   03. RESPONSIVE / MOTION PREFERENCES
+   ========================================================================== */
+
+@media (max-width: 680px) {
+  .material-slab {
+    top: 34%;
+    left: 50%;
+    width: 72vw;
+  }
+  .spotlight-controls {
+    top: auto;
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
+    width: auto;
+    transform: none;
+  }
+  .spotlight-controls label {
+    margin-bottom: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor-spotlight__diffuse,
+  .cursor-spotlight__core {
+    transition: none;
+  }
+}
