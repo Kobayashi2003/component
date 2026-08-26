@@ -5,7 +5,7 @@ import {
   type GlassFlowerControls as ControlValues,
   type LightPosition,
   type RenderMode,
-} from './model'
+} from '../model'
 
 type GlassFlowerControlsProps = {
   controls: ControlValues

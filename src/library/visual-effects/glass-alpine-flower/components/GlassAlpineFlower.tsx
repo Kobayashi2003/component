@@ -9,8 +9,8 @@ import {
   type LightName,
   type LightPosition,
   type RenderMode,
-} from './model'
-import { useGlassFlowerRenderer } from './useGlassFlowerRenderer'
+} from '../model'
+import { useGlassFlowerRenderer } from '../hooks/useGlassFlowerRenderer'
 
 export function GlassAlpineFlower() {
   const renderAreaRef = useRef<HTMLDivElement>(null)

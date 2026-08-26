@@ -7,5 +7,9 @@ export default {
   kind: 'component',
   status: 'experimental',
   summary: 'Randomized tape tracking damage, horizontal smear, and live CRT noise for arbitrary React content.',
-  tags: ['Canvas 2D', 'signal damage', 'React'],
+  tags: [
+    { label: 'Signal damage', group: 'feature' },
+    { label: 'Canvas 2D', group: 'technology' },
+    { label: 'React', group: 'technology' },
+  ],
 } satisfies CatalogEntryMeta

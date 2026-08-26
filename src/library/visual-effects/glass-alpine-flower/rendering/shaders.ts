@@ -1,3 +1,4 @@
+// Kept framework-independent so the renderer can be shared without React.
 export const VERTEX_SHADER = `#version 300 es
 in vec2 a_position;
 out vec2 v_uv;

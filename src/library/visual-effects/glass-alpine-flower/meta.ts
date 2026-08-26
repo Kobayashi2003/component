@@ -8,5 +8,10 @@ export default {
   status: 'experimental',
   summary: 'A neutral glass flower relit in real time by two draggable WebGL2 light sources.',
   style: 'refractive lighting',
-  tags: ['WebGL2', 'fragment shader', 'interactive lighting'],
+  tags: [
+    { label: 'Pointer drag', group: 'input' },
+    { label: 'Interactive lighting', group: 'feature' },
+    { label: 'WebGL2', group: 'technology' },
+    { label: 'Fragment shader', group: 'technology' },
+  ],
 } satisfies CatalogEntryMeta

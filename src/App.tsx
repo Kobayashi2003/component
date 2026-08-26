@@ -7,6 +7,7 @@ import {
   getEntry,
 } from './catalog/catalog'
 import type { CatalogEntry, CategoryDefinition } from './catalog/types'
+import type { CatalogTag, TagGroup } from './catalog/types'
 
 const MarkdownDocument = lazy(() => import('./components/MarkdownDocument'))
 
@@ -77,11 +78,36 @@ function EntryCard({ entry }: { entry: CatalogEntry }) {
         </div>
         <h2>{entry.title}</h2>
         <p>{entry.summary}</p>
-        <div className="tag-row">
-          {entry.tags.map((tag) => <span key={tag}>{tag}</span>)}
-        </div>
+        <TagList tags={entry.tags} />
       </div>
     </a>
+  )
+}
+
+const tagGroupLabels: Record<TagGroup, string> = {
+  input: 'Input',
+  feature: 'Feature',
+  technology: 'Technology',
+  support: 'Support',
+  style: 'Style',
+}
+
+function TagList({ tags, large = false }: { tags: CatalogTag[]; large?: boolean }) {
+  const groups = (Object.keys(tagGroupLabels) as TagGroup[])
+    .map((group) => ({ group, tags: tags.filter((tag) => tag.group === group) }))
+    .filter(({ tags: groupTags }) => groupTags.length > 0)
+
+  return (
+    <div className={`tag-row${large ? ' large' : ''}`}>
+      {groups.map(({ group, tags: groupTags }) => (
+        <div className="tag-group" key={group} aria-label={tagGroupLabels[group]}>
+          {large && <span className="tag-group-label">{tagGroupLabels[group]}</span>}
+          {groupTags.map((tag) => (
+            <span className="tag" data-group={group} key={tag.label}>{tag.label}</span>
+          ))}
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -165,22 +191,28 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
             <h1>{entry.title}</h1>
             <p>{entry.summary}</p>
           </div>
-          <div className="tag-row large">
-            {entry.tags.map((tag) => <span key={tag}>{tag}</span>)}
-          </div>
+          <TagList tags={entry.tags} large />
         </div>
       </section>
       <section className="demo-stage" aria-label={`${entry.title} live demo`}>
+        {entry.compatibility && (
+          <div className="compatibility-banner" role="note">
+            <span aria-hidden="true">!</span>
+            <p><strong>Touch compatibility</strong>{entry.compatibility.message}</p>
+          </div>
+        )}
         <div className="demo-stage-label"><span>Preview</span></div>
         <Suspense fallback={<LoadingBlock />}><Demo /></Suspense>
       </section>
-      <section className="readme-section">
-        {readme ? (
-          <Suspense fallback={<LoadingBlock label="Loading documentation" />}>
-            <MarkdownDocument content={readme} hideTitle />
-          </Suspense>
-        ) : <LoadingBlock label="Loading documentation" />}
-      </section>
+      {!entry.hideDocumentation && (
+        <section className="readme-section">
+          {readme ? (
+            <Suspense fallback={<LoadingBlock label="Loading documentation" />}>
+              <MarkdownDocument content={readme} hideTitle />
+            </Suspense>
+          ) : <LoadingBlock label="Loading documentation" />}
+        </section>
+      )}
     </>
   )
 }

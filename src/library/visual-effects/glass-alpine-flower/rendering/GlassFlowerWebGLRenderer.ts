@@ -1,4 +1,4 @@
-import type { LightPosition, ShaderSettings } from './model'
+import type { LightPosition, ShaderSettings } from '../model'
 import { FRAGMENT_SHADER, VERTEX_SHADER } from './shaders'
 
 export type TextureUrls = {

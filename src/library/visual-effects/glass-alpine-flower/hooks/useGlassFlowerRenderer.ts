@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import baseUrl from './assets/glass-base.png'
-import normalUrl from './assets/normal-map.png'
-import specularUrl from './assets/specular-map.png'
-import type { LightPosition, ShaderSettings } from './model'
-import { GlassFlowerWebGLRenderer } from './webglRenderer'
+import baseUrl from '../assets/glass-base.png'
+import normalUrl from '../assets/normal-map.png'
+import specularUrl from '../assets/specular-map.png'
+import type { LightPosition, ShaderSettings } from '../model'
+import { GlassFlowerWebGLRenderer } from '../rendering/GlassFlowerWebGLRenderer'
 
 const TEXTURES = {
   base: baseUrl,

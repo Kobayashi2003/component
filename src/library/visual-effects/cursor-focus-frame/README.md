@@ -1,14 +1,26 @@
 # Cursor Focus Frame
 
-A custom cursor that expands into the outline of an interactive target.
+A custom cursor that expands into the outline of interactive descendants.
 
 ## Usage
 
 ```tsx
-<CursorFocusFrame color="#e6ff69" padding={8} duration={260}>
+import { CursorFocusFrame } from './cursor-focus-frame'
+
+<CursorFocusFrame color="#e6ff69" padding={8}>
   <button>Regular target</button>
   <button data-cursor-path="M...Z">Irregular target</button>
 </CursorFocusFrame>
 ```
 
-Native controls are detected through event delegation. Border radius handles regular shapes; `data-cursor-path` supplies a normalized `0 0 100 100` SVG path for irregular silhouettes. While a frame returns from a target, its destination keeps following the latest pointer position so fast exits do not leave a stale outline drifting behind. Leaving the root clears the active geometry immediately. Keyboard focus triggers the same outline. Touch keeps the native cursor model and reduced motion removes geometry interpolation.
+## Props
+
+- `selector` controls which descendants are detected.
+- `color`, `padding`, `duration`, `strokeWidth`, and `cursorSize` control the frame.
+- `data-cursor-path` accepts a normalized `0 0 100 100` SVG path for irregular targets.
+
+## Notes
+
+- Keyboard focus triggers the same outline.
+- Touch-only devices keep their native cursor behavior and do not receive the primary effect.
+- Reduced-motion mode disables geometry interpolation.
