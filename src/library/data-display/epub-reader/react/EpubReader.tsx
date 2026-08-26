@@ -11,7 +11,7 @@ import { EpubSearchPanel } from './EpubSearchPanel';
 import { EpubSettingsPanel } from './EpubSettingsPanel';
 import { EpubViewport } from './EpubViewport';
 import type { EpubSource } from './model';
-import type { ReaderFootnote, ReaderImageActivation, ReaderMarkActivation, ReaderSelectionActivation } from '../core';
+import type { ReaderFootnote, ReaderImageActivation, ReaderMarkActivation, ReaderSelectionActivation, ReaderTheme } from '../core';
 import { EpubSelectionToolbar } from './EpubSelectionToolbar';
 import { EpubMarkPopover } from './EpubMarkPopover';
 import { EpubImageViewer } from './EpubImageViewer';
@@ -38,7 +38,7 @@ const PANELS: readonly { id: Exclude<Panel, null>; label: string; shortLabel: st
  * host applications can obtain that source from upload, fetch, IndexedDB, a
  * desktop bridge or any other mechanism.
  */
-export function EpubReader({ source }: { readonly source: EpubSource }) {
+export function EpubReader({ source, onThemeChange }: { readonly source: EpubSource; readonly onThemeChange?: (theme: ReaderTheme) => void }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const compactLayout = useCompactReaderLayout(shellRef);
   const [panel, setPanel] = useState<Panel>(null);
@@ -179,6 +179,11 @@ export function EpubReader({ source }: { readonly source: EpubSource }) {
       : 'text-horizontal';
   const fixedLayout = plan?.renderer === 'fixed-layout';
   const chromeHidden = manualChromeHidden || autoChromeHidden;
+
+  useEffect(() => {
+    const theme = snapshot?.preferences.theme;
+    if (theme) onThemeChange?.(theme);
+  }, [onThemeChange, snapshot?.preferences.theme]);
 
   useEffect(() => () => {
     if (feedbackTimerRef.current != null) clearTimeout(feedbackTimerRef.current);

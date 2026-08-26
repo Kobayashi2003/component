@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
+import type { ReaderTheme } from '../core';
 
 export interface EpubReaderBackgroundProps {
   readonly file: File | null;
   readonly picker: ReactNode;
   readonly reader?: ReactNode;
+  /** Theme used by the showcase chrome; it is independent of rendition type. */
+  readonly readerTheme?: ReaderTheme;
   readonly rejectedMessage?: string | null;
   readonly onCloseBook?: () => void;
 }
@@ -19,6 +22,7 @@ export function EpubReaderBackground({
   file,
   picker,
   reader,
+  readerTheme = 'publisher',
   rejectedMessage = null,
   onCloseBook,
 }: EpubReaderBackgroundProps) {
@@ -39,7 +43,7 @@ export function EpubReaderBackground({
         <section className="epub-background__workspace" aria-label="EPUB reader showcase surface">
           {rejectedMessage ? <p className="epub-background__notice" role="alert">{rejectedMessage}</p> : null}
           <div className="epub-background__stage">
-            <section className="epub-background__reader-shell" aria-label={`Reader demo: ${file.name}`}>
+            <section className="epub-background__reader-shell" data-reader-theme={readerTheme} aria-label={`Reader demo: ${file.name}`}>
               <div className="epub-background__hostbar">
                 <span className="epub-background__host-label">Local file</span>
                 <div className="epub-background__bookactions">

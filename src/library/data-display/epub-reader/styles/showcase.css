@@ -247,6 +247,90 @@
   color: var(--epub-color-text);
 }
 
+/* The showcase chrome follows the reader preference, never the active
+   rendition. A book may switch between reflowable and fixed-layout sections
+   without changing the file bar's visual contract. */
+.epub-background__reader-shell[data-reader-theme="dark"],
+.epub-background__reader-shell[data-reader-theme="graphite"] {
+  --epub-color-surface: #17191d;
+  --epub-color-surface-raised: #202329;
+  --epub-color-surface-muted: #25282e;
+  --epub-color-text: #f0f1f2;
+  --epub-color-text-muted: #a9afb7;
+  --epub-color-line: rgba(255, 255, 255, 0.12);
+  --epub-color-line-strong: rgba(255, 255, 255, 0.22);
+  --epub-color-accent: #d5b570;
+  --epub-color-accent-strong: #f0d497;
+  --epub-color-accent-soft: rgba(213, 181, 112, 0.16);
+  border-color: var(--epub-color-line);
+  background: var(--epub-color-surface);
+  color: var(--epub-color-text);
+}
+
+.epub-background__reader-shell[data-reader-theme="dark"] .epub-background__hostbar button,
+.epub-background__reader-shell[data-reader-theme="graphite"] .epub-background__hostbar button {
+  border-color: var(--epub-color-line-strong);
+  background: var(--epub-color-surface-raised);
+  color: var(--epub-color-text);
+}
+
+.epub-background__reader-shell[data-reader-theme="light"] .epub-background__hostbar,
+.epub-background__reader-shell[data-reader-theme="sepia"] .epub-background__hostbar,
+.epub-background__reader-shell[data-reader-theme="paper"] .epub-background__hostbar,
+.epub-background__reader-shell[data-reader-theme="mist"] .epub-background__hostbar {
+  border-color: var(--epub-color-line);
+  color: var(--epub-color-text);
+}
+
+.epub-background__reader-shell[data-reader-theme="light"] .epub-background__hostbar {
+  --epub-color-surface: #f2f2ef;
+  --epub-color-surface-raised: #ffffff;
+  --epub-color-text: #242424;
+  --epub-color-text-muted: #686863;
+  --epub-color-line: #d1d1cc;
+  --epub-color-line-strong: #b9b9b2;
+  background: #f2f2ef;
+}
+
+.epub-background__reader-shell[data-reader-theme="sepia"] .epub-background__hostbar {
+  --epub-color-surface: #f2ecdf;
+  --epub-color-surface-raised: #faf7ef;
+  --epub-color-text: #2b2118;
+  --epub-color-text-muted: #756a5d;
+  --epub-color-line: #d2c6b2;
+  --epub-color-line-strong: #b8a991;
+  background: #f2ecdf;
+}
+
+.epub-background__reader-shell[data-reader-theme="paper"] .epub-background__hostbar {
+  --epub-color-surface: #f5efe2;
+  --epub-color-surface-raised: #fffaf0;
+  --epub-color-text: #2b261f;
+  --epub-color-text-muted: #756c60;
+  --epub-color-line: #d5c9b5;
+  --epub-color-line-strong: #b9aa92;
+  background: #f5efe2;
+}
+
+.epub-background__reader-shell[data-reader-theme="mist"] .epub-background__hostbar {
+  --epub-color-surface: #eef2f3;
+  --epub-color-surface-raised: #f9fbfb;
+  --epub-color-text: #20272b;
+  --epub-color-text-muted: #657077;
+  --epub-color-line: #c9d3d7;
+  --epub-color-line-strong: #aebdc3;
+  background: #eef2f3;
+}
+
+.epub-background__reader-shell[data-reader-theme="light"] .epub-background__hostbar button,
+.epub-background__reader-shell[data-reader-theme="sepia"] .epub-background__hostbar button,
+.epub-background__reader-shell[data-reader-theme="paper"] .epub-background__hostbar button,
+.epub-background__reader-shell[data-reader-theme="mist"] .epub-background__hostbar button {
+  border-color: var(--epub-color-line);
+  background: var(--epub-color-surface-raised);
+  color: var(--epub-color-text);
+}
+
 .epub-background__close svg {
   width: 16px;
   height: 16px;

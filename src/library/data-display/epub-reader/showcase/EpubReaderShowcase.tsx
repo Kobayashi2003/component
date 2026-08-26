@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { EpubFilePicker } from '../react/EpubFilePicker';
 import { EpubReader } from '../react/EpubReader';
 import { EpubReaderBackground } from '../react/EpubReaderBackground';
+import type { ReaderTheme } from '../core';
 
 /**
  * Component Atlas demo boundary.
@@ -12,6 +13,7 @@ import { EpubReaderBackground } from '../react/EpubReaderBackground';
 export function EpubReaderShowcase() {
   const [file, setFile] = useState<File | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>('publisher');
 
 
 
@@ -19,6 +21,7 @@ export function EpubReaderShowcase() {
     setRejected(null);
     setFile(next);
   };
+  const onThemeChange = useCallback((next: ReaderTheme) => setReaderTheme(current => current === next ? current : next), []);
 
   const picker = (
     <EpubFilePicker
@@ -34,8 +37,9 @@ export function EpubReaderShowcase() {
       file={file}
       picker={picker}
       rejectedMessage={rejected}
-      onCloseBook={() => setFile(null)}
-      reader={file ? <EpubReader source={file} /> : null}
+      readerTheme={readerTheme}
+      onCloseBook={() => { setFile(null); setReaderTheme('publisher'); }}
+      reader={file ? <EpubReader source={file} onThemeChange={onThemeChange} /> : null}
     />
   );
 }
