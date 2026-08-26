@@ -7,5 +7,10 @@ export default {
   kind: 'component',
   status: 'experimental',
   summary: 'A bold task board that pairs hard-edged visual language with fast filtering and clear completion feedback.',
-  tags: ['neubrutalism', 'responsive layout', 'keyboard', 'status feedback'],
+  tags: [
+    { label: 'Keyboard', group: 'input' },
+    { label: 'Responsive layout', group: 'support' },
+    { label: 'Status feedback', group: 'feature' },
+    { label: 'Neubrutalism', group: 'style' },
+  ],
 } satisfies CatalogEntryMeta

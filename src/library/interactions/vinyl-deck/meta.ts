@@ -7,5 +7,10 @@ export default {
   kind: 'component',
   status: 'experimental',
   summary: 'A mechanical media selector with a draggable platter, stepped navigation, and focused playback controls.',
-  tags: ['pointer drag', 'keyboard', 'state transition'],
+  tags: [
+    { label: 'Pointer drag', group: 'input' },
+    { label: 'Keyboard', group: 'input' },
+    { label: 'Audio playback', group: 'feature' },
+    { label: 'State transition', group: 'feature' },
+  ],
 } satisfies CatalogEntryMeta

@@ -10,6 +10,17 @@ export type CategoryId =
 
 export type EntryKind = 'component' | 'effect' | 'experiment'
 export type EntryStatus = 'stable' | 'experimental' | 'draft'
+export type TagGroup = 'input' | 'feature' | 'technology' | 'support' | 'style'
+
+export interface CatalogTag {
+  label: string
+  group: TagGroup
+}
+
+export interface CompatibilityNotice {
+  touch?: 'limited' | 'unsupported'
+  message: string
+}
 
 export interface CategoryDefinition {
   id: CategoryId
@@ -25,7 +36,10 @@ export interface CatalogEntryMeta {
   kind: EntryKind
   status: EntryStatus
   summary: string
-  tags: string[]
+  style?: string
+  hideDocumentation?: boolean
+  tags: CatalogTag[]
+  compatibility?: CompatibilityNotice
 }
 
 export interface CatalogEntry extends CatalogEntryMeta {

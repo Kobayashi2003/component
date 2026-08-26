@@ -135,6 +135,8 @@ export function VinylTurntable({
 
   const updateVolumeFromPointer = (event: PointerEvent<SVGGElement>) => {
     if (!volumeDragRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
     const pointer = getVolumePointer(event)
     if (pointer.distance > 48) {
       volumeGestureRef.current.outside = true
@@ -156,6 +158,8 @@ export function VinylTurntable({
   }
 
   const handleVolumePointerDown = (event: PointerEvent<SVGGElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
     volumeDragRef.current = true
     const pointer = getVolumePointer(event)
     volumeGestureRef.current = {
@@ -168,6 +172,8 @@ export function VinylTurntable({
   }
 
   const finishVolumeDrag = (event: PointerEvent<SVGGElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
     volumeDragRef.current = false
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
