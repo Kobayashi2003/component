@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "jsx": "react-jsx",
+    "composite": true
+  },
+  "include": [
+    "types/styles.d.ts",
+    "core/**/*.ts",
+    "react/**/*.ts",
+    "react/**/*.tsx",
+    "meta.ts",
+    "index.tsx",
+    "showcase/**/*.ts",
+    "showcase/**/*.tsx"
+  ]
+}

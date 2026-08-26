@@ -1,0 +1,301 @@
+import type { RendererContentDocument } from '../renderer';
+import { commandForClickZone, commandForKey, commandForSwipe, commandForWheel, touchNavigationAllows } from './commands';
+import { DEFAULT_READER_INPUT_POLICY, type ReaderCommand, type ReaderInputDispatcher, type ReaderInputPolicy, type ReaderInputState } from './model';
+
+interface PointerStart { readonly id: number; readonly x: number; readonly y: number; readonly target: EventTarget | null }
+
+/**
+ * DOM adapter only. It produces semantic commands and never calls a renderer
+ * directly. Text selection and interactive publication controls take priority.
+ */
+export class BrowserReaderInputRouter {
+  private readonly policy: ReaderInputPolicy;
+  private readonly cleanups: (() => void)[] = [];
+  private readonly documentCleanups = new Map<Document, () => void>();
+  private lastWheelAt = -Infinity;
+  private pointer: PointerStart | null = null;
+  private suppressClickUntil = -Infinity;
+  private disposed = false;
+
+  constructor(
+    private readonly hostElement: HTMLElement,
+    private readonly state: () => ReaderInputState,
+    private readonly dispatcher: ReaderInputDispatcher,
+    policy: Partial<ReaderInputPolicy> = {},
+    private readonly onError: (error: unknown, command: ReaderCommand) => void = () => {},
+  ) {
+    this.policy = { ...DEFAULT_READER_INPUT_POLICY, ...policy };
+    this.attachTarget(hostElement);
+  }
+
+  syncDocuments(contexts: readonly RendererContentDocument[]): void {
+    this.assertAlive();
+    const live = new Set(contexts.map(context => context.document));
+    for (const [document, cleanup] of this.documentCleanups) {
+      if (!live.has(document)) {
+        cleanup();
+        this.documentCleanups.delete(document);
+      }
+    }
+    for (const context of contexts) {
+      if (this.documentCleanups.has(context.document)) continue;
+      this.documentCleanups.set(context.document, this.attachTarget(context.document, context.surfaceElement));
+    }
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const cleanup of this.cleanups.splice(0)) cleanup();
+    for (const cleanup of this.documentCleanups.values()) cleanup();
+    this.documentCleanups.clear();
+    this.pointer = null;
+  }
+
+  private attachTarget(target: EventTarget, surfaceElement?: HTMLElement): () => void {
+    const cursorElement = semanticCursorElement(target);
+    const originalCursor = cursorElement?.style.cursor ?? '';
+    const onKeyDown = (event: Event) => {
+      if (!this.policy.keyboard || !this.state().enabled) return;
+      const key = event as KeyboardEvent;
+      if (isEditableTarget(key.target)) return;
+      const command = commandForKey(key, this.state().pageProgression);
+      if (!command) return;
+      if (shouldPreserveNativeSelectionCommand(key)) return;
+      key.preventDefault();
+      this.send(command);
+    };
+
+    const onWheel = (event: Event) => {
+      if (!this.state().enabled) return;
+      const wheel = event as WheelEvent;
+      const modified = Boolean(wheel.ctrlKey || wheel.metaKey);
+      if (modified && !this.policy.ctrlWheelFontSize) return;
+      if (!modified && this.policy.wheel !== 'page') return;
+      if (Math.abs(wheel.deltaY) < this.policy.wheelThreshold) return;
+
+      if (!modified) {
+        const scrollOwner = surfaceElement
+          ? findVerticalScrollOwner(surfaceElement)
+          : findVerticalScrollOwner(asElement(wheel.target));
+        if (scrollOwner && consumeVerticalWheel(scrollOwner, wheel)) {
+          if (wheel.cancelable) wheel.preventDefault();
+          return;
+        }
+        if (scrollOwner && this.state().presentation === 'scrolled' && !this.state().wheelBoundaryNavigation) {
+          if (wheel.cancelable) wheel.preventDefault();
+          return;
+        }
+        if (this.state().presentation === 'scrolled' && !this.state().wheelBoundaryNavigation) return;
+      }
+
+      const now = Date.now();
+      if (!modified && now - this.lastWheelAt < this.policy.wheelCooldownMs) return;
+      const command = commandForWheel(wheel.deltaY, modified);
+      if (!command) return;
+      if (!modified) this.lastWheelAt = now;
+      if (wheel.cancelable) wheel.preventDefault();
+      this.send(command);
+    };
+
+    const onClick = (event: Event) => {
+      const state = this.state();
+      if (!this.policy.clickZones || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'tap')) return;
+      const click = event as MouseEvent;
+      if (Date.now() < this.suppressClickUntil) return;
+      if (click.button !== 0 || isInteractivePublicationTarget(click.target) || hasMeaningfulSelection(click.target)) return;
+      const viewport = viewportWidthForTarget(target, this.hostElement);
+      const x = clientXForTarget(click, target, this.hostElement);
+      const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
+      const command = commandForClickZone(x, viewport, ratio, state.pageProgression);
+      if (!command) return;
+      if (click.cancelable) click.preventDefault();
+      this.send(command);
+    };
+
+    const onPointerDown = (event: Event) => {
+      const state = this.state();
+      if (!this.policy.swipe || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'swipe')) return;
+      const pointer = event as PointerEvent;
+      if (pointer.button !== 0 || isInteractivePublicationTarget(pointer.target)) return;
+      this.pointer = { id: pointer.pointerId, x: pointer.clientX, y: pointer.clientY, target: pointer.target };
+    };
+
+    const onPointerUp = (event: Event) => {
+      const state = this.state();
+      if (!this.pointer || !this.policy.swipe || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'swipe')) { this.pointer = null; return; }
+      const pointer = event as PointerEvent;
+      if (pointer.pointerId !== this.pointer.id) return;
+      const start = this.pointer;
+      this.pointer = null;
+      if (hasMeaningfulSelection(pointer.target)) return;
+      const dx = pointer.clientX - start.x;
+      const dy = pointer.clientY - start.y;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+      const command = commandForSwipe(dx, this.policy.swipeThresholdPx, state.pageProgression);
+      if (!command) return;
+      if (pointer.cancelable) pointer.preventDefault();
+      this.suppressClickUntil = Date.now() + 450;
+      this.send(command);
+    };
+
+    const onPointerCancel = () => { this.pointer = null; };
+
+    const onPointerMove = (event: Event) => {
+      if (!cursorElement) return;
+      const pointer = event as PointerEvent;
+      const state = this.state();
+      if (
+        pointer.pointerType && pointer.pointerType !== 'mouse'
+        || !this.policy.clickZones
+        || !state.enabled
+        || state.contentKind !== 'fixed-layout'
+        || state.presentation === 'scrolled'
+        || !touchNavigationAllows(state.touchNavigation, 'tap')
+        || isInteractivePublicationTarget(pointer.target)
+      ) {
+        cursorElement.style.cursor = originalCursor;
+        return;
+      }
+      const viewport = viewportWidthForTarget(target, this.hostElement);
+      const x = clientXForTarget(pointer, target, this.hostElement);
+      const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
+      cursorElement.style.cursor = semanticCursorForClickZone(x, viewport, ratio) ?? originalCursor;
+    };
+
+    const resetCursor = () => {
+      if (cursorElement) cursorElement.style.cursor = originalCursor;
+    };
+
+    target.addEventListener('keydown', onKeyDown as EventListener, { passive: false });
+    target.addEventListener('wheel', onWheel as EventListener, { passive: false });
+    target.addEventListener('click', onClick as EventListener, { passive: false });
+    target.addEventListener('pointerdown', onPointerDown as EventListener, { passive: true });
+    target.addEventListener('pointermove', onPointerMove as EventListener, { passive: true });
+    target.addEventListener('pointerup', onPointerUp as EventListener, { passive: false });
+    target.addEventListener('pointercancel', onPointerCancel as EventListener, { passive: true });
+    target.addEventListener('pointerleave', resetCursor as EventListener, { passive: true });
+
+    const cleanup = () => {
+      target.removeEventListener('keydown', onKeyDown as EventListener);
+      target.removeEventListener('wheel', onWheel as EventListener);
+      target.removeEventListener('click', onClick as EventListener);
+      target.removeEventListener('pointerdown', onPointerDown as EventListener);
+      target.removeEventListener('pointermove', onPointerMove as EventListener);
+      target.removeEventListener('pointerup', onPointerUp as EventListener);
+      target.removeEventListener('pointercancel', onPointerCancel as EventListener);
+      target.removeEventListener('pointerleave', resetCursor as EventListener);
+      resetCursor();
+    };
+    if (target === this.hostElement) this.cleanups.push(cleanup);
+    return cleanup;
+  }
+
+  private send(command: ReaderCommand): void {
+    try {
+      const result = this.dispatcher.dispatch(command);
+      if (result && typeof (result as Promise<void>).catch === 'function') {
+        void (result as Promise<void>).catch(error => this.onError(error, command));
+      }
+    } catch (error) { this.onError(error, command); }
+  }
+
+  private assertAlive(): void {
+    if (this.disposed) throw new Error('BrowserReaderInputRouter has been disposed.');
+  }
+}
+
+export function semanticCursorForClickZone(clientX: number, width: number, ratio: number): 'pointer' | null {
+  if (!(width > 0) || !Number.isFinite(clientX)) return null;
+  const edge = Math.max(0.05, Math.min(0.45, ratio));
+  return clientX <= width * edge || clientX >= width * (1 - edge) ? 'pointer' : null;
+}
+
+function semanticCursorElement(target: EventTarget): (Element & { style: CSSStyleDeclaration }) | null {
+  const element = target as Element;
+  if (element.nodeType === 1 && 'style' in element) return element as Element & { style: CSSStyleDeclaration };
+  const document = target as Document;
+  const root = document.documentElement;
+  return root && 'style' in root ? root as Element & { style: CSSStyleDeclaration } : null;
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  const element = asElement(target);
+  if (!element) return false;
+  const local = element.localName.toLowerCase();
+  return element.hasAttribute('contenteditable') || ['input', 'textarea', 'select', 'option'].includes(local);
+}
+
+export function isInteractivePublicationTarget(target: EventTarget | null): boolean {
+  const element = asElement(target);
+  if (!element) return false;
+  return element.closest('a, button, input, textarea, select, option, label, summary, audio, video, object, embed, iframe, [controls], [contenteditable], [role="button"], [role="link"], [data-epub-image-viewer]') != null;
+}
+
+function hasMeaningfulSelection(target: EventTarget | null): boolean {
+  const element = asElement(target);
+  const document = element?.ownerDocument;
+  const selection = document
+    ? (typeof document.getSelection === 'function' ? document.getSelection() : null)
+      ?? document.defaultView?.getSelection()
+    : null;
+  return Boolean(selection && !selection.isCollapsed && selection.toString().trim());
+}
+
+function shouldPreserveNativeSelectionCommand(event: KeyboardEvent): boolean {
+  return event.shiftKey && (event.key.startsWith('Arrow') || event.key === 'PageUp' || event.key === 'PageDown');
+}
+
+function asElement(target: EventTarget | null): Element | null {
+  if (!target || typeof target !== 'object') return null;
+  const node = target as Node;
+  return node.nodeType === 1 ? node as Element : node.parentElement;
+}
+
+function viewportWidthForTarget(target: EventTarget, fallback: HTMLElement): number {
+  if ((target as Document).documentElement) {
+    const document = target as Document;
+    return document.defaultView?.innerWidth ?? document.documentElement.clientWidth;
+  }
+  return fallback.getBoundingClientRect().width;
+}
+
+function clientXForTarget(event: MouseEvent, target: EventTarget, fallback: HTMLElement): number {
+  if ((target as Document).documentElement) return event.clientX;
+  return event.clientX - fallback.getBoundingClientRect().left;
+}
+
+function findVerticalScrollOwner(start: Element | null): HTMLElement | null {
+  let current: Element | null = start;
+  while (current) {
+    if (current instanceof HTMLElement && current.scrollHeight > current.clientHeight + 1) {
+      const style = current.ownerDocument.defaultView?.getComputedStyle(current);
+      const overflowY = style?.overflowY ?? 'visible';
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function consumeVerticalWheel(owner: HTMLElement, event: WheelEvent): boolean {
+  const delta = wheelDeltaPixels(event, owner.clientHeight);
+  const target = verticalScrollTarget(owner.scrollTop, owner.scrollHeight - owner.clientHeight, delta);
+  if (target == null) return false;
+  owner.scrollTop = target;
+  return true;
+}
+
+export function verticalScrollTarget(current: number, extent: number, delta: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(extent) || !Number.isFinite(delta) || delta === 0) return null;
+  const maximum = Math.max(0, extent);
+  const before = Math.max(0, Math.min(maximum, current));
+  const target = Math.max(0, Math.min(maximum, before + delta));
+  return Math.abs(target - before) < 0.5 ? null : target;
+}
+
+function wheelDeltaPixels(event: WheelEvent, pageSize: number): number {
+  if (event.deltaMode === 1) return event.deltaY * 16;
+  if (event.deltaMode === 2) return event.deltaY * Math.max(1, pageSize);
+  return event.deltaY;
+}

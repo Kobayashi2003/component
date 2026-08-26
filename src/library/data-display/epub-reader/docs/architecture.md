@@ -1,0 +1,47 @@
+# EPUB Reader Architecture
+
+## Overview
+
+The EPUB reader is split into a framework-independent engine, a browser rendering boundary, and a React product shell. The host supplies EPUB bytes; the reader owns publication processing and exposes immutable state snapshots plus semantic commands.
+
+```text
+EPUB source
+  → archive and package loading
+  → content preflight and compatibility repair
+  → rendition planning
+  → renderer and navigation orchestration
+  → reader snapshot
+  → React interface
+```
+
+## Layers
+
+### Host and showcase
+
+`showcase/` and `EpubReaderBackground` are demonstration-only. They handle local file selection, replacement, and presentation around the reusable reader. They do not participate in EPUB parsing or rendering.
+
+### React adapter and interface
+
+`react/` contains the external store, hooks, context, panels, and reader shell. `ReactEpubReaderStore` owns asynchronous open/replace/dispose races and viewport observation. The UI subscribes to immutable snapshots and invokes reader commands; it does not manipulate publication documents directly.
+
+### Reader orchestration
+
+`core/reader/` composes the engine. `BrowserEpubReader` coordinates the active renderer, navigation history, locators, search, marks, selection, media activation, input routing, diagnostics, and preferences. This layer is the public browser-facing boundary for the core.
+
+### Publication and rendition domain
+
+`core/publication/` converts container and package documents into a normalized publication model. `core/content/` preflights spine content and records compatibility repairs. `core/rendition/` turns publication metadata, content hints, preferences, and viewport metrics into an explicit rendering plan.
+
+### Rendering and resources
+
+`core/archive/` reads the OCF ZIP container. `core/resources/` resolves publication references and owns temporary object URLs. `core/renderer/` executes reflowable, vertical-writing, fixed-layout, and spread plans inside isolated, script-disabled documents. Renderers report layout state but do not own product UI.
+
+### Reading services
+
+Navigation, locator, search, annotation, input, appearance, accessibility, and compatibility modules are independent services under `core/`. They operate on the normalized publication model and renderer contracts, which keeps format policy separate from React and DOM presentation.
+
+## State and lifecycle
+
+The reader publishes immutable snapshots containing lifecycle status, publication data, renderer state, locator, preferences, diagnostics, search state, marks, and selection. Commands are serialized through the reader and renderer transaction boundaries. Resource URLs, observers, event routers, and renderer documents are released when the reader is replaced or disposed.
+
+Reading-session persistence belongs to the React adapter and is injectable. EPUB bytes remain host-owned and are never persisted or uploaded by the reader.

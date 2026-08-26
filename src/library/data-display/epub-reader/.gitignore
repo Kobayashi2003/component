@@ -1,0 +1,16 @@
+node_modules/
+.test-results/
+dist/
+.DS_Store
+
+# Real-world EPUBs and their machine-specific manifest stay local. The empty
+# example manifest is committed; synthetic EPUBs under fixtures/corpus are test data.
+fixtures/real-world/**/*.epub
+fixtures/real-world/manifest.local.json
+
+*.tsbuildinfo
+.corpus-dist/
+.stress-dist/
+.performance-dist/
+.w3c-observe-dist/
+.realworld-dist/

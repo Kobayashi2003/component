@@ -1,0 +1,8 @@
+{
+  "target": "EPUB Reader Engine web browser matrix",
+  "browsers": [
+    { "engine": "Chromium", "status": "automated", "note": "Run npm run browser:probe; the generated report is written to .test-results/browser/runtime.json." },
+    { "engine": "Firefox", "status": "not-run", "note": "Not available/executed in artifact environment." },
+    { "engine": "WebKit/Safari", "status": "not-run", "note": "Not available/executed in artifact environment." }
+  ]
+}

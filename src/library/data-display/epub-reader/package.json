@@ -1,0 +1,38 @@
+{
+  "name": "epub-reader-engine",
+  "version": "0.15.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser EPUB reading system with vertical-writing PageMap pagination, image-page handling, fixed-layout support and a React adapter.",
+  "scripts": {
+    "typecheck": "npm run typecheck:core && npm run typecheck:react",
+    "test": "node scripts/run-tests.mjs",
+    "test:unit": "node scripts/run-tests.mjs unit",
+    "test:integration": "node scripts/run-tests.mjs integration",
+    "check": "npm run typecheck && npm test",
+    "typecheck:core": "tsc -p tsconfig.core.json",
+    "typecheck:react": "tsc -p tsconfig.react.json",
+    "typecheck:verify": "tsc -p tsconfig.react.verify.json",
+    "check:verify": "npm run typecheck:core && npm run typecheck:verify && npm test",
+    "corpus:generate": "node scripts/generate-local-corpus.mjs",
+    "corpus:test": "node scripts/run-local-corpus.mjs",
+    "stress:parser": "node --expose-gc scripts/run-parser-stress.mjs",
+    "epubcheck:corpus": "node scripts/run-epubcheck.mjs fixtures/corpus",
+    "browser:probe": "node scripts/probe-browser-runtime.mjs",
+    "visual:check": "node scripts/check-visual-baselines.mjs",
+    "hardening": "npm run check:verify && npm run corpus:test && npm run stress:parser",
+    "conformance:w3c:observe": "node scripts/run-w3c-loader-observations.mjs",
+    "realworld:bind": "node scripts/bind-real-world-corpus.mjs",
+    "realworld:test": "node scripts/run-real-world-corpus.mjs",
+    "performance:realworld": "node --expose-gc scripts/run-performance-baseline.mjs",
+    "hardening:realworld": "npm run hardening && npm run realworld:test"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "react": "^19.2.8",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
+}

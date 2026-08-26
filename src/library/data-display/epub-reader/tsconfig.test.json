@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.react.verify.json",
+  "include": [
+    "tests/support/react.d.ts",
+    "types/styles.d.ts",
+    "core/**/*.ts",
+    "react/**/*.ts",
+    "react/**/*.tsx",
+    "tests/**/*.ts"
+  ]
+}

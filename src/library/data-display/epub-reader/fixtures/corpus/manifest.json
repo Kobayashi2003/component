@@ -1,0 +1,50 @@
+{
+  "generatedBy": "scripts/generate-local-corpus.mjs",
+  "cases": [
+    {
+      "id": "valid-reflowable",
+      "file": "valid-reflowable.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
+      "id": "conflicting-rendition-repair",
+      "file": "conflicting-rendition.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "repaired",
+      "expectedDiagnosticCodes": [
+        "PACKAGE_SPINE_RENDITION_CONFLICT"
+      ]
+    },
+    {
+      "id": "epub3-ncx-fallback-repair",
+      "file": "epub3-ncx-fallback.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "repaired",
+      "expectedDiagnosticCodes": [
+        "NAV_COMPATIBILITY_NCX_FALLBACK"
+      ]
+    },
+    {
+      "id": "missing-container-blocked",
+      "file": "missing-container.epub",
+      "expectPublication": false,
+      "expectedCompatibilityStatus": "blocked",
+      "expectedDiagnosticCodes": [
+        "OCF_CONTAINER_MISSING"
+      ]
+    },
+    {
+      "id": "browser-content-compatibility",
+      "file": "browser-content-compatibility.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
+      "id": "cross-document-footnote",
+      "file": "cross-document-footnote.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    }
+  ]
+}
