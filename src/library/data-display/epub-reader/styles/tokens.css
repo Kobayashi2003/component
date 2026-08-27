@@ -25,6 +25,10 @@
   --epub-space-5: 24px;
   --epub-control-sm: 32px;
   --epub-control-md: 40px;
+  /* Heights of the top toolbar and the bottom controls bar. Anything that has
+     to sit clear of the chrome reads these instead of restating the numbers. */
+  --epub-chrome-top: 58px;
+  --epub-chrome-bottom: 68px;
   --epub-radius-sm: 7px;
   --epub-radius-md: 11px;
   --epub-radius-lg: 18px;

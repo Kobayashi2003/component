@@ -36,6 +36,8 @@ EPUB source
 
 `core/archive/` reads the OCF ZIP container. `core/resources/` resolves publication references and owns temporary object URLs. `core/renderer/` executes reflowable, vertical-writing, fixed-layout, and spread plans inside isolated, script-disabled documents. Renderers report layout state but do not own product UI.
 
+Pagination is CSS fragmentation in both writing modes: the reader gives the content document a multicol fragmentainer the size of one page and reads the resulting geometry back, rather than computing page boundaries arithmetically. This matters because an arithmetic boundary at `index * pageSize` bears no relation to where line boxes actually fall and will bisect whichever line sits on it, whereas a fragmentation break lands between line boxes by construction. The two modes differ only in which physical axis the column boxes advance along — X for `horizontal-tb`, Y for vertical writing, since multicol places columns along the container's inline axis — so vertical pagination scrolls Y and horizontal pagination scrolls X.
+
 ### Reading services
 
 Navigation, locator, search, annotation, input, appearance, accessibility, and compatibility modules are independent services under `core/`. They operate on the normalized publication model and renderer contracts, which keeps format policy separate from React and DOM presentation.

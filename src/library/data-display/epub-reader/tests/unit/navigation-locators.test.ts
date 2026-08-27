@@ -169,14 +169,19 @@ async function main() {
   await navigator.goTo({ kind: 'href', href: 'EPUB/c3.xhtml#tail' });
   assert(Number(host.state.plan?.spineIndex) === 3 && host.locator?.locations.fragment === 'tail', 'goTo href should present target locator atomically');
 
-  // A cross-spine spread showing 2+3 must advance after both visible items,
-  // otherwise next() would re-open the same spread through item 3.
+  // A cross-spine spread shows two spine documents at once, so a page turn has
+  // to leave both of them. Advancing to the other half instead re-composed the
+  // very spread already on screen and spent the turn showing nothing new, which
+  // is what made every illustration spread in a light novel cost two presses.
+  // Nothing is skipped by this: both sections were on screen, and the position
+  // readout names the pair.
   host.state = {
     ...host.state,
     plan: plans[2]!,
     layout: {
       spread: true,
       gap: 0,
+      visibleSpineIndices: [2, 3],
       left: { spineIndex: 2, renderer: plans[2]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
       right: { spineIndex: 3, renderer: plans[3]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
       activeSlot: 'left',
@@ -184,7 +189,8 @@ async function main() {
   };
   host.within = { status: 'boundary', edge: 'end' };
   const end = await navigator.next();
-  assert(end.status === 'moved' && host.state.plan?.spineIndex === 3, 'cross-spine spread navigation should visit the adjacent visible item first');
+  assert(end.status === 'boundary' && end.edge === 'end',
+    'a turn out of the last spread must reach the publication boundary, not re-open the spread through its other half');
 
   host.state = {
     ...host.state,
@@ -192,6 +198,7 @@ async function main() {
     layout: {
       spread: true,
       gap: 0,
+      visibleSpineIndices: [2, 3],
       left: { spineIndex: 2, renderer: plans[2]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
       right: { spineIndex: 3, renderer: plans[3]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
       activeSlot: 'right',
@@ -199,19 +206,32 @@ async function main() {
   };
   host.within = { status: 'boundary', edge: 'end' };
   const spreadEnd = await navigator.next();
-  assert(spreadEnd.status === 'moved' && host.state.plan?.spineIndex === 3, 'cross-spine spread navigation should visit the adjacent visible item first');
+  assert(spreadEnd.status === 'boundary' && spreadEnd.edge === 'end',
+    'the same holds whichever leaf of the spread is the active one');
 
   host.state = { ...host.state, plan: plans[3]!, layout: { pageCount: 1, currentPage: 1 } };
   const publicationEnd = await navigator.next();
   assert(publicationEnd.status === 'boundary' && publicationEnd.edge === 'end', 'cross-spine spread navigation should reach the publication boundary after the visible item');
 
-  // When the active item reaches an edge inside a spread, the adjacent visible
-  // item must be visited before leaving the spread. This prevents Previous from
-  // skipping section 10 and jumping directly to section 9.
-  host.state = { ...host.state, plan: plans[3]! };
+  // Backwards obeys the same rule, measured from the near edge of what is on
+  // screen: out of the spread showing 2 and 3, Previous leaves both behind and
+  // lands on 0, because 1 is linear="no" and stays skipped.
+  host.state = {
+    ...host.state,
+    plan: plans[3]!,
+    layout: {
+      spread: true,
+      gap: 0,
+      visibleSpineIndices: [2, 3],
+      left: { spineIndex: 2, renderer: plans[2]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
+      right: { spineIndex: 3, renderer: plans[3]!.renderer, layout: { pageCount: 1, currentPage: 1 } },
+      activeSlot: 'right',
+    } as RendererHostState['layout'],
+  };
   host.within = { status: 'boundary', edge: 'start' };
   const spreadBack = await navigator.previous();
-  assert(spreadBack.status === 'moved' && host.state.plan?.spineIndex === 2, 'spread Previous should visit the adjacent visible section before leaving the spread');
+  assert(spreadBack.status === 'moved' && host.state.plan?.spineIndex === 0,
+    'a turn out of a spread must clear every section it was showing');
 
   // Discrete user navigation is ordered rather than latest-wins. If two rapid
   // inputs overlapped here, a renderer could observe the same starting page

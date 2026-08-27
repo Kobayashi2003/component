@@ -9,17 +9,11 @@ import {
 import { planRendition } from '../../core/rendition';
 import {
   calculatePaginatedGeometry,
-  createPaginatedPageMap,
-  pageMapNavigationTarget,
-  pageMapPosition,
   pageOffsetForProgression,
   scrollProgression,
 } from '../../core/renderer/reflowable/geometry';
 import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/renderer/reflowable/model';
-import {
-  rightAnchoredVerticalLogicalOffset,
-  rightAnchoredVerticalRawOffset,
-} from '../../core/renderer/reflowable/dom';
+import { reflowableScrollAxis } from '../../core/renderer/reflowable/dom';
 import {
   buildReaderPreferenceCss,
   buildReflowableLayoutCss,
@@ -121,9 +115,16 @@ const item = publication.spine[0]!;
   assert(css.includes('column-fill: auto'), 'paginated reflow must fill fixed-height columns sequentially');
 }
 
-// 3. Vertical writing must NOT use CSS multicol pagination. In vertical-rl,
-// block flow already advances horizontally; multicol would fragment along the
-// physical Y axis and can leave the second half of a spread blank.
+// 3. Vertical writing paginates through CSS multicol, exactly like horizontal
+// writing does. The reader never computes a page boundary itself: an arithmetic
+// boundary at `index * pageSize` has no relation to where the line boxes fall,
+// so it slices whichever line sits there and splits that line across two pages.
+// A fragmentation break lands between line boxes by construction.
+//
+// In vertical-rl the inline axis is vertical, so column boxes stack DOWN the
+// page and paging is a positive scrollTop. An earlier revision read that
+// stacking as a multicol failure and replaced fragmentation with a sliding
+// window; the stacking was right, the horizontal transport under it was wrong.
 {
   const plan = planRendition({
     publication: {
@@ -137,55 +138,79 @@ const item = publication.spine[0]!;
   });
   assert(plan.spread.execution === 'intra-document', 'double reflowable text should remain one spine document');
   const css = buildReflowableLayoutCss(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl');
-  assert(css.includes('column-width: auto'), 'vertical pagination must leave CSS multicol disabled');
-  assert(css.includes('overflow-y: hidden'), 'vertical pagination must expose horizontal block overflow only');
+  assert(css.includes('column-fill: auto'), 'vertical pagination must fragment through CSS multicol');
+  assert(!/column-width: auto/.test(css), 'vertical pagination must give columns a definite inline size');
+  assert(css.includes('overflow-y: auto'), 'vertical column boxes stack on Y, so paging scrolls Y');
+  assert(css.includes('overflow-x: hidden'), 'the block axis of a vertical page must not scroll');
   assert(css.includes('html::-webkit-scrollbar, body::-webkit-scrollbar { display: none'), 'paginated documents must hide publisher and root scrollbars');
-  assert(css.includes('margin: 0 0 0 auto'), 'vertical-rl content must remain anchored to the physical right edge');
-  assert(reflowablePageWidth(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl') === 400,
-    'two-up vertical pagination must divide the viewport into two logical 400px slots');
-  assert(rightAnchoredVerticalLogicalOffset(0, 1_600) === 0,
-    'right-anchored vertical-rl zero scroll must remain the authored start');
-  assert(rightAnchoredVerticalLogicalOffset(-800, 1_600) === 800,
-    'negative physical scroll must advance from the vertical-rl authored start');
-  assert(rightAnchoredVerticalRawOffset(1_600, 1_600) === -1_600,
-    'the vertical-rl logical end must map back to maximum negative overflow');
+
+  assert(reflowableScrollAxis('vertical-rl', 'reflowable-paginated') === 'vertical',
+    'vertical pagination advances along physical Y');
+  assert(reflowableScrollAxis('horizontal-tb', 'reflowable-paginated') === 'horizontal',
+    'horizontal pagination advances along physical X');
+  assert(reflowableScrollAxis('vertical-rl', 'reflowable-scroll') === 'horizontal',
+    'vertical scrolled flow still overflows along its block axis');
+
+  // A vertical spread is one continuous flow across both leaves, not two
+  // half-width fragmentainers, so the page extent is the whole viewport.
+  assert(reflowablePageWidth(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl') === 600,
+    'a vertical page spans the full inline extent of the viewport');
+  assert(reflowablePageGap(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl') === 0,
+    'a zero page margin leaves no gap between vertical columns');
+
+  // Column size plus gap must advance by exactly one viewport, or the next page
+  // bleeds into the current one.
+  const margined = planRendition({
+    publication,
+    spineItem: item,
+    viewport: { width: 800, height: 600 },
+    preferences: { ...DEFAULT_READER_PREFERENCES, pageMarginPercent: 4 },
+    contentHints: { writingMode: 'vertical-rl', direction: 'rtl' },
+  });
+  const extent = reflowablePageWidth(margined, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl');
+  const gap = reflowablePageGap(margined, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl');
+  assert(extent === 552 && gap === 48, 'a 4% page margin must take 24px off each edge of a 600px page');
+  assert(extent + gap === 600, 'a vertical page advance must equal exactly one viewport');
+
+  // `ruby-position: over` paints furigana on the block-start side of its base,
+  // which in vertical-rl is the right-hand edge of the page. Without reserved
+  // room the first column of every page has its furigana cropped.
+  assert(css.includes('padding-block: 1em'),
+    'vertical pages must reserve block-axis room for first-column ruby');
 }
 
-// 4. PageMap separates authored pages from physical spread slots. An odd final
-// page gets a reader-owned trailing blank instead of becoming an early chapter
-// boundary (the regression behind one-click chapter skips).
+// 4. A leading blank column belongs to horizontal two-up only.
+//
+// It exists to push a chapter opening onto the correct leaf of a spread, which
+// presupposes that a spread is two side-by-side fragmentainers. A vertical
+// spread is not: it is one fragmentainer running right-to-left across both
+// leaves, so a blank column there aligns nothing and simply makes the reader's
+// first page turn into the chapter land on an empty page.
 {
-  const map = createPaginatedPageMap({
-    pageCount: 5,
-    pageExtent: 480,
-    visiblePageCount: 2,
+  const rtlPublication: Publication = {
+    ...publication,
+    pageProgressionDirection: 'rtl',
+    rendition: { ...publication.rendition, spread: 'auto' },
+    spine: [{ ...item, rendition: { layout: 'reflowable', pageSpread: 'left' } }],
+  };
+  const placed = planRendition({
+    publication: rtlPublication,
+    spineItem: rtlPublication.spine[0]!,
+    viewport: { width: 1200, height: 820 },
+    preferences: { ...DEFAULT_READER_PREFERENCES, spread: 'double' },
+    contentHints: { writingMode: 'vertical-rl', direction: 'rtl' },
   });
-  assert(map.slotCount === 6, 'five authored pages in two-up mode need one trailing blank slot');
-  assert(map.maxLogicalOffset === 1920, 'the last authored spread must remain horizontally reachable');
+  assert(placed.spread.execution === 'intra-document' && placed.spread.mode === 'double',
+    'fixture must produce the two-up plan the leading blank applies to');
+  assert(placed.spread.placement === 'left', 'authored page-spread placement must survive planning');
 
-  const firstTurn = pageMapNavigationTarget(map, 0, 'forward');
-  assert(firstTurn.status === 'moved' && firstTurn.pageIndex === 2 && firstTurn.logicalOffset === 960,
-    'first turn must move from pages 1-2 to pages 3-4');
-  const secondTurn = pageMapNavigationTarget(map, 960, 'forward');
-  assert(secondTurn.status === 'moved' && secondTurn.pageIndex === 4 && secondTurn.logicalOffset === 1920,
-    'second turn must expose authored page 5 plus a reader-owned blank');
-  const end = pageMapNavigationTarget(map, 1920, 'forward');
-  assert(end.status === 'boundary' && end.edge === 'end', 'only the final authored spread may report the chapter end');
-  assert(pageMapPosition(map, 1920).currentPage === 5, 'reader-added blank slots must not inflate the logical page number');
+  const vertical = buildReflowableLayoutCss(placed, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'vertical-rl');
+  assert(!vertical.includes('break-after: column'),
+    'vertical pagination must not spend its first page on a blank alignment column');
 
-  const placed = createPaginatedPageMap({
-    pageCount: 5,
-    pageExtent: 480,
-    visiblePageCount: 2,
-    leadingBlankCount: 1,
-  });
-  assert(placed.slotCount === 6 && placed.leadingBlankCount === 1,
-    'authored first-page placement must reserve one leading reader-owned blank without changing authored page count');
-  const placedTurn = pageMapNavigationTarget(placed, 0, 'forward');
-  assert(placedTurn.status === 'moved' && placedTurn.pageIndex === 1 && placedTurn.logicalOffset === 960,
-    'after a leading blank spread, the next spread must begin at authored page 2 rather than skipping to page 3');
-  assert(pageMapPosition(placed, 1920).currentPage === 4,
-    'the final placed spread should expose authored pages 4-5 while excluding the leading blank from logical numbering');
+  const horizontal = buildReflowableLayoutCss(placed, DEFAULT_REFLOWABLE_RENDERER_POLICY, 'horizontal-tb');
+  assert(horizontal.includes('break-after: column'),
+    'horizontal two-up still needs the blank column to reach the correct leaf');
 }
 
 // 5. Scrolled documents explicitly remove multicol pagination.

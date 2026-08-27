@@ -1,26 +1,16 @@
-import { useEffect, useState } from 'react';
 import { useOptionalEpubReaderContext } from './context';
+import { useDelayedFlag } from './loading-delay';
 import type { EpubReaderHandle } from './model';
-
-const LOADING_VISIBILITY_DELAY_MS = 180;
 
 export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
   if (!reader) throw new Error('<EpubReaderStatus> requires a reader prop or EpubReaderProvider.');
-  const isBusy = reader.state.status === 'loading' || reader.state.status === 'idle';
-  const [showLoading, setShowLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isBusy) {
-      // Reset asynchronously so a completed fast open never causes a
-      // cascading render from inside the effect itself.
-      const reset = setTimeout(() => setShowLoading(false), 0);
-      return () => clearTimeout(reset);
-    }
-    const timer = setTimeout(() => setShowLoading(true), LOADING_VISIBILITY_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [isBusy]);
+  // Only while there is no publication yet. Rendering the next page reports the
+  // same status, and covering the book with an opening panel on every page turn
+  // would be worse than showing nothing at all.
+  const isBusy = reader.state.reader == null && reader.state.status !== 'error';
+  const showLoading = useDelayedFlag(isBusy);
 
   if (isBusy && showLoading) {
     const progress = reader.state.openProgress;

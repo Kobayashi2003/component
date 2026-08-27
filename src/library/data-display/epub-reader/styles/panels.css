@@ -1357,7 +1357,7 @@
   }
 
   .epub-reader-shell__panel,
-  .epub-reader-shell[data-renderer="fixed-layout"] .epub-reader-shell__panel {
+  .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__panel {
     position: absolute;
     inset: auto 0 0 !important;
     width: 100%;

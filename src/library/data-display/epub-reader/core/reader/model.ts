@@ -1,7 +1,7 @@
 import type { ReaderAccessibilityDescription } from '../accessibility';
 import type { ReaderMarkStore, ReaderMarkStoreSnapshot } from '../annotations';
 import type { ReaderThemeRegistry } from '../appearance';
-import type { PublicationDiagnostic, Locator, LocatorRange, Publication, ReaderPreferences, PublicationControlDocumentLimits } from '../publication';
+import type { PublicationDiagnostic, Locator, LocatorRange, Publication, PublicationLayoutProfile, ReaderPreferences, PublicationControlDocumentLimits, WritingMode } from '../publication';
 import type { ReaderInputPolicy } from '../input';
 import type { ReaderSearchState, SearchOptions, SearchHit } from '../search';
 import type { RendererHostState } from '../renderer';
@@ -44,9 +44,33 @@ export type ReaderUiIntent =
   | { readonly type: 'toggle-chrome' }
   | { readonly type: 'escape' };
 
+/**
+ * Presentation facts that belong to the publication, not to the active page.
+ *
+ * The renderer plan is per spine item, so product chrome driven directly by it
+ * restyles itself whenever the reader crosses into a differently-rendered page.
+ * More than half of real light novels interleave pre-paginated illustration
+ * pages with reflowable chapters, so that is a page turn, not an edge case.
+ * This snapshot is resolved once per publication and never changes while it is
+ * open, which makes it the correct source for toolbar, controls and host chrome.
+ */
+export interface ReaderPublicationPresentation {
+  readonly layout: PublicationLayoutProfile;
+  /** Dominant writing mode of the reflowable reading order. */
+  readonly writingMode: WritingMode;
+  /**
+   * `immersive` is the full-bleed treatment for publications that are entirely
+   * pre-paginated (comics, art books): overlaid auto-hiding chrome on a dark
+   * stage. Every other publication, mixed ones included, uses `standard`.
+   */
+  readonly chrome: 'standard' | 'immersive';
+}
+
 export interface BrowserEpubReaderSnapshot {
   readonly status: BrowserEpubReaderStatus;
   readonly publication: Publication;
+  /** Stable for the lifetime of this publication; safe to drive chrome with. */
+  readonly presentation: ReaderPublicationPresentation;
   readonly diagnostics: readonly PublicationDiagnostic[];
   readonly compatibility: CompatibilityReport;
   readonly preferences: ReaderPreferences;

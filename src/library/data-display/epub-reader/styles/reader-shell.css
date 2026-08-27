@@ -9,7 +9,6 @@
   overflow: hidden;
   container: epub-reader / inline-size;
   background: var(--epub-color-reader);
-  transition: grid-template-rows 180ms ease;
 }
 
 .epub-reader-shell.is-fullscreen {
@@ -17,7 +16,7 @@
   height: 100dvh;
 }
 
-.epub-reader-shell:not([data-renderer="fixed-layout"]).is-chrome-manual {
+.epub-reader-shell:not([data-chrome="immersive"]).is-chrome-manual {
   grid-template-rows: 0 minmax(0, 1fr) 0;
 }
 
@@ -76,7 +75,7 @@
   grid-template-columns: minmax(118px, 1fr) minmax(180px, 1.5fr) minmax(300px, 1fr);
   align-items: center;
   gap: var(--epub-space-3);
-  min-height: 58px;
+  min-height: var(--epub-chrome-top);
   padding-block: max(7px, env(safe-area-inset-top)) 7px;
   padding-inline: max(var(--epub-space-3), env(safe-area-inset-left)) max(var(--epub-space-3), env(safe-area-inset-right));
   border-bottom: 1px solid var(--epub-color-line);
@@ -85,10 +84,14 @@
   backdrop-filter: blur(12px);
 }
 
-/* Text themes use the reading surface as the chrome backdrop as well. This
-   avoids a bright horizontal band below a warm or dark publication page. */
-.epub-reader-shell[data-reading-mode^="text"] .epub-reader-shell__toolbar,
-.epub-reader-shell[data-reading-mode^="text"] .epub-reader-controls {
+/* Standard chrome uses the reading surface as its backdrop as well. This avoids
+   a bright horizontal band below a warm or dark publication page.
+
+   Keyed on `data-chrome` (publication-scoped) rather than on the active page's
+   renderer, so a mixed-layout book keeps one chrome across its illustration
+   pages and its chapters. */
+.epub-reader-shell[data-chrome="standard"] .epub-reader-shell__toolbar,
+.epub-reader-shell[data-chrome="standard"] .epub-reader-controls {
   background: var(--epub-color-reader);
 }
 
@@ -209,37 +212,38 @@
   background: var(--epub-color-reader);
 }
 
-.epub-reader-shell[data-renderer="fixed-layout"] .epub-reader-shell__body {
-  background: #282a2b;
-}
-
-.epub-reader-shell[data-reading-mode^="text"][data-theme="light"] {
+/* Theme palettes are publication-scoped. They previously required a "text"
+   reading mode, which meant a mixed-layout book dropped back to the base tokens
+   the moment it reached an illustration page; comic.css then supplied a second,
+   divergent palette on top. Keying both on `data-chrome` gives each publication
+   exactly one palette for its whole length. */
+.epub-reader-shell[data-chrome="standard"][data-theme="light"] {
   --epub-color-reader: #e5e5e2;
 }
 
-.epub-reader-shell[data-reading-mode^="text"][data-theme="sepia"] {
+.epub-reader-shell[data-chrome="standard"][data-theme="sepia"] {
   --epub-color-reader: #ded5c2;
   --epub-color-surface: #f2ecdf;
   --epub-color-surface-muted: #eae1d1;
   --epub-color-line: #d2c6b2;
 }
 
-.epub-reader-shell[data-reading-mode^="text"][data-theme="paper"] {
+.epub-reader-shell[data-chrome="standard"][data-theme="paper"] {
   --epub-color-reader: #e3dac6;
   --epub-color-surface: #f5efe2;
   --epub-color-surface-muted: #ebe3d3;
   --epub-color-line: #d5c9b5;
 }
 
-.epub-reader-shell[data-reading-mode^="text"][data-theme="mist"] {
+.epub-reader-shell[data-chrome="standard"][data-theme="mist"] {
   --epub-color-reader: #d8e0e4;
   --epub-color-surface: #eef2f3;
   --epub-color-surface-muted: #e3e9eb;
   --epub-color-line: #c9d3d7;
 }
 
-.epub-reader-shell[data-reading-mode^="text"][data-theme="dark"],
-.epub-reader-shell[data-reading-mode^="text"][data-theme="graphite"] {
+.epub-reader-shell[data-chrome="standard"][data-theme="dark"],
+.epub-reader-shell[data-chrome="standard"][data-theme="graphite"] {
   --epub-color-reader: #111315;
   --epub-color-surface: #222529;
   --epub-color-surface-raised: #2b2f34;
@@ -281,7 +285,7 @@
   width: min(100%, 760px);
   margin-inline: auto;
   gap: var(--epub-space-3);
-  min-height: 68px;
+  min-height: var(--epub-chrome-bottom);
   padding-block: 7px max(7px, env(safe-area-inset-bottom));
   padding-inline: max(var(--epub-space-3), env(safe-area-inset-left)) max(var(--epub-space-3), env(safe-area-inset-right));
   background: color-mix(in srgb, var(--epub-color-surface) 95%, transparent);

@@ -36,15 +36,22 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
   if (!snapshot) return <section className="epub-reader-panel" aria-label="Reading settings" />;
   const preferences = snapshot.preferences;
   const capabilities = snapshot.renderer.plan?.capabilities;
-  const writingMode = snapshot.renderer.plan?.writingMode.value ?? 'horizontal-tb';
-  const fixedLayout = snapshot.renderer.plan?.renderer === 'fixed-layout';
-  const verticalWriting = writingMode !== 'horizontal-tb';
-  const reflowableTypography = capabilities?.textCustomization.fontSize !== false;
-  const lineHeightEnabled = capabilities?.textCustomization.lineHeight !== false;
+  // Which sections exist is a property of the publication, not of the page on
+  // screen. A mixed-layout book owns both the comic controls and the typography
+  // controls because it has both kinds of page; deriving this from the active
+  // renderer plan instead would add and remove whole sections on every page turn.
+  const layout = snapshot.presentation.layout;
+  const showComicSection = layout !== 'reflowable';
+  const showTextSections = layout !== 'fixed-layout';
+  const verticalWriting = snapshot.presentation.writingMode !== 'horizontal-tb';
+  const reflowableTypography = showTextSections
+    && (layout === 'mixed' || capabilities?.textCustomization.fontSize !== false);
+  const lineHeightEnabled = showTextSections
+    && (layout === 'mixed' || capabilities?.textCustomization.lineHeight !== false);
 
   return (
     <section className="epub-reader-panel epub-settings-panel" aria-label="Reading settings">
-      {fixedLayout ? (
+      {showComicSection ? (
         <div className="epub-settings-panel__section epub-settings-panel__comic">
           <div className="epub-settings-panel__head">
             <h3>Comic display</h3>
@@ -99,7 +106,8 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
             </div>
           </fieldset>
         </div>
-      ) : <>
+      ) : null}
+      {showTextSections ? <>
       <div className="epub-settings-panel__section">
         <div className="epub-settings-panel__head">
           <h3>Appearance</h3>
@@ -216,11 +224,11 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
           </label>
         </fieldset>
       </div>
-      </>}
+      </> : null}
 
       <div className="epub-settings-panel__section">
         <h3>Layout</h3>
-        {!fixedLayout ? <label>
+        {showTextSections ? <label>
           Flow
           <select value={preferences.flow} onChange={(event: ChangeEvent<HTMLSelectElement>) => void reader.setPreferences({ flow: event.currentTarget.value as typeof preferences.flow })}>
             <option value="auto">Auto</option>

@@ -13,10 +13,14 @@ import {
   DEFAULT_READER_PREFERENCES,
   loadPublicationFromArchive,
   normalizeReaderPreferences,
+  resolvePublicationLayoutProfile,
+  resolveSpineRendition,
   type ContentPresentationHints,
   type Locator,
+  type Publication,
   type PublicationDiagnostic,
   type ReaderPreferences,
+  type WritingMode,
 } from '../publication';
 import { createReadingRendererFactories, RendererHost } from '../renderer';
 import {
@@ -34,6 +38,7 @@ import type {
   BrowserEpubReaderOptions,
   BrowserEpubReaderSearchApi,
   BrowserEpubReaderSnapshot,
+  ReaderPublicationPresentation,
 } from './model';
 
 type SnapshotListener = () => void;
@@ -59,6 +64,12 @@ export class BrowserEpubReader {
   private readonly listeners = new Set<SnapshotListener>();
   private readonly cleanups: (() => void)[] = [];
   private readonly hints: Map<number, ContentPresentationHints>;
+  /**
+   * Resolved once from the publication and its content preflight. Renderer
+   * plans are per spine item; this deliberately is not, so product chrome has
+   * something that survives a page turn into a differently-rendered page.
+   */
+  private readonly presentation: ReaderPublicationPresentation;
   private readonly plannerPolicy: RenditionPlannerPolicy;
   private readonly resources: PublicationResourceSession;
   private readonly host: RendererHost;
@@ -100,6 +111,10 @@ export class BrowserEpubReader {
   ) {
     this.resources = resources;
     this.hints = new Map(initialHints);
+    // Built from preflight hints only. Renderer feedback keeps refining
+    // `this.hints` per spine item, but the publication-level answer must not
+    // move underneath the UI once reading has started.
+    this.presentation = resolvePublicationPresentation(publication, initialHints);
     this.diagnostics = [...diagnostics];
     this.preferences = preferences;
     this.viewport = viewport;
@@ -159,9 +174,13 @@ export class BrowserEpubReader {
     });
 
     const inputController = new ReaderInputController({
-      navigator: this.navigator,
-      navigationResult: result => {
-        if (result.status === 'boundary') options.onIntent?.({ type: 'navigation-boundary', edge: result.edge });
+      // Keys, taps and the wheel go through the reader's own navigation, not
+      // straight to the navigator. The reader is what records the new position
+      // and republishes the snapshot; reaching past it moved the page but left
+      // every position readout showing where the reader used to be.
+      navigator: {
+        next: () => this.next(),
+        previous: () => this.previous(),
       },
       openSearch: () => {
         if (this.selection) this.clearSelection();
@@ -618,6 +637,7 @@ export class BrowserEpubReader {
     return Object.freeze({
       status,
       publication: this.publication,
+      presentation: this.presentation,
       diagnostics: Object.freeze([...this.diagnostics]),
       compatibility: createCompatibilityReport(this.diagnostics),
       preferences: this.preferences,
@@ -663,11 +683,24 @@ function resolveInitialLocator(
   return locatorAtResourceStart(publication, index);
 }
 
+/**
+ * Measured viewports are floored to whole pixels.
+ *
+ * `getBoundingClientRect()` reports sub-pixel sizes, but the page geometry
+ * derived from it is written into the content document as literal pixel widths
+ * and multiplied by the page index to reach page N. A fractional page extent
+ * therefore drifts against the browser's own integer-rounded iframe viewport,
+ * a little more with every page, until the trailing column of a page is sliced.
+ *
+ * Flooring rather than rounding keeps the declared page no wider than the space
+ * that actually exists, so the error can only ever leave a sliver unused; a page
+ * one pixel too wide would clip its own last column instead.
+ */
 function measureViewport(container: HTMLElement): ViewportMetrics {
   const rect = container.getBoundingClientRect();
   return normalizeViewport({
-    width: rect.width || container.clientWidth,
-    height: rect.height || container.clientHeight,
+    width: Math.max(1, Math.floor(rect.width || container.clientWidth)),
+    height: Math.max(1, Math.floor(rect.height || container.clientHeight)),
   });
 }
 
@@ -696,6 +729,50 @@ function mergePlannerPolicy(input: BrowserEpubReaderOptions['plannerPolicy']): R
 
 function mergeHints(previous: ContentPresentationHints | undefined, next: ContentPresentationHints): ContentPresentationHints {
   return { ...previous, ...next };
+}
+
+/**
+ * Publication-level presentation. Only fully pre-paginated publications get the
+ * immersive treatment: a mixed publication that switched chrome on its
+ * illustration pages would restyle its whole interface several times per
+ * chapter, which reads as the reader itself changing rather than the book.
+ */
+function resolvePublicationPresentation(
+  publication: Publication,
+  hints: ReadonlyMap<number, ContentPresentationHints>,
+): ReaderPublicationPresentation {
+  const layout = resolvePublicationLayoutProfile(publication);
+  return Object.freeze({
+    layout,
+    writingMode: dominantWritingMode(publication, hints),
+    chrome: layout === 'fixed-layout' ? 'immersive' : 'standard',
+  });
+}
+
+/**
+ * Vertical publications routinely leave a horizontal colophon or copyright page
+ * in the spine, so a single dissenting document must not decide the answer.
+ */
+function dominantWritingMode(
+  publication: Publication,
+  hints: ReadonlyMap<number, ContentPresentationHints>,
+): WritingMode {
+  const tally = new Map<WritingMode, number>();
+  for (const item of publication.spine) {
+    if (resolveSpineRendition(publication, item).layout === 'pre-paginated') continue;
+    const mode = hints.get(item.index)?.writingMode;
+    if (mode) tally.set(mode, (tally.get(mode) ?? 0) + 1);
+  }
+
+  let best: WritingMode = 'horizontal-tb';
+  let bestCount = 0;
+  for (const [mode, count] of tally) {
+    if (count > bestCount) {
+      best = mode;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 function sameViewport(a: ViewportMetrics, b: ViewportMetrics): boolean {

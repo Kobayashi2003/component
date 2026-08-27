@@ -206,6 +206,12 @@ export class FixedLayoutRenderer implements RendererInstance {
     return {
       pageCount: 1,
       currentPage: 1,
+      // A pre-paginated page is one whole page, so there is no position inside
+      // it. Reporting that explicitly matters: the reader repairs its locator
+      // from whatever the renderer says its progression is, and omitting the
+      // field left fixed-layout books with a locator frozen wherever it was
+      // last set by hand — which is what pinned their progress readout at 0%.
+      progression: 0,
       intrinsicViewport: placement.intrinsic,
       scale: placement.scale,
       renderedWidth: placement.renderedWidth,

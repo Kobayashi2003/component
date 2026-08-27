@@ -25,7 +25,17 @@ export class BrowserReaderInputRouter {
     private readonly onError: (error: unknown, command: ReaderCommand) => void = () => {},
   ) {
     this.policy = { ...DEFAULT_READER_INPUT_POLICY, ...policy };
+    // Keyboard events only reach a listener on their own element or an ancestor
+    // of it, so the element this router binds to has to be able to hold focus
+    // itself. A host that made a *parent* focusable instead would leave the page
+    // keys dead: the event would travel up from the parent and never pass here.
+    if (!hostElement.hasAttribute?.('tabindex')) hostElement.tabIndex = -1;
     this.attachTarget(hostElement);
+  }
+
+  /** The element that must hold focus for keyboard reading commands to arrive. */
+  get keyboardTarget(): HTMLElement {
+    return this.hostElement;
   }
 
   syncDocuments(contexts: readonly RendererContentDocument[]): void {

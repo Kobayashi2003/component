@@ -19,13 +19,11 @@ import type {
 import {
   findVisibleDomPoint,
   inspectComputedPresentation,
-  measureVerticalPaginatedPageMap,
   navigateReflowable,
   restoreDomPoint,
   restoreProgression,
   snapshotReflowableLayout,
 } from './dom';
-import type { PaginatedPageMap } from './geometry';
 import {
   DEFAULT_REFLOWABLE_RENDERER_POLICY,
   type ReflowablePresentation,
@@ -35,10 +33,8 @@ import {
 import {
   buildReaderPreferenceCss,
   buildReflowableLayoutCss,
-  buildVerticalPageExtentCss,
   READER_LAYOUT_STYLE_ID,
   READER_PREFERENCES_STYLE_ID,
-  READER_VERTICAL_EXTENT_STYLE_ID,
   removeReaderStyle,
   upsertReaderStyle,
 } from './styles';
@@ -85,7 +81,6 @@ export class ReflowableRenderer implements RendererInstance {
   private document: Document | null = null;
   private plan: RenditionPlan | null = null;
   private presentation: ReflowablePresentation | null = null;
-  private pageMap: PaginatedPageMap | null = null;
   private visible = true;
   private disposed = false;
   private readonly layoutListeners = new Set<(layout: import('../model').RendererLayoutSnapshot) => void>();
@@ -186,7 +181,7 @@ export class ReflowableRenderer implements RendererInstance {
     const plan = this.plan;
     if (!document || !plan) return null;
     const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
-    const snapshot = snapshotReflowableLayout(document, plan, presentation, this.policy, this.pageMap);
+    const snapshot = snapshotReflowableLayout(document, plan, presentation, this.policy);
     const point = findVisibleDomPoint(document, presentation);
     if (!point) {
       return { href: plan.href, spineIndex: plan.spineIndex, locations: { progression: snapshot.progression } };
@@ -213,8 +208,8 @@ export class ReflowableRenderer implements RendererInstance {
     transaction.mutate(() => {
       const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
       const resolved = resolveCompositeLocator(document, this.environment.publication, plan.spineIndex, locator);
-      if (resolved.point) restoreDomPoint(document, plan, presentation, this.policy, resolved.point, this.pageMap);
-      else restoreProgression(document, plan, presentation, this.policy, resolved.progression ?? 0, this.pageMap);
+      if (resolved.point) restoreDomPoint(document, plan, presentation, this.policy, resolved.point);
+      else restoreProgression(document, plan, presentation, this.policy, resolved.progression ?? 0);
     });
   }
 
@@ -230,7 +225,7 @@ export class ReflowableRenderer implements RendererInstance {
     if (!document || !plan) return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
     return transaction.mutate(() => {
       const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
-      return navigateReflowable(document, plan, presentation, this.policy, direction, this.pageMap);
+      return navigateReflowable(document, plan, presentation, this.policy, direction);
     });
   }
 
@@ -238,42 +233,22 @@ export class ReflowableRenderer implements RendererInstance {
     this.assertAlive();
     const surface = this.surface;
     if (!surface) throw new Error('ReflowableRenderer has no content surface.');
-    let report = await surface.waitForLayoutStable(transaction.signal);
+    const report = await surface.waitForLayoutStable(transaction.signal);
     transaction.throwIfSuperseded();
-    let appliedVerticalExtent = false;
 
+    // Vertical writing used to need a second pass here: the reader measured the
+    // authored extent itself, padded the body out to a whole spread and waited
+    // for the browser again. CSS fragmentation makes both unnecessary — the
+    // column boxes are the pages, and their count is read straight back off the
+    // scrolling box like it already was for horizontal writing.
     transaction.mutate(() => {
-      if (this.document && this.plan) {
-        this.presentation = inspectComputedPresentation(this.document, this.plan);
-        this.environment.onPresentationHints?.({
-          writingMode: this.presentation.writingMode,
-          direction: this.presentation.textDirection,
-        });
-
-        const map = measureVerticalPaginatedPageMap(
-          this.document,
-          this.plan,
-          this.presentation,
-          this.policy,
-        );
-        this.pageMap = map;
-        if (map) {
-          upsertReaderStyle(
-            this.document,
-            READER_VERTICAL_EXTENT_STYLE_ID,
-            buildVerticalPageExtentCss(map.slotCount, map.pageExtent, map.leadingBlankCount),
-          );
-          appliedVerticalExtent = true;
-        }
-      }
+      if (!this.document || !this.plan) return;
+      this.presentation = inspectComputedPresentation(this.document, this.plan);
+      this.environment.onPresentationHints?.({
+        writingMode: this.presentation.writingMode,
+        direction: this.presentation.textDirection,
+      });
     });
-
-    // Extending the physical body to a complete spread is a reader-owned layout
-    // mutation. Let the browser settle once more before reporting/locating.
-    if (appliedVerticalExtent) {
-      report = await surface.waitForLayoutStable(transaction.signal);
-      transaction.throwIfSuperseded();
-    }
     return report;
   }
 
@@ -291,7 +266,7 @@ export class ReflowableRenderer implements RendererInstance {
     this.assertAlive();
     if (!this.document || !this.plan) return {};
     const presentation = this.presentation ?? inspectComputedPresentation(this.document, this.plan);
-    return snapshotReflowableLayout(this.document, this.plan, presentation, this.policy, this.pageMap);
+    return snapshotReflowableLayout(this.document, this.plan, presentation, this.policy);
   }
 
   setVisibility(visible: boolean): void {
@@ -311,16 +286,11 @@ export class ReflowableRenderer implements RendererInstance {
     this.document = null;
     this.plan = null;
     this.presentation = null;
-    this.pageMap = null;
   }
 
   private applyPlan(plan: RenditionPlan): void {
     const document = this.document;
     if (!document) throw new Error('Cannot apply a reflowable plan before its document is loaded.');
-    // Reader-owned page padding is derived from post-layout geometry and must
-    // never survive into the next measurement/viewport plan.
-    this.pageMap = null;
-    removeReaderStyle(document, READER_VERTICAL_EXTENT_STYLE_ID);
 
     // User typography can influence computed presentation (for example a
     // user font can change metrics), but must not overwrite writing-mode or
@@ -399,6 +369,10 @@ export class ReflowableRenderer implements RendererInstance {
 function prepareReflowableContainer(container: HTMLElement): void {
   if (!container.style.position) container.style.position = 'relative';
   container.style.overflow = 'hidden';
+  // The container outlives any one renderer. A fixed-layout renderer that ran
+  // before this one leaves its own scroll settings behind, so every property it
+  // writes has to be restated here rather than only the ones that differ.
+  container.style.overscrollBehavior = 'contain';
 }
 
 function prepareReflowableSurface(element: HTMLElement): void {

@@ -4,7 +4,36 @@ import type { ReflowableRendererPolicy } from './model';
 
 export const READER_LAYOUT_STYLE_ID = 'epub-reader-layout-style';
 export const READER_PREFERENCES_STYLE_ID = 'epub-reader-preferences-style';
-export const READER_VERTICAL_EXTENT_STYLE_ID = 'epub-reader-vertical-page-extent-style';
+
+/**
+ * Block-axis padding for vertical pages, in `em` so it tracks the reader's font
+ * size. It sits on the multicol container, so every column gets it.
+ *
+ * `ruby-position: over` puts an annotation on the block-start side of its base,
+ * which in `vertical-rl` is the right-hand edge of the page. With no room
+ * reserved there the first column of each page paints its furigana outside the
+ * page box and it is cropped — measured at 1.5px of overflow for 16px text, so
+ * 1em covers the whole 70%–300% font-size range the reader offers.
+ */
+const VERTICAL_BLOCK_SLACK = '1em';
+
+/**
+ * Inline margin of a vertical page: the top and bottom of the page as a reader
+ * sees it, which is exactly what the settings panel labels the page-margin
+ * preference for vertical books.
+ *
+ * It is spent twice — once shrinking each column and once as the gap between
+ * columns — so that a column plus its gap advances by exactly one viewport and
+ * the margin lands on both edges of every page instead of only at the two ends
+ * of the document.
+ */
+function verticalInlineMargin(plan: RenditionPlan): number {
+  return Math.max(0, plan.viewport.height * plan.preferences.pageMarginPercent / 100);
+}
+
+function verticalColumnInlineSize(plan: RenditionPlan): number {
+  return Math.max(1, plan.viewport.height - verticalInlineMargin(plan) * 2);
+}
 
 export function buildReflowableLayoutCss(
   plan: RenditionPlan,
@@ -20,15 +49,29 @@ export function buildReflowableLayoutCss(
     ? cssPixels(reflowablePageInset(plan, policy, writingMode))
     : '0px';
   const inlinePadding = `${plan.preferences.pageMarginPercent}%`;
-  const leadingBlank = reflowableNeedsLeadingBlankPage(plan);
+  // A leading blank only means something where a spread really is two side by
+  // side fragmentainers, which is horizontal two-up. A vertical spread is one
+  // fragmentainer running right-to-left across both leaves, so there is no slot
+  // inside it to align a chapter to: a blank column there does not move the
+  // opening onto the correct leaf, it just spends a whole spread on nothing and
+  // makes the first page turn of the chapter land on an empty page.
+  const leadingBlank = writingMode === 'horizontal-tb' && reflowableNeedsLeadingBlankPage(plan);
 
   if (plan.renderer === 'reflowable-paginated') {
-    // Horizontal writing needs multicol fragmentation because authored block
-    // flow is vertical. Vertical writing already advances blocks on physical X;
-    // forcing multicol there creates columns on physical Y (the exact failure
-    // that made Japanese chapters appear only in the right half of the spread).
+    // Both writing modes fragment through CSS multicol, and the reader never
+    // decides a page boundary itself. A boundary computed as `index * pageSize`
+    // bears no relation to where the line boxes actually fall, so it slices
+    // through whichever line happens to be sitting there — and the offender is
+    // then cut in half across two pages, legible on neither. A multicol
+    // fragmentation break falls between line boxes by construction.
+    //
+    // The axes swap between the modes. In vertical writing the inline axis is
+    // vertical, so column boxes stack down the page, each column is a whole
+    // page, and paging is an ordinary positive `scrollTop`. That stacking is
+    // correct; what an earlier revision got wrong was keeping a horizontal
+    // scroll transport underneath it and concluding multicol was unusable here.
     if (writingMode !== 'horizontal-tb') {
-      const margin = writingMode === 'vertical-rl' ? '0 0 0 auto' : '0 auto 0 0';
+      const inlineMargin = verticalInlineMargin(plan);
       return `
 html {
   box-sizing: border-box !important;
@@ -36,8 +79,8 @@ html {
   height: ${height} !important;
   margin: 0 !important;
   padding: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   scrollbar-width: none !important;
   scroll-behavior: auto !important;
 }
@@ -45,20 +88,21 @@ html, body { scrollbar-width: none !important; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; }
 body {
   box-sizing: border-box !important;
-  width: ${pageWidth} !important;
+  width: ${width} !important;
   height: ${height} !important;
-  min-width: ${pageWidth} !important;
-  min-height: ${height} !important;
-  margin: ${margin} !important;
+  min-width: ${width} !important;
+  margin: 0 !important;
   padding: 0 !important;
-  padding-inline: ${inlinePadding} !important;
-  column-width: auto !important;
+  padding-inline: ${cssLength(inlineMargin)} !important;
+  padding-block: ${VERTICAL_BLOCK_SLACK} !important;
+  column-width: ${cssPixels(verticalColumnInlineSize(plan))} !important;
   column-count: auto !important;
-  column-gap: 0 !important;
-  column-fill: balance !important;
+  column-gap: ${cssLength(inlineMargin * 2)} !important;
+  column-fill: auto !important;
   column-rule: none !important;
   overflow: visible !important;
 }
+${leadingBlank ? leadingBlankColumnCss() : ''}
 ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
 `;
     }
@@ -153,28 +197,34 @@ ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
 `;
 }
 
+/**
+ * Gap between one page's fragmentainer and the next, along the paging axis.
+ *
+ * Vertical columns stack on the inline (vertical) axis, so the gap there is the
+ * pair of page margins that meet between two pages. Column size plus gap is a
+ * page advance of exactly one viewport in both writing modes.
+ */
 export function reflowablePageGap(
   plan: RenditionPlan,
   policy: ReflowableRendererPolicy,
   writingMode = plan.writingMode.value,
 ): number {
-  // Vertical pagination uses native horizontal block overflow instead of CSS
-  // columns. A synthetic inter-page gutter would become content overlap unless
-  // every block were fragmented into reader-owned wrappers, so page slots use
-  // the full viewport width and the UI may draw any visual gutter outside the
-  // publication document.
-  if (writingMode !== 'horizontal-tb') return 0;
+  if (writingMode !== 'horizontal-tb') return verticalInlineMargin(plan) * 2;
   const baseGap = baseReflowablePageGap(plan, policy);
   return baseGap + (reflowablePageInset(plan, policy, writingMode) * 2);
 }
 
+/**
+ * Size of one page's fragmentainer along the paging axis: a column's width for
+ * horizontal writing, a column's height for vertical writing.
+ */
 export function reflowablePageWidth(
   plan: RenditionPlan,
   policy: ReflowableRendererPolicy,
   writingMode = plan.writingMode.value,
 ): number {
+  if (writingMode !== 'horizontal-tb') return verticalColumnInlineSize(plan);
   const slotWidth = physicalPageSlotWidth(plan, policy, writingMode);
-  if (writingMode !== 'horizontal-tb') return slotWidth;
   return Math.max(1, slotWidth - (reflowablePageInset(plan, policy, writingMode) * 2));
 }
 
@@ -223,22 +273,6 @@ body::before {
 `;
 }
 
-export function buildVerticalPageExtentCss(
-  slotCount: number,
-  pageExtent: number,
-  leadingBlankCount: 0 | 1 = 0,
-): string {
-  if (!Number.isInteger(slotCount) || slotCount < 1) throw new RangeError('slotCount must be an integer >= 1.');
-  if (!Number.isFinite(pageExtent) || pageExtent <= 0) throw new RangeError('pageExtent must be positive and finite.');
-  return `
-body {
-  width: ${cssPixels(slotCount * pageExtent)} !important;
-  min-width: ${cssPixels(slotCount * pageExtent)} !important;
-  padding-block-start: ${leadingBlankCount === 0 ? '0px' : cssPixels(pageExtent)} !important;
-}
-`;
-}
-
 export function removeReaderStyle(document: Document, id: string): void {
   document.getElementById(id)?.remove();
 }
@@ -252,15 +286,26 @@ export function buildReaderPreferenceCss(plan: RenditionPlan, resolvedTheme?: Re
   if (preferences.fontFamily) {
     rules.push(`font-family: ${safeFontFamily(preferences.fontFamily)} !important`);
   }
+  const extra: string[] = [];
   if (preferences.lineHeight != null) {
     rules.push(`line-height: ${preferences.lineHeight} !important`);
+    // A reader-chosen line height must not squeeze ruby. An <rt> is laid out
+    // against its base's line box, so a compressed line height crops the
+    // furigana or overlaps it into the neighbouring line — and the reader's
+    // range goes down to 0.9. Ruby keeps the font's own metrics. Zero
+    // specificity, so publisher rules still win where they exist.
+    extra.push(`:where(ruby, rb, rt, rtc) { line-height: normal; }`);
   }
   const theme = themeDeclarations(preferences.theme, resolvedTheme);
   if (theme?.body) rules.push(...theme.body);
-  const extra: string[] = [];
   if (theme?.link) extra.push(`a, a:link, a:visited { color: ${theme.link} !important; }`);
   if (theme?.forceTextColor) {
-    extra.push(`:where(p, span, div, li, td, th, blockquote, figcaption, cite, em, strong, b, i, u, small, sub, sup, code, pre, h1, h2, h3, h4, h5, h6) { color: inherit !important; }`);
+    // Everything but links, rather than an enumerated tag list. The list this
+    // replaces omitted section, article, dt/dd, caption, label and every ruby
+    // element, so on a dark theme those kept their authored near-black colour
+    // and went invisible. Links are excluded because the rule above gives them
+    // the theme's own link colour.
+    extra.push(`:where(body *:not(a, a *)) { color: inherit !important; }`);
   }
 
   return `
@@ -338,6 +383,12 @@ function safeFontFamily(value: string): string {
   return families.map(family => genericFamilies.has(family.toLowerCase()) ? family.toLowerCase() : quoteCssString(family)).join(', ');
 }
 
+/** Extents that must never collapse to nothing: a page, a column. */
 function cssPixels(value: number): string {
   return `${Math.max(1, value)}px`;
+}
+
+/** Lengths where zero is a legitimate value: a margin, a gap. */
+function cssLength(value: number): string {
+  return `${Math.max(0, value)}px`;
 }

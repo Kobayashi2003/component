@@ -18,6 +18,7 @@ import { EpubImageViewer } from './EpubImageViewer';
 import { useEpubReader } from './use-epub-reader';
 import { feedbackForIntent, type ReaderFeedbackSpec } from './feedback-model';
 import { useCompactReaderLayout } from './responsive';
+import { useDelayedFlag, useHeldValue } from './loading-delay';
 import { ChromeIcon, CloseIcon, FullscreenIcon, HistoryIcon, PinIcon, ReaderToolIcon } from './reader-icons';
 
 type Panel = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help' | null;
@@ -170,14 +171,33 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
   const snapshot = reader.state.reader;
   const compatibility = snapshot?.compatibility.status;
   const title = snapshot?.publication.metadata.title?.trim() || 'Opening publication…';
-  const chapter = snapshot?.accessibility.chapter || (reader.state.status === 'ready' ? 'Reading' : 'Preparing your book');
+  // The line under the title. A page turn empties it for a few dozen
+  // milliseconds, so hold the previous chapter name across the gap; once the
+  // turn settles, report what the new position actually resolves to, which for
+  // front matter with no table-of-contents entry is nothing in particular.
+  const turning = snapshot != null && reader.state.status !== 'ready';
+  const chapterName = useHeldValue(snapshot?.accessibility.chapter?.trim() ?? '', turning);
+  const turnIsSlow = useDelayedFlag(turning);
+  const chapter = (turnIsSlow ? 'Loading…' : chapterName)
+    || (reader.state.status === 'ready' || snapshot ? 'Reading' : 'Preparing your book');
   const plan = snapshot?.renderer.plan;
-  const readingMode = plan?.renderer === 'fixed-layout'
+  // Reader chrome is decided by the publication, never by the page currently on
+  // screen. Renderer plans are per spine item, and most light novels interleave
+  // pre-paginated illustration pages with reflowable chapters, so a per-page
+  // decision restyles the entire interface on an ordinary page turn.
+  //
+  // The shell therefore carries two families of data attributes:
+  //   data-chrome / data-book-layout / data-reading-mode  publication-scoped,
+  //     stable for as long as this book is open. Chrome styles use only these.
+  //   data-renderer / data-writing-mode / data-page-progression / data-spread
+  //     page-scoped. Only content-area styles may use these.
+  const presentation = snapshot?.presentation;
+  const immersive = presentation?.chrome === 'immersive';
+  const readingMode = presentation?.layout === 'fixed-layout'
     ? 'fixed'
-    : plan?.writingMode.value && plan.writingMode.value !== 'horizontal-tb'
+    : presentation && presentation.writingMode !== 'horizontal-tb'
       ? 'text-vertical'
       : 'text-horizontal';
-  const fixedLayout = plan?.renderer === 'fixed-layout';
   const chromeHidden = manualChromeHidden || autoChromeHidden;
 
   useEffect(() => {
@@ -191,7 +211,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
 
   useEffect(() => {
     const shell = shellRef.current;
-    if (!shell || !fixedLayout || chromePinned || panel || footnote || selectionTool || activeMark || activeImage || manualChromeHidden) {
+    if (!shell || !immersive || chromePinned || panel || footnote || selectionTool || activeMark || activeImage || manualChromeHidden) {
       setAutoChromeHidden(false);
       return;
     }
@@ -227,7 +247,20 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
       shell.removeEventListener('focusin', hold);
       shell.removeEventListener('focusout', reveal);
     };
-  }, [activeImage, activeMark, chromePinned, fixedLayout, footnote, manualChromeHidden, panel, selectionTool]);
+  }, [activeImage, activeMark, chromePinned, immersive, footnote, manualChromeHidden, panel, selectionTool]);
+
+  // Hand the reader the keyboard once a book is open, so page keys work without
+  // having to click into the page first. Only when nothing has claimed focus:
+  // never take it away from a control the reader is already using.
+  useEffect(() => {
+    if (reader.state.status !== 'ready') return;
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      document.getElementById(viewportId)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reader.state.status, source, viewportId]);
 
   useEffect(() => {
     const update = () => setFullscreen(document.fullscreenElement === shellRef.current);
@@ -383,11 +416,13 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
       <div
         ref={shellRef}
         className={`epub-reader-shell${chromeHidden ? ' is-chrome-hidden' : ''}${manualChromeHidden ? ' is-chrome-manual' : ''}${fullscreen ? ' is-fullscreen' : ''}`}
+        data-chrome={presentation?.chrome ?? undefined}
+        data-book-layout={presentation?.layout ?? undefined}
+        data-reading-mode={readingMode}
         data-renderer={plan?.renderer ?? undefined}
         data-writing-mode={plan?.writingMode.value ?? undefined}
         data-page-progression={plan?.pageProgression.value ?? undefined}
         data-spread={plan?.spread.mode ?? undefined}
-        data-reading-mode={readingMode}
         data-theme={snapshot?.preferences.theme ?? 'publisher'}
         data-footnote-open={footnote ? 'true' : undefined}
         data-selection-tools-open={selectionTool ? 'true' : undefined}
@@ -428,7 +463,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
             {PANELS.slice(4).map(item => (
               <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} secondary />
             ))}
-            {fixedLayout ? (
+            {immersive ? (
               <button
                 className="epub-reader-shell__tool is-secondary epub-reader-shell__fullscreen"
                 type="button"
@@ -440,7 +475,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
                 <span>{fullscreen ? 'Exit full screen' : 'Full screen'}</span>
               </button>
             ) : null}
-            {fixedLayout ? (
+            {immersive ? (
               <button
                 className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-pin"
                 type="button"
@@ -541,9 +576,13 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
               </div>
             </aside>
           ) : null}
-          <div id={viewportId} key="reader-viewport" className="epub-reader-shell__viewport" tabIndex={-1}>
-            <EpubViewport ariaDescribedBy={instructionsId}><EpubReaderStatus /></EpubViewport>
-          </div>
+          <EpubViewport
+            key="reader-viewport"
+            id={viewportId}
+            tabIndex={-1}
+            className="epub-reader-shell__viewport"
+            ariaDescribedBy={instructionsId}
+          ><EpubReaderStatus /></EpubViewport>
           {footnote ? (
             <aside
               ref={footnoteRef}

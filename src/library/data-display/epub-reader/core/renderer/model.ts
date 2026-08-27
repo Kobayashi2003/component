@@ -28,6 +28,20 @@ export interface LayoutMeasurement {
   readonly clientHeight: number;
   readonly scrollWidth: number;
   readonly scrollHeight: number;
+  /**
+   * Physical bounds of the laid-out content, including overflow toward negative
+   * coordinates.
+   *
+   * `scrollWidth`/`scrollHeight` only ever grow in the positive direction, so
+   * `vertical-rl` content — whose blocks advance leftward, off the origin — can
+   * reflow from one page to twelve without moving either of them. Stability
+   * detection that watched only the scrolling box would call such a document
+   * settled while its fonts were still arriving, and the page map built from
+   * that moment would be short. Optional because non-DOM layout targets in the
+   * test suite do not report it.
+   */
+  readonly contentWidth?: number;
+  readonly contentHeight?: number;
 }
 
 export interface LayoutStabilityPolicy {
@@ -156,6 +170,16 @@ export interface RendererLayoutSnapshot {
   readonly pageCount?: number;
   readonly currentPage?: number;
   readonly progression?: number;
+  /**
+   * Spine items the reader can see right now, in reading order.
+   *
+   * A composed spread shows two spine documents at once. Navigation has to know
+   * that to avoid spending a page turn re-composing the spread it is already
+   * showing, and the product has to know it to report a position that covers
+   * both rather than naming one and appearing to skip the other. Absent for
+   * renderers that only ever show the active item.
+   */
+  readonly visibleSpineIndices?: readonly number[];
 }
 
 /**

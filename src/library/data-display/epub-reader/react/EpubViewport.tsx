@@ -12,7 +12,7 @@ const DEFAULT_STYLE: CSSProperties = {
   overflow: 'hidden',
 };
 
-export function EpubViewport({ reader: explicit, className, style, ariaLabel, ariaDescribedBy, children }: EpubViewportProps) {
+export function EpubViewport({ reader: explicit, className, style, ariaLabel, ariaDescribedBy, id, tabIndex, children }: EpubViewportProps) {
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
   if (!reader) throw new Error('<EpubViewport> requires a reader prop or EpubReaderProvider.');
@@ -22,6 +22,8 @@ export function EpubViewport({ reader: explicit, className, style, ariaLabel, ar
   return (
     <div
       ref={reader.viewportRef}
+      id={id}
+      tabIndex={tabIndex}
       className={className}
       style={{ ...DEFAULT_STYLE, ...style }}
       role="region"

@@ -3,15 +3,10 @@ import type { RenditionPlan } from '../../rendition';
 import { isSemanticTextNode } from '../../text';
 import {
   calculatePaginatedGeometry,
-  createPaginatedPageMap,
-  pageMapNavigationTarget,
-  pageMapOffsetForProgression,
-  pageMapPosition,
   pageOffsetForProgression,
   scrollProgression,
-  type PaginatedPageMap,
 } from './geometry';
-import { reflowableNeedsLeadingBlankPage, reflowablePageGap, reflowablePageWidth } from './styles';
+import { reflowablePageGap, reflowablePageWidth } from './styles';
 import type {
   HorizontalFlowDirection,
   ReflowableLayoutSnapshot,
@@ -39,10 +34,83 @@ export function inspectComputedPresentation(
   return {
     writingMode,
     textDirection,
-    scrollAxis: plan.renderer === 'reflowable-paginated'
-      ? 'horizontal'
-      : writingMode === 'horizontal-tb' ? 'vertical' : 'horizontal',
+    scrollAxis: reflowableScrollAxis(writingMode, plan.renderer),
     horizontalFlow: horizontalFlow(writingMode, textDirection),
+  };
+}
+
+/**
+ * Physical axis the reader scrolls along to move through content.
+ *
+ * Paginated content fragments through CSS multicol, and column boxes are placed
+ * along the multicol container's *inline* axis — physical X for `horizontal-tb`,
+ * physical Y for vertical writing. Scrolled content just overflows along its
+ * block axis, which is the other one in each case.
+ */
+export function reflowableScrollAxis(
+  writingMode: WritingMode,
+  renderer: RenditionPlan['renderer'],
+): 'horizontal' | 'vertical' {
+  if (renderer === 'reflowable-paginated') {
+    return writingMode === 'horizontal-tb' ? 'horizontal' : 'vertical';
+  }
+  return writingMode === 'horizontal-tb' ? 'vertical' : 'horizontal';
+}
+
+/**
+ * How many authored pages one viewport shows.
+ *
+ * Horizontal two-up puts two half-width column boxes side by side, so a page
+ * turn advances by two. Vertical two-up is not that: a Japanese spread is one
+ * continuous flow running right-to-left across both leaves, so it is a single
+ * fragmentainer the full width of the viewport, and the division between the
+ * leaves is a gutter the shell may draw rather than a fragmentation boundary.
+ */
+function visiblePageCount(plan: RenditionPlan, presentation: ReflowablePresentation): 1 | 2 {
+  if (presentation.writingMode !== 'horizontal-tb') return 1;
+  return plan.spread.execution === 'intra-document' ? 2 : 1;
+}
+
+/**
+ * The paging axis of a paginated document, as a read/write pair.
+ *
+ * Vertical writing stacks its column boxes down the page, so paging there is an
+ * ordinary positive `scrollTop`. Horizontal writing stacks them across, where
+ * right-to-left content still has to be normalized out of the browser's several
+ * `scrollLeft` conventions. Callers work in distance-from-the-authored-start and
+ * never touch either directly.
+ */
+interface PagingAxis {
+  /** Content extent along the paging axis. */
+  readonly extent: number;
+  readonly max: number;
+  read(): number;
+  write(logicalOffset: number): void;
+}
+
+function pagingAxis(
+  scrolling: HTMLElement,
+  measurement: { readonly scrollWidth: number; readonly scrollHeight: number },
+  plan: RenditionPlan,
+  presentation: ReflowablePresentation,
+): PagingAxis {
+  if (presentation.scrollAxis === 'vertical') {
+    const extent = measurement.scrollHeight;
+    const max = Math.max(0, extent - plan.viewport.height);
+    return {
+      extent,
+      max,
+      read: () => clamp(Math.max(0, scrolling.scrollTop), 0, max),
+      write: value => { scrolling.scrollTop = clamp(value, 0, max); },
+    };
+  }
+  const extent = measurement.scrollWidth;
+  const max = Math.max(0, extent - plan.viewport.width);
+  return {
+    extent,
+    max,
+    read: () => getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max),
+    write: value => setHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, value),
   };
 }
 
@@ -51,43 +119,19 @@ export function snapshotReflowableLayout(
   plan: RenditionPlan,
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
-  pageMap: PaginatedPageMap | null = null,
 ): ReflowableLayoutSnapshot {
   const scrolling = getScrollingElement(document);
   const measurement = measureDocument(document);
 
   if (plan.renderer === 'reflowable-paginated') {
-    if (pageMap) {
-      const logical = getHorizontalLogicalOffset(
-        scrolling,
-        presentation.horizontalFlow,
-        pageMap.maxLogicalOffset,
-        usesRightAnchoredVerticalExtent(presentation, pageMap),
-      );
-      const position = pageMapPosition(pageMap, logical);
-      return {
-        measurement,
-        pageCount: pageMap.pageCount,
-        currentPage: position.currentPage,
-        progression: position.progression,
-        writingMode: presentation.writingMode,
-        textDirection: presentation.textDirection,
-        scrollAxis: 'horizontal',
-        pageGap: pageMap.pageGap,
-        pageWidth: pageMap.pageExtent,
-        visiblePageCount: pageMap.visiblePageCount,
-      };
-    }
-
-    const max = Math.max(0, measurement.scrollWidth - plan.viewport.width);
-    const logical = getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max);
+    const axis = pagingAxis(scrolling, measurement, plan, presentation);
     const pageGap = reflowablePageGap(plan, policy, presentation.writingMode);
     const pageWidth = reflowablePageWidth(plan, policy, presentation.writingMode);
     const geometry = calculatePaginatedGeometry({
-      scrollExtent: measurement.scrollWidth,
+      scrollExtent: axis.extent,
       pageExtent: pageWidth,
       pageGap,
-      logicalOffset: logical,
+      logicalOffset: axis.read(),
     });
     return {
       measurement,
@@ -96,10 +140,10 @@ export function snapshotReflowableLayout(
       progression: geometry.progression,
       writingMode: presentation.writingMode,
       textDirection: presentation.textDirection,
-      scrollAxis: 'horizontal',
+      scrollAxis: presentation.scrollAxis,
       pageGap,
       pageWidth,
-      visiblePageCount: plan.spread.execution === 'intra-document' ? 2 : 1,
+      visiblePageCount: visiblePageCount(plan, presentation),
     };
   }
 
@@ -125,9 +169,8 @@ export function captureProvisionalLocator(
   plan: RenditionPlan,
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
-  pageMap: PaginatedPageMap | null = null,
 ): Locator {
-  const snapshot = snapshotReflowableLayout(document, plan, presentation, policy, pageMap);
+  const snapshot = snapshotReflowableLayout(document, plan, presentation, policy);
   const visible = findVisibleTextAnchor(document, presentation, policy.locatorTextLength);
 
   return {
@@ -147,7 +190,6 @@ export function restoreProvisionalLocator(
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
   locator: Locator,
-  pageMap: PaginatedPageMap | null = null,
 ): void {
   const scrolling = getScrollingElement(document);
   let restored = false;
@@ -170,14 +212,14 @@ export function restoreProvisionalLocator(
   }
 
   if (!restored && locator.locations.progression != null) {
-    restoreProgression(document, plan, presentation, policy, locator.locations.progression, pageMap);
+    restoreProgression(document, plan, presentation, policy, locator.locations.progression);
     return;
   }
 
   if (plan.renderer === 'reflowable-paginated') {
-    snapHorizontalToPage(document, plan, presentation, policy, pageMap);
+    snapPaginatedToPage(document, plan, presentation, policy);
   } else if (!restored && locator.locations.progression != null) {
-    restoreProgression(document, plan, presentation, policy, locator.locations.progression, pageMap);
+    restoreProgression(document, plan, presentation, policy, locator.locations.progression);
   }
 
   // Clamp browsers that leave fractional/subpixel scroll positions after
@@ -191,38 +233,20 @@ export function restoreProgression(
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
   progression: number,
-  pageMap: PaginatedPageMap | null = null,
 ): void {
   const scrolling = getScrollingElement(document);
   const measurement = measureDocument(document);
   const normalized = normalizeProgression(progression);
 
   if (plan.renderer === 'reflowable-paginated') {
-    if (pageMap) {
-      setHorizontalLogicalOffset(
-        scrolling,
-        presentation.horizontalFlow,
-        pageMap.maxLogicalOffset,
-        pageMapOffsetForProgression(pageMap, normalized),
-        usesRightAnchoredVerticalExtent(presentation, pageMap),
-      );
-      return;
-    }
-    const pageGap = reflowablePageGap(plan, policy, presentation.writingMode);
-    const pageWidth = reflowablePageWidth(plan, policy, presentation.writingMode);
+    const axis = pagingAxis(scrolling, measurement, plan, presentation);
     const geometry = calculatePaginatedGeometry({
-      scrollExtent: measurement.scrollWidth,
-      pageExtent: pageWidth,
-      pageGap,
+      scrollExtent: axis.extent,
+      pageExtent: reflowablePageWidth(plan, policy, presentation.writingMode),
+      pageGap: reflowablePageGap(plan, policy, presentation.writingMode),
       logicalOffset: 0,
     });
-    const logical = pageOffsetForProgression(normalized, geometry.pageCount, geometry.pageAdvance);
-    setHorizontalLogicalOffset(
-      scrolling,
-      presentation.horizontalFlow,
-      Math.max(0, measurement.scrollWidth - plan.viewport.width),
-      logical,
-    );
+    axis.write(pageOffsetForProgression(normalized, geometry.pageCount, geometry.pageAdvance));
     return;
   }
 
@@ -235,108 +259,22 @@ export function restoreProgression(
   }
 }
 
-function snapHorizontalToPage(
+function snapPaginatedToPage(
   document: Document,
   plan: RenditionPlan,
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
-  pageMap: PaginatedPageMap | null = null,
 ): void {
-  const scrolling = getScrollingElement(document);
-  if (pageMap) {
-    const logical = getHorizontalLogicalOffset(
-      scrolling,
-      presentation.horizontalFlow,
-      pageMap.maxLogicalOffset,
-      usesRightAnchoredVerticalExtent(presentation, pageMap),
-    );
-    const position = pageMapPosition(pageMap, logical);
-    setHorizontalLogicalOffset(
-      scrolling,
-      presentation.horizontalFlow,
-      pageMap.maxLogicalOffset,
-      position.snappedOffset,
-      usesRightAnchoredVerticalExtent(presentation, pageMap),
-    );
-    return;
-  }
-  const measurement = measureDocument(document);
-  const max = Math.max(0, measurement.scrollWidth - plan.viewport.width);
-  const logical = getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max);
+  const axis = pagingAxis(getScrollingElement(document), measureDocument(document), plan, presentation);
   const geometry = calculatePaginatedGeometry({
-    scrollExtent: measurement.scrollWidth,
+    scrollExtent: axis.extent,
     pageExtent: reflowablePageWidth(plan, policy, presentation.writingMode),
     pageGap: reflowablePageGap(plan, policy, presentation.writingMode),
-    logicalOffset: logical,
+    logicalOffset: axis.read(),
   });
-  setHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, geometry.snappedOffset);
+  axis.write(geometry.snappedOffset);
 }
 
-
-/**
- * Measure vertical reflow after fonts/images settle and convert the authored
- * horizontal block-flow extent into logical pages. This intentionally measures
- * DOM geometry before the reader pads the body to a complete spread; measuring
- * scrollWidth after padding would count reader-added blank slots as content.
- */
-export function measureVerticalPaginatedPageMap(
-  document: Document,
-  plan: RenditionPlan,
-  presentation: ReflowablePresentation,
-  policy: ReflowableRendererPolicy,
-): PaginatedPageMap | null {
-  if (plan.renderer !== 'reflowable-paginated' || presentation.writingMode === 'horizontal-tb') {
-    return null;
-  }
-
-  const body = document.body;
-  if (!body) return null;
-  const pageExtent = reflowablePageWidth(plan, policy, presentation.writingMode);
-  const visiblePageCount = plan.spread.execution === 'intra-document' ? 2 : 1;
-  const bodyRect = body.getBoundingClientRect();
-  let minX = bodyRect.left;
-  let maxX = bodyRect.right;
-
-  const includeRect = (rect: DOMRect | DOMRectReadOnly): void => {
-    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.right)) return;
-    if (rect.width <= 0 && rect.height <= 0) return;
-    minX = Math.min(minX, rect.left);
-    maxX = Math.max(maxX, rect.right);
-  };
-
-  // Text is the primary pagination fact for normal books. Measuring text ranges
-  // catches overflow that scrollWidth can hide for vertical-rl negative X flow.
-  const walker = document.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */);
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    if (!node.data.trim() || !isSemanticTextNode(node)) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    for (const rect of Array.from(range.getClientRects())) includeRect(rect);
-    range.detach?.();
-  }
-
-  // Replaced/atomic content can occupy pages without any semantic text.
-  for (const element of Array.from(body.querySelectorAll(
-    'img,svg,video,canvas,object,embed,iframe,table,pre,figure',
-  ))) {
-    includeRect(element.getBoundingClientRect());
-  }
-
-  const geometricExtent = presentation.writingMode === 'vertical-rl'
-    ? bodyRect.right - minX
-    : maxX - bodyRect.left;
-  const authoredExtent = Math.max(pageExtent, geometricExtent, body.scrollWidth);
-  const pageCount = Math.max(1, Math.ceil((authoredExtent - 0.5) / pageExtent));
-
-  return createPaginatedPageMap({
-    pageCount,
-    pageExtent,
-    pageGap: 0,
-    visiblePageCount,
-    leadingBlankCount: reflowableNeedsLeadingBlankPage(plan) ? 1 : 0,
-  });
-}
 
 function findVisibleTextAnchor(
   document: Document,
@@ -439,15 +377,9 @@ function getHorizontalLogicalOffset(
   element: HTMLElement,
   flow: HorizontalFlowDirection,
   max: number,
-  rightAnchoredNegative = false,
 ): number {
   if (flow === 'left-to-right') return clamp(Math.max(0, element.scrollLeft), 0, max);
   const raw = element.scrollLeft;
-  // Reader-padded vertical-rl content is right anchored and advances into
-  // negative overflow. Its zero position is therefore unambiguously the
-  // authored start; probing positive RTL models at zero misclassifies it as
-  // start-at-max in Chromium.
-  if (rightAnchoredNegative) return rightAnchoredVerticalLogicalOffset(raw, max);
   if (raw < 0) return clamp(-raw, 0, max); // negative model / leftward overflow
 
   const model = detectPositiveRtlModel(element, raw);
@@ -461,16 +393,10 @@ function setHorizontalLogicalOffset(
   flow: HorizontalFlowDirection,
   max: number,
   logical: number,
-  rightAnchoredNegative = false,
 ): void {
   const value = clamp(logical, 0, max);
   if (flow === 'left-to-right') {
     element.scrollLeft = value;
-    return;
-  }
-
-  if (rightAnchoredNegative) {
-    element.scrollLeft = rightAnchoredVerticalRawOffset(value, max);
     return;
   }
 
@@ -481,21 +407,6 @@ function setHorizontalLogicalOffset(
   element.scrollLeft = original;
   const model = detectPositiveRtlModel(element, original);
   element.scrollLeft = model === 'start-at-max' ? max - value : value;
-}
-
-function usesRightAnchoredVerticalExtent(
-  presentation: ReflowablePresentation,
-  pageMap: PaginatedPageMap | null,
-): boolean {
-  return presentation.writingMode === 'vertical-rl' && pageMap !== null;
-}
-
-export function rightAnchoredVerticalLogicalOffset(rawScrollLeft: number, max: number): number {
-  return clamp(-rawScrollLeft, 0, Math.max(0, max));
-}
-
-export function rightAnchoredVerticalRawOffset(logicalOffset: number, max: number): number {
-  return -clamp(logicalOffset, 0, Math.max(0, max));
 }
 
 function detectPositiveRtlModel(element: HTMLElement, current: number): 'start-at-zero' | 'start-at-max' {
@@ -593,9 +504,22 @@ export function restoreDomPoint(
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
   point: import('../../locator').DomPoint,
-  pageMap: PaginatedPageMap | null = null,
 ): void {
   const scrolling = getScrollingElement(document);
+
+  // Move `rect` to the reading-start edge of the viewport, then let the page
+  // snap take over. Which edge that is follows the axis the pages advance
+  // along, not the writing mode on its own.
+  const bringToPageStart = (rect: DOMRect): void => {
+    const axis = pagingAxis(scrolling, measureDocument(document), plan, presentation);
+    const delta = presentation.scrollAxis === 'vertical'
+      ? rect.top
+      : presentation.horizontalFlow === 'right-to-left'
+        ? plan.viewport.width - rect.right
+        : rect.left;
+    axis.write(axis.read() + delta);
+    snapPaginatedToPage(document, plan, presentation, policy);
+  };
 
   // Fragment locators resolve to the target element at offset zero. A
   // collapsed range at that boundary is ambiguous in vertical writing (it can
@@ -603,20 +527,8 @@ export function restoreDomPoint(
   // box while scrolled flow delegates to scrollIntoView.
   if (point.node.nodeType === 1 && point.offset === 0) {
     const element = point.node as Element;
-    if (plan.renderer === 'reflowable-paginated') {
-      const max = pageMap?.maxLogicalOffset
-        ?? Math.max(0, measureDocument(document).scrollWidth - plan.viewport.width);
-      const rightAnchored = usesRightAnchoredVerticalExtent(presentation, pageMap);
-      const current = getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, rightAnchored);
-      const rect = element.getBoundingClientRect();
-      const delta = presentation.horizontalFlow === 'right-to-left'
-        ? plan.viewport.width - rect.right
-        : rect.left;
-      setHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, current + delta, rightAnchored);
-      snapHorizontalToPage(document, plan, presentation, policy, pageMap);
-    } else {
-      element.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'start' });
-    }
+    if (plan.renderer === 'reflowable-paginated') bringToPageStart(element.getBoundingClientRect());
+    else element.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'start' });
     return;
   }
 
@@ -627,7 +539,7 @@ export function restoreDomPoint(
   } catch {
     const element = point.node.nodeType === 1 ? point.node as Element : point.node.parentElement;
     element?.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'start' });
-    if (plan.renderer === 'reflowable-paginated') snapHorizontalToPage(document, plan, presentation, policy, pageMap);
+    if (plan.renderer === 'reflowable-paginated') snapPaginatedToPage(document, plan, presentation, policy);
     return;
   }
   const rect = range.getClientRects()[0] ?? range.getBoundingClientRect();
@@ -635,15 +547,7 @@ export function restoreDomPoint(
   if (!rect) return;
 
   if (plan.renderer === 'reflowable-paginated') {
-    const max = pageMap?.maxLogicalOffset
-      ?? Math.max(0, measureDocument(document).scrollWidth - plan.viewport.width);
-    const rightAnchored = usesRightAnchoredVerticalExtent(presentation, pageMap);
-    const current = getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, rightAnchored);
-    const delta = presentation.horizontalFlow === 'right-to-left'
-      ? plan.viewport.width - rect.right
-      : rect.left;
-    setHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max, current + delta, rightAnchored);
-    snapHorizontalToPage(document, plan, presentation, policy, pageMap);
+    bringToPageStart(rect);
     return;
   }
 
@@ -666,56 +570,24 @@ export function navigateReflowable(
   presentation: ReflowablePresentation,
   policy: ReflowableRendererPolicy,
   direction: import('../model').ReadingDirection,
-  pageMap: PaginatedPageMap | null = null,
 ): import('../model').RendererNavigationResult {
   const scrolling = getScrollingElement(document);
   const measurement = measureDocument(document);
 
   if (plan.renderer === 'reflowable-paginated') {
-    if (pageMap) {
-      const rightAnchored = usesRightAnchoredVerticalExtent(presentation, pageMap);
-      const logical = getHorizontalLogicalOffset(
-        scrolling,
-        presentation.horizontalFlow,
-        pageMap.maxLogicalOffset,
-        rightAnchored,
-      );
-      const target = pageMapNavigationTarget(pageMap, logical, direction);
-      if (target.status === 'boundary') return target;
-      setHorizontalLogicalOffset(
-        scrolling,
-        presentation.horizontalFlow,
-        pageMap.maxLogicalOffset,
-        target.logicalOffset,
-        rightAnchored,
-      );
-      return {
-        status: 'moved',
-        layout: snapshotReflowableLayout(document, plan, presentation, policy, pageMap),
-      };
-    }
-
-    const pageGap = reflowablePageGap(plan, policy, presentation.writingMode);
-    const pageWidth = reflowablePageWidth(plan, policy, presentation.writingMode);
-    const max = Math.max(0, measurement.scrollWidth - plan.viewport.width);
-    const logical = getHorizontalLogicalOffset(scrolling, presentation.horizontalFlow, max);
+    const axis = pagingAxis(scrolling, measurement, plan, presentation);
     const geometry = calculatePaginatedGeometry({
-      scrollExtent: measurement.scrollWidth,
-      pageExtent: pageWidth,
-      pageGap,
-      logicalOffset: logical,
+      scrollExtent: axis.extent,
+      pageExtent: reflowablePageWidth(plan, policy, presentation.writingMode),
+      pageGap: reflowablePageGap(plan, policy, presentation.writingMode),
+      logicalOffset: axis.read(),
     });
-    const visible = plan.spread.execution === 'intra-document' ? 2 : 1;
+    const visible = visiblePageCount(plan, presentation);
     const deltaPages = direction === 'forward' ? visible : -visible;
     const targetPage = geometry.currentPage - 1 + deltaPages;
     if (targetPage < 0) return { status: 'boundary', edge: 'start' };
     if (targetPage >= geometry.pageCount) return { status: 'boundary', edge: 'end' };
-    setHorizontalLogicalOffset(
-      scrolling,
-      presentation.horizontalFlow,
-      max,
-      targetPage * geometry.pageAdvance,
-    );
+    axis.write(targetPage * geometry.pageAdvance);
     return {
       status: 'moved',
       layout: snapshotReflowableLayout(document, plan, presentation, policy),

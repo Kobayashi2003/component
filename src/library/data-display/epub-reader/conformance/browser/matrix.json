@@ -1,8 +1,34 @@
 {
   "target": "EPUB Reader Engine web browser matrix",
   "browsers": [
-    { "engine": "Chromium", "status": "automated", "note": "Run npm run browser:probe; the generated report is written to .test-results/browser/runtime.json." },
-    { "engine": "Firefox", "status": "not-run", "note": "Not available/executed in artifact environment." },
-    { "engine": "WebKit/Safari", "status": "not-run", "note": "Not available/executed in artifact environment." }
+    {
+      "engine": "Chromium",
+      "status": "automated",
+      "note": "Run npm run browser:probe for the runtime report (.test-results/browser/runtime.json). Pagination invariants: Asserted by npm run conformance:pagination. Playwright is not a declared dependency so the offline suite stays light: install it with `npm i -D playwright && npx playwright install` to run this engine, otherwise the script reports SKIPPED."
+    },
+    {
+      "engine": "Firefox",
+      "status": "automated-on-demand",
+      "note": "Asserted by npm run conformance:pagination. Playwright is not a declared dependency so the offline suite stays light: install it with `npm i -D playwright && npx playwright install` to run this engine, otherwise the script reports SKIPPED."
+    },
+    {
+      "engine": "WebKit/Safari",
+      "status": "automated-on-demand",
+      "note": "Asserted by npm run conformance:pagination. Playwright is not a declared dependency so the offline suite stays light: install it with `npm i -D playwright && npx playwright install` to run this engine, otherwise the script reports SKIPPED."
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no-line-bisected-by-page-boundary",
+      "note": "Paginated content fragments through CSS multicol in both writing modes, so a page boundary is a fragmentation break and can never fall inside a line box. Asserted per engine by scripts/run-pagination-conformance.mjs."
+    },
+    {
+      "id": "page-advance-equals-viewport",
+      "note": "Column size plus column gap must equal one viewport along the paging axis, or the next page bleeds into the current one."
+    },
+    {
+      "id": "ruby-fits-inside-the-page",
+      "note": "ruby-position: over paints an annotation on the block-start edge of a vertical page; the block-axis padding must keep it inside the page box."
+    }
   ]
 }

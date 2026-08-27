@@ -41,11 +41,13 @@ export class BrowserDocumentLayoutTarget implements LayoutStabilityTarget {
   measure(): LayoutMeasurement {
     const root = this.document.documentElement;
     const body = this.document.body;
+    const content = measureContentBounds(this.document.body);
     return {
       clientWidth: root?.clientWidth ?? body?.clientWidth ?? 0,
       clientHeight: root?.clientHeight ?? body?.clientHeight ?? 0,
       scrollWidth: Math.max(root?.scrollWidth ?? 0, body?.scrollWidth ?? 0),
       scrollHeight: Math.max(root?.scrollHeight ?? 0, body?.scrollHeight ?? 0),
+      ...(content ?? {}),
     };
   }
 
@@ -70,6 +72,35 @@ export class BrowserDocumentLayoutTarget implements LayoutStabilityTarget {
     if (this.document.body) observer.observe(this.document.body);
     return () => observer.disconnect();
   }
+}
+
+/**
+ * Physical extent of the flow, measured so that leftward and upward overflow
+ * counts. The body itself is sized by the reader, so its own box cannot report
+ * the reflow; its first and last laid-out children bracket the content and at
+ * least one of them moves whenever the flow grows in any direction.
+ */
+function measureContentBounds(
+  body: HTMLElement | null,
+): { contentWidth: number; contentHeight: number } | null {
+  if (!body || typeof body.getBoundingClientRect !== 'function') return null;
+  const rect = body.getBoundingClientRect();
+  let left = rect.left;
+  let right = rect.right;
+  let top = rect.top;
+  let bottom = rect.bottom;
+
+  for (const child of [body.firstElementChild, body.lastElementChild]) {
+    if (!child) continue;
+    const box = child.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    left = Math.min(left, box.left);
+    right = Math.max(right, box.right);
+    top = Math.min(top, box.top);
+    bottom = Math.max(bottom, box.bottom);
+  }
+
+  return { contentWidth: right - left, contentHeight: bottom - top };
 }
 
 function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {

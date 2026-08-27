@@ -85,10 +85,21 @@ export interface EpubReaderHandle {
 }
 
 export interface EpubViewportProps {
+  /** Declared explicitly: the local React type contract has no intrinsic key. */
+  readonly key?: string;
   readonly reader?: EpubReaderHandle;
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly ariaLabel?: string;
   readonly ariaDescribedBy?: string;
+  /**
+   * The reader binds its keyboard, pointer and wheel handling to this element,
+   * so it has to be the element that takes focus as well. Give it an id and a
+   * tabIndex here rather than wrapping it in a focusable parent: key events
+   * bubble upward, so a parent that holds focus never reaches these handlers
+   * and the arrow keys do nothing.
+   */
+  readonly id?: string;
+  readonly tabIndex?: number;
   readonly children?: import('react').ReactNode;
 }

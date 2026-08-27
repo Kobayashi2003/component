@@ -45,6 +45,18 @@
       "file": "cross-document-footnote.epub",
       "expectPublication": true,
       "expectedCompatibilityStatus": "clean"
+    },
+    {
+      "id": "vertical-ruby",
+      "file": "vertical-ruby.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
+      "id": "mixed-layout",
+      "file": "mixed-layout.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
     }
   ]
 }

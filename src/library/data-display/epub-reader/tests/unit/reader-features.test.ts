@@ -7,7 +7,7 @@ import type { SearchDocumentProvider } from '../../core/search';
 import type { Locator, LocatorRange, Publication } from '../../core/publication';
 import { commandForClickZone, commandForKey, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/input';
 import { buildReaderPreferenceCss } from '../../core/renderer/reflowable';
-import { semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
+import { BrowserReaderInputRouter, semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
 import type { RenditionPlan } from '../../core/rendition';
 import { publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
 
@@ -138,6 +138,50 @@ async function main() {
   assert(commandForKey({ key: 'ArrowRight', altKey: true }, 'rtl')?.type === 'history-forward', 'Alt+Right history should remain physical in RTL books');
   assert(commandForKey({ key: 'c' }, 'ltr')?.type === 'toggle-chrome', 'C should toggle immersive reader controls');
   assert(commandForKey({ key: '?' }, 'ltr')?.type === 'open-help', 'question mark should expose keyboard help');
+  // Delivery, not just mapping. A keyboard command can only arrive if the
+  // element the router binds to is the element that holds focus: events travel
+  // upward, so a focusable *parent* leaves the page keys dead. The router makes
+  // its own host focusable so a host cannot accidentally focus the wrong node.
+  {
+    const listeners = new Map<string, ((event: unknown) => void)[]>();
+    let tabIndex: number | undefined;
+    const attributes = new Set<string>();
+    const host = {
+      style: {},
+      get tabIndex() { return tabIndex ?? -0; },
+      set tabIndex(value: number) { tabIndex = value; attributes.add('tabindex'); },
+      hasAttribute: (name: string) => attributes.has(name),
+      addEventListener: (type: string, handler: (event: unknown) => void) => {
+        listeners.set(type, [...(listeners.get(type) ?? []), handler]);
+      },
+      removeEventListener: () => {},
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+      contains: () => true,
+    } as unknown as HTMLElement;
+
+    const dispatched: string[] = [];
+    const router = new BrowserReaderInputRouter(
+      host,
+      () => ({
+        enabled: true,
+        pageProgression: 'ltr',
+        contentKind: 'reflowable',
+        presentation: 'paginated',
+        wheelBoundaryNavigation: false,
+        touchNavigation: 'both',
+        pageTurnZonePercent: 30,
+      }),
+      { dispatch: (command: { type: string; direction?: string }) => { dispatched.push(`${command.type}:${command.direction ?? ''}`); } } as never,
+    );
+
+    assert(tabIndex === -1, 'the router must make its own host element focusable');
+    const keydown = listeners.get('keydown')?.[0];
+    assert(keydown, 'the router must listen for keys on the element it was given');
+    keydown!({ key: 'ArrowRight', target: host, preventDefault: () => {}, stopPropagation: () => {} });
+    assert(dispatched.includes('navigate:forward'), 'a key on the router host must reach the dispatcher');
+    router.dispose();
+  }
+
   assert(commandForWheel(50, false)?.type === 'navigate', 'plain wheel should emit semantic navigation');
   const fontWheel = commandForWheel(-50, true);
   assert(fontWheel?.type === 'font-step' && fontWheel.delta === 1, 'modified wheel should emit font-size command');

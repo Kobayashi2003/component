@@ -3,9 +3,11 @@ import {
   hasMixedLayout,
   isFixedLayout,
   normalizeReaderPreferences,
+  resolvePublicationLayoutProfile,
   resolveSpineRendition,
   validatePublicationModel,
   type Publication,
+  type SpineItem,
 } from '../../core/publication';
 
 const publication: Publication = {
@@ -64,6 +66,33 @@ assert(hasMixedLayout(publication), 'mixed layout must be detected, not normaliz
 assert(!isFixedLayout(publication, publication.spine[0]!), 'first item should inherit reflowable');
 assert(isFixedLayout(publication, publication.spine[1]!), 'second item should override to fixed layout');
 assert(resolveSpineRendition(publication, publication.spine[1]!).pageSpread === 'right', 'spread placement must survive resolution');
+
+// Publication-level layout profile. Reader chrome keys off this instead of the
+// active renderer plan, so that a book which alternates illustration pages with
+// chapters does not restyle its interface on every page turn.
+assert(resolvePublicationLayoutProfile(publication) === 'mixed', 'interleaved layouts must resolve to a mixed profile');
+
+const reflowableOnly: Publication = { ...publication, spine: [publication.spine[0]!] };
+assert(resolvePublicationLayoutProfile(reflowableOnly) === 'reflowable', 'an all-reflowable reading order must not report mixed');
+
+const fixedOnly: Publication = { ...publication, spine: [publication.spine[1]!] };
+assert(resolvePublicationLayoutProfile(fixedOnly) === 'fixed-layout', 'an all-pre-paginated reading order must resolve to fixed-layout');
+
+// Only a publication that is pre-paginated from cover to colophon earns the
+// immersive chrome; a mixed one must stay on standard chrome throughout.
+const chromeFor = (book: Publication) => resolvePublicationLayoutProfile(book) === 'fixed-layout' ? 'immersive' : 'standard';
+assert(chromeFor(publication) === 'standard', 'mixed-layout books must keep standard chrome');
+assert(chromeFor(fixedOnly) === 'immersive', 'fully pre-paginated books keep the immersive chrome');
+assert(chromeFor(reflowableOnly) === 'standard', 'reflowable books keep standard chrome');
+
+// The profile must be decided by the whole reading order, not by whichever item
+// happens to be first: front matter is routinely pre-paginated.
+const fixedFrontMatter: Publication = {
+  ...publication,
+  spine: [publication.spine[1]!, { ...publication.spine[0]!, index: 1 } as SpineItem],
+};
+assert(resolvePublicationLayoutProfile(fixedFrontMatter) === 'mixed', 'a pre-paginated first item must not make the whole book fixed-layout');
+assert(hasMixedLayout(fixedFrontMatter), 'hasMixedLayout must agree with the layout profile');
 
 const normalized = normalizeReaderPreferences({
   ...DEFAULT_READER_PREFERENCES,

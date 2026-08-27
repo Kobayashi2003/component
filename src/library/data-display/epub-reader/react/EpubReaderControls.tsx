@@ -12,26 +12,45 @@ export function EpubReaderControls({ reader: explicit }: { readonly reader?: Epu
 
 function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHandle }) {
   const snapshot = reader.state.reader;
+  // Rendering the next page puts the whole reader back into `loading`, which is
+  // the same status as opening a publication from nothing. They are not the
+  // same thing to a reader: one is a wait, the other is a page turn that lasts
+  // a twentieth of a second. Telling them apart is what keeps the controls from
+  // blanking out and the buttons from going dead on every turn.
+  const opened = snapshot != null;
+  const failed = reader.state.status === 'error';
+  const opening = !opened && !failed;
+  const interactive = opened && !failed;
   const layout = snapshot?.renderer.layout;
   const page = layout?.currentPage;
   const total = layout?.pageCount;
   const progression = snapshot?.renderer.plan?.pageProgression.value ?? 'ltr';
   const rtl = progression === 'rtl';
-  const fixedLayout = snapshot?.renderer.plan?.renderer === 'fixed-layout';
+  // Publication-scoped, not plan-scoped: a mixed-layout book must not switch the
+  // position readout between "page in section" and "page in publication" every
+  // time the reader turns into an illustration page.
+  const fixedLayout = snapshot?.presentation.layout === 'fixed-layout';
   const spineCount = snapshot?.publication.spine.length ?? 0;
   const spineIndex = snapshot?.locator?.spineIndex ?? 0;
   const resolvedProgress = fixedLayout
     ? publicationProgress(spineIndex, spineCount)
     : snapshot?.locator?.locations.progression ?? layout?.progression ?? 0;
   const progress = Math.round(resolvedProgress * 100);
-  const sectionPosition = snapshot?.locator && !fixedLayout
-    ? `Section ${snapshot.locator.spineIndex + 1} of ${snapshot.publication.spine.length}`
+  // A composed spread shows two sections at once, so name both. Reporting only
+  // the active one made every spread look like it had skipped a section.
+  const visibleSections = layout?.visibleSpineIndices?.length
+    ? [...layout.visibleSpineIndices].sort((a, b) => a - b)
+    : snapshot?.locator ? [snapshot.locator.spineIndex] : [];
+  const sectionPosition = visibleSections.length && !fixedLayout
+    ? visibleSections.length > 1
+      ? `Sections ${visibleSections[0]! + 1}–${visibleSections[visibleSections.length - 1]! + 1} of ${spineCount}`
+      : `Section ${visibleSections[0]! + 1} of ${spineCount}`
     : null;
   const [seekDraft, setSeekDraft] = useState<number | null>(null);
   const seekValue = seekDraft ?? progress;
   useEffect(() => {
     const locator = snapshot?.locator;
-    if (!locator || seekDraft == null || seekDraft === progress || reader.state.status !== 'ready') return;
+    if (!locator || seekDraft == null || seekDraft === progress || !interactive) return;
     const timer = setTimeout(() => {
       const targetIndex = fixedLayout
         ? spineIndexForPublicationProgress(seekDraft / 100, spineCount)
@@ -43,10 +62,10 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
       ).finally(() => setSeekDraft(current => current === seekDraft ? null : current));
     }, 120);
     return () => clearTimeout(timer);
-  }, [fixedLayout, progress, reader, seekDraft, snapshot?.locator, snapshot?.publication.spine, spineCount]);
-  const status = reader.state.status === 'error'
+  }, [fixedLayout, interactive, progress, reader, seekDraft, snapshot?.locator, snapshot?.publication.spine, spineCount]);
+  const status = failed
     ? 'Unavailable'
-    : reader.state.status === 'loading' || reader.state.status === 'idle'
+    : opening
       ? 'Opening…'
       : fixedLayout && snapshot?.locator
         ? `${spineIndex + 1} / ${spineCount}`
@@ -56,14 +75,14 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
 
   return (
     <div className={`epub-reader-controls is-${progression}`} data-page-progression={progression} role="group" aria-label="Reading navigation">
-      <button className="epub-reader-controls__nav epub-reader-controls__nav--previous" type="button" aria-keyshortcuts="PageUp Shift+Space" onClick={() => void reader.previous()} disabled={reader.state.status !== 'ready'}>
+      <button className="epub-reader-controls__nav epub-reader-controls__nav--previous" type="button" aria-keyshortcuts="PageUp Shift+Space" onClick={() => void reader.previous()} disabled={!interactive}>
         {rtl ? <><span>Previous</span><NavIcon direction="right" /></> : <><NavIcon direction="left" /><span>Previous</span></>}
       </button>
       <div className="epub-reader-controls__position">
         <div className="epub-reader-controls__status" aria-live="off">
           <strong>{status}</strong>
-          <span aria-hidden={reader.state.status !== 'ready'}>
-            {reader.state.status === 'ready' ? [sectionPosition, `${progress}%`].filter(Boolean).join(' · ') : '\u00a0'}
+          <span aria-hidden={!opened}>
+            {opened ? [sectionPosition, `${progress}%`].filter(Boolean).join(' · ') : '\u00a0'}
           </span>
         </div>
         <input
@@ -74,7 +93,7 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
           max="100"
           step="1"
           value={seekValue}
-          disabled={reader.state.status !== 'ready' || !snapshot?.locator}
+          disabled={!interactive || !snapshot?.locator}
           aria-label={fixedLayout ? 'Position in publication' : 'Position in current section'}
           aria-valuetext={`${seekValue}% through ${fixedLayout ? 'publication' : 'section'}`}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +102,7 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
           }}
         />
       </div>
-      <button className="epub-reader-controls__nav epub-reader-controls__nav--next" type="button" aria-keyshortcuts="PageDown Space" onClick={() => void reader.next()} disabled={reader.state.status !== 'ready'}>
+      <button className="epub-reader-controls__nav epub-reader-controls__nav--next" type="button" aria-keyshortcuts="PageDown Space" onClick={() => void reader.next()} disabled={!interactive}>
         {rtl ? <><NavIcon direction="left" /><span>Next</span></> : <><span>Next</span><NavIcon direction="right" /></>}
       </button>
     </div>

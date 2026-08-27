@@ -187,6 +187,20 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       left: childSnapshot(this.left),
       right: childSnapshot(this.right),
       activeSlot: this.activeSlot,
+      // Reading order: right leaf first for right-to-left publications.
+      visibleSpineIndices: (this.plan?.pageProgression.value === 'rtl'
+        ? [this.right, this.left]
+        : [this.left, this.right])
+        .map(child => child?.plan?.spineIndex)
+        .filter((index): index is number => Number.isInteger(index)),
+      // A composed spread is one physical page turn, so it reports a position
+      // the same way a single pre-paginated page does. Omitting these left the
+      // product's position readout with nothing to show, so it blanked out and
+      // came back every time the reader crossed an illustration spread, and left
+      // the reader with no progression to repair its locator from.
+      pageCount: 1,
+      currentPage: 1,
+      progression: this.child(this.activeSlot).renderer?.snapshot?.()?.progression ?? 0,
       measurement: {
         clientWidth: this.root.clientWidth,
         clientHeight: this.root.clientHeight,
@@ -223,7 +237,12 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     const assignment = resolveSpreadSlotAssignment(
       this.environment.publication,
       plan,
-      item => this.planCandidate(item.index, plan).spread.mode === 'double',
+      // Only items that would compose across spine documents themselves may be
+      // pulled into this spread. A flowing chapter also plans as a double
+      // spread, but it executes that inside its own document as two columns, so
+      // pairing it with a plate showed it once on its own and then a second
+      // time as the facing leaf.
+      item => this.planCandidate(item.index, plan).spread.execution === 'cross-spine',
     );
     const gap = resolveSpreadGap(this.environment.publication, plan, assignment, this.policy.pageGap);
     const slotWidth = Math.max(1, (plan.viewport.width - gap) / 2);

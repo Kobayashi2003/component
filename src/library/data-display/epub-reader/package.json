@@ -3,7 +3,7 @@
   "version": "0.15.0",
   "private": true,
   "type": "module",
-  "description": "Browser EPUB reading system with vertical-writing PageMap pagination, image-page handling, fixed-layout support and a React adapter.",
+  "description": "Browser EPUB reading system with CSS-fragmentation pagination for horizontal and vertical writing, image-page handling, fixed-layout support and a React adapter.",
   "scripts": {
     "typecheck": "npm run typecheck:core && npm run typecheck:react",
     "test": "node scripts/run-tests.mjs",
@@ -19,6 +19,7 @@
     "stress:parser": "node --expose-gc scripts/run-parser-stress.mjs",
     "epubcheck:corpus": "node scripts/run-epubcheck.mjs fixtures/corpus",
     "browser:probe": "node scripts/probe-browser-runtime.mjs",
+    "conformance:pagination": "node scripts/run-pagination-conformance.mjs",
     "visual:check": "node scripts/check-visual-baselines.mjs",
     "hardening": "npm run check:verify && npm run corpus:test && npm run stress:parser",
     "conformance:w3c:observe": "node scripts/run-w3c-loader-observations.mjs",

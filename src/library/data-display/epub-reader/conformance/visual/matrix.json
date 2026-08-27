@@ -5,87 +5,197 @@
   "cases": [
     {
       "id": "empty-desktop",
-      "source": { "kind": "none" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "none"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "empty",
       "state": "empty"
     },
     {
       "id": "loading-large-desktop",
-      "source": { "kind": "real-world", "selector": "largest-fixed-layout" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "real-world",
+        "selector": "largest-fixed-layout"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "fixed-rtl",
       "state": "loading",
       "localOnly": true
     },
     {
       "id": "text-horizontal-desktop",
-      "source": { "kind": "fixture", "file": "valid-reflowable.epub" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "fixture",
+        "file": "valid-reflowable.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "text-horizontal",
       "state": "reading",
       "baseline": "baselines/text-horizontal-desktop.png"
     },
     {
       "id": "text-immersive-desktop",
-      "source": { "kind": "fixture", "file": "valid-reflowable.epub" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "fixture",
+        "file": "valid-reflowable.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "text-horizontal",
       "state": "immersive-hidden",
       "baseline": "baselines/text-immersive-desktop.png"
     },
     {
       "id": "text-footnote-desktop",
-      "source": { "kind": "fixture", "file": "cross-document-footnote.epub" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "fixture",
+        "file": "cross-document-footnote.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "text-horizontal",
       "state": "footnote-popover",
       "baseline": "baselines/text-footnote-desktop.png"
     },
     {
       "id": "text-selection-desktop",
-      "source": { "kind": "fixture", "file": "cross-document-footnote.epub" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "fixture",
+        "file": "cross-document-footnote.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "text-horizontal",
       "state": "selection-toolbar",
       "baseline": "baselines/text-selection-desktop.png"
     },
     {
+      "id": "text-vertical-desktop",
+      "source": {
+        "kind": "fixture",
+        "file": "vertical-ruby.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "contentType": "text-vertical",
+      "state": "reading",
+      "baseline": "baselines/text-vertical-desktop.png",
+      "note": "Vertical Japanese with ruby. Pagination is CSS fragmentation, so no line may be cut by a page boundary and the furigana of the first column of each page must stay inside the page. The numeric form of this is asserted per engine by npm run conformance:pagination."
+    },
+    {
+      "id": "mixed-layout-text-desktop",
+      "source": {
+        "kind": "fixture",
+        "file": "mixed-layout.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "contentType": "text-vertical",
+      "state": "reading",
+      "baseline": "baselines/mixed-layout-text-desktop.png",
+      "note": "Half of this pair. A mixed-layout publication on one of its reflowable chapters."
+    },
+    {
+      "id": "mixed-layout-plate-desktop",
+      "source": {
+        "kind": "fixture",
+        "file": "mixed-layout.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "contentType": "text-vertical",
+      "state": "reading",
+      "baseline": "baselines/mixed-layout-plate-desktop.png",
+      "note": "The other half, after turning into a pre-paginated plate in the same book. Reader chrome is publication-scoped, so everything outside the reading surface must be pixel-identical to mixed-layout-text-desktop; only the book content may differ. Diff the two baselines to check it."
+    },
+    {
       "id": "text-vertical-tablet-search",
-      "source": { "kind": "real-world", "selector": "vertical-writing" },
-      "viewport": { "width": 768, "height": 900 },
+      "source": {
+        "kind": "real-world",
+        "selector": "vertical-writing"
+      },
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
       "contentType": "text-vertical",
       "state": "search-panel",
       "localOnly": true
     },
     {
       "id": "manga-portrait-auto",
-      "source": { "kind": "real-world", "selector": "largest-fixed-layout" },
-      "viewport": { "width": 390, "height": 844 },
+      "source": {
+        "kind": "real-world",
+        "selector": "largest-fixed-layout"
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "contentType": "fixed-rtl",
       "state": "portrait-single",
       "localOnly": true
     },
     {
       "id": "manga-landscape-auto",
-      "source": { "kind": "real-world", "selector": "largest-fixed-layout" },
-      "viewport": { "width": 844, "height": 390 },
+      "source": {
+        "kind": "real-world",
+        "selector": "largest-fixed-layout"
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
       "contentType": "fixed-rtl",
       "state": "landscape-double",
       "localOnly": true
     },
     {
       "id": "repaired-book-info-desktop",
-      "source": { "kind": "fixture", "file": "conflicting-rendition.epub" },
-      "viewport": { "width": 1280, "height": 900 },
+      "source": {
+        "kind": "fixture",
+        "file": "conflicting-rendition.epub"
+      },
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
       "contentType": "text-horizontal",
       "state": "warning-panel",
       "baseline": "baselines/repaired-book-info-desktop.png"
     },
     {
       "id": "failure-mobile",
-      "source": { "kind": "fixture", "file": "missing-container.epub" },
-      "viewport": { "width": 390, "height": 844 },
+      "source": {
+        "kind": "fixture",
+        "file": "missing-container.epub"
+      },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "contentType": "failure",
       "state": "error",
       "baseline": "baselines/failure-mobile.png"

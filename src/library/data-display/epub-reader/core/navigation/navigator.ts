@@ -81,15 +81,12 @@ export class ReaderNavigator {
       return { status: 'moved', locator: await this.host.captureLocator(), spineChanged: false };
     }
 
+    // A page turn has to reach content that is not already on screen. When a
+    // spread composes two spine items, both are being read at once, so the move
+    // starts from the far edge of what is visible rather than from the active
+    // item — advancing to the other half of the spread the reader is looking at
+    // would re-compose the same spread and spend the turn showing nothing new.
     const visible = visibleSpineIndices(this.host.state.layout, currentPlan.spineIndex);
-    const adjacentVisible = adjacentVisibleSpine(visible, currentPlan.spineIndex, direction);
-    if (adjacentVisible != null) {
-      const locator = direction === 'forward'
-        ? locatorAtResourceStart(this.publication, adjacentVisible)
-        : locatorAtResourceEnd(this.publication, adjacentVisible);
-      await this.performGoToLocator(locator);
-      return { status: 'moved', locator: await this.host.captureLocator(), spineChanged: true };
-    }
     const anchor = direction === 'forward' ? Math.max(...visible) : Math.min(...visible);
     const nextIndex = this.findSequentialSpine(anchor, direction);
     if (nextIndex == null) {
@@ -132,25 +129,8 @@ export class ReaderNavigator {
   }
 }
 
-function adjacentVisibleSpine(
-  visible: readonly number[],
-  current: number,
-  direction: NavigationDirection,
-): number | null {
-  const candidates = visible.filter(index => direction === 'forward' ? index > current : index < current);
-  if (candidates.length === 0) return null;
-  return direction === 'forward' ? Math.min(...candidates) : Math.max(...candidates);
-}
-
 function visibleSpineIndices(layout: unknown, fallback: number): number[] {
-  if (!layout || typeof layout !== 'object') return [fallback];
-  const value = layout as {
-    spread?: unknown;
-    left?: { spineIndex?: unknown } | null;
-    right?: { spineIndex?: unknown } | null;
-  };
-  if (value.spread !== true) return [fallback];
-  const indices = [value.left?.spineIndex, value.right?.spineIndex]
-    .filter((index): index is number => Number.isInteger(index));
-  return indices.length > 0 ? indices : [fallback];
+  const reported = (layout as { visibleSpineIndices?: readonly number[] } | null | undefined)?.visibleSpineIndices;
+  if (!reported || reported.length === 0) return [fallback];
+  return reported.filter(index => Number.isInteger(index));
 }

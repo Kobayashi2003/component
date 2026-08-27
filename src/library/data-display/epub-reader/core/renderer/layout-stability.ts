@@ -252,7 +252,18 @@ function sameMeasurement(a: LayoutMeasurement, b: LayoutMeasurement): boolean {
   return a.clientWidth === b.clientWidth
     && a.clientHeight === b.clientHeight
     && a.scrollWidth === b.scrollWidth
-    && a.scrollHeight === b.scrollHeight;
+    && a.scrollHeight === b.scrollHeight
+    && sameExtent(a.contentWidth, b.contentWidth)
+    && sameExtent(a.contentHeight, b.contentHeight);
+}
+
+/**
+ * Content bounds come from `getBoundingClientRect()`, so they carry sub-pixel
+ * noise that would otherwise keep a document from ever being declared stable.
+ */
+function sameExtent(a: number | undefined, b: number | undefined): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  return Math.abs(a - b) < 0.5;
 }
 
 function validatePolicy(policy: LayoutStabilityPolicy): void {

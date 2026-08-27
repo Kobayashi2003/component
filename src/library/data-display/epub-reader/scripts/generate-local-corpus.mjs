@@ -25,6 +25,33 @@ const footnoteNav = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xh
 const footnoteChapter = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Footnote demo</title></head><body><main><h1>Notes without losing your place</h1><p>A short reference opens its note above the page <a id="ref-1" epub:type="noteref" role="doc-noteref" href="notes.xhtml#note-1">1</a>, while the current reading position remains unchanged.</p><p contenteditable="true" data-selection-fixture="true">The fixture keeps enough ordinary text around the reference to verify focus restoration, keyboard dismissal, and deliberate navigation to the note document.</p></main></body></html>`;
 const footnoteNotes = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Notes</title></head><body><aside id="note-1" epub:type="footnote" role="doc-footnote"><h2>Editorial note</h2><p>This note is loaded from a separate XHTML resource inside the EPUB container.</p><p>Publisher markup is reduced to safe text before the reader displays it.</p><a epub:type="backlink" role="doc-backlink" href="chapter.xhtml#ref-1">Return</a><script>window.footnoteScriptMustNotRun = true;</script></aside></body></html>`;
 
+// --- Vertical Japanese with ruby -------------------------------------------
+// Paginating this is what CSS fragmentation exists for: a page boundary must
+// never fall inside a vertical line box, and `ruby-position: over` paints its
+// annotation on the block-start (right) edge of every page.
+const verticalMetadata = `<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:test:vertical-ruby</dc:identifier><dc:title>Vertical Ruby Fixture</dc:title><dc:language>ja</dc:language></metadata>`;
+const verticalCss = `html, .vrtl { -epub-writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl; writing-mode: vertical-rl; }\nbody { margin: 0; padding: 0; font-size: 100%; line-height: 1.75; text-align: justify; }\np { margin: 0; }\nh1 { font-size: 160%; line-height: 1.5; margin: 0 0 1em 0; font-weight: normal; }`;
+const verticalParagraph = '　<ruby>吾輩<rt>わがはい</rt></ruby>は猫である。名前はまだ無い。どこで<ruby>生<rt>う</rt></ruby>れたかとんと<ruby>見当<rt>けんとう</rt></ruby>がつかぬ。何でも<ruby>薄暗<rt>うすぐら</rt></ruby>いじめじめした所でニャーニャー<ruby>泣<rt>な</rt></ruby>いていた事だけは記憶している。';
+const verticalChapter = `<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" class="vrtl"><head><title>縦書き</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><h1 id="start">第一章　<ruby>邂逅<rt>かいこう</rt></ruby></h1>${new Array(24).fill(`<p>${verticalParagraph}</p>`).join('')}</body></html>`;
+const verticalNav = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter.xhtml">縦書き</a></li></ol></nav></body></html>`;
+const verticalPackage = `<package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:test:vertical-ruby</dc:identifier><dc:title>Vertical Ruby Fixture</dc:title><dc:language>ja</dc:language><meta property="rendition:layout">reflowable</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine page-progression-direction="rtl"><itemref idref="c1"/></spine></package>`;
+
+// --- Mixed layout ----------------------------------------------------------
+// The shape more than half of real light novels have: pre-paginated colour
+// plates interleaved with reflowable chapters. Reader chrome must stay put
+// across those boundaries, so a fixture has to exist to photograph it.
+//
+// The plates come in facing pairs, as they do in print, so the fixture also
+// exercises the composed spread: two spine documents on screen at once, which a
+// single page turn has to leave behind rather than re-compose through its other
+// half. One chapter carries `page-spread-left`, which real books use constantly,
+// so the leading-blank rule is covered too: that alignment column belongs to
+// horizontal two-up and must never cost a vertical chapter its first page.
+const platePage = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Plate</title><meta name="viewport" content="width=600, height=800"/></head><body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="600" height="800" fill="#2b2f3a"/><circle cx="300" cy="400" r="180" fill="#d5b570"/></svg></body></html>`;
+const mixedChapter = `<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" class="vrtl"><head><title>本文</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><h1>本文</h1>${new Array(10).fill(`<p>${verticalParagraph}</p>`).join('')}</body></html>`;
+const mixedNav = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="text-1.xhtml">本文</a></li></ol></nav></body></html>`;
+const mixedPackage = `<package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:test:mixed-layout</dc:identifier><dc:title>Mixed Layout Fixture</dc:title><dc:language>ja</dc:language><meta property="rendition:layout">reflowable</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/><item id="t1" href="text-1.xhtml" media-type="application/xhtml+xml"/><item id="p1" href="plate-1.xhtml" media-type="application/xhtml+xml"/><item id="p2" href="plate-2.xhtml" media-type="application/xhtml+xml"/><item id="t2" href="text-2.xhtml" media-type="application/xhtml+xml"/><item id="p3" href="plate-3.xhtml" media-type="application/xhtml+xml"/><item id="p4" href="plate-4.xhtml" media-type="application/xhtml+xml"/><item id="t3" href="text-3.xhtml" media-type="application/xhtml+xml"/></manifest><spine page-progression-direction="rtl"><itemref idref="t1"/><itemref idref="p1" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-right"/><itemref idref="p2" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-left"/><itemref idref="t2" properties="page-spread-left"/><itemref idref="p3" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-right"/><itemref idref="p4" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-left"/><itemref idref="t3"/></spine></package>`;
+
 const cases = [
   {
     id: 'valid-reflowable',
@@ -84,6 +111,40 @@ const cases = [
       'EPUB/nav.xhtml': footnoteNav,
       'EPUB/chapter.xhtml': footnoteChapter,
       'EPUB/notes.xhtml': footnoteNotes,
+    },
+  },
+  {
+    id: 'vertical-ruby',
+    file: 'vertical-ruby.epub',
+    expectPublication: true,
+    expectedCompatibilityStatus: 'clean',
+    files: {
+      mimetype: 'application/epub+zip',
+      'META-INF/container.xml': container,
+      'EPUB/package.opf': verticalPackage,
+      'EPUB/nav.xhtml': verticalNav,
+      'EPUB/style.css': verticalCss,
+      'EPUB/chapter.xhtml': verticalChapter,
+    },
+  },
+  {
+    id: 'mixed-layout',
+    file: 'mixed-layout.epub',
+    expectPublication: true,
+    expectedCompatibilityStatus: 'clean',
+    files: {
+      mimetype: 'application/epub+zip',
+      'META-INF/container.xml': container,
+      'EPUB/package.opf': mixedPackage,
+      'EPUB/nav.xhtml': mixedNav,
+      'EPUB/style.css': verticalCss,
+      'EPUB/text-1.xhtml': mixedChapter,
+      'EPUB/text-2.xhtml': mixedChapter,
+      'EPUB/text-3.xhtml': mixedChapter,
+      'EPUB/plate-1.xhtml': platePage,
+      'EPUB/plate-2.xhtml': platePage,
+      'EPUB/plate-3.xhtml': platePage,
+      'EPUB/plate-4.xhtml': platePage,
     },
   },
 ];
