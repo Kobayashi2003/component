@@ -112,7 +112,9 @@ function isWordCharacter(char: string): boolean {
 
 function excerptAround(text: string, start: number, end: number, maxLength: number): string {
   const extent = Math.max(24, maxLength);
-  const before = Math.floor((extent - (end - start)) / 2);
+  // A match longer than the excerpt window leaves no room on either side, and a
+  // negative lead would start the excerpt part-way through the match itself.
+  const before = Math.max(0, Math.floor((extent - (end - start)) / 2));
   const from = Math.max(0, start - before);
   const to = Math.min(text.length, Math.max(end, from + extent));
   const prefix = from > 0 ? '…' : '';

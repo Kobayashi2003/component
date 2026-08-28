@@ -31,6 +31,8 @@ export class BrowserReaderInputRouter {
     // keys dead: the event would travel up from the parent and never pass here.
     if (!hostElement.hasAttribute?.('tabindex')) hostElement.tabIndex = -1;
     this.attachTarget(hostElement);
+    const owner = hostElement.ownerDocument;
+    if (owner) this.cleanups.push(this.attachAbandonedFocusFallback(owner));
   }
 
   /** The element that must hold focus for keyboard reading commands to arrive. */
@@ -51,6 +53,62 @@ export class BrowserReaderInputRouter {
       if (this.documentCleanups.has(context.document)) continue;
       this.documentCleanups.set(context.document, this.attachTarget(context.document, context.surfaceElement));
     }
+    this.recaptureAbandonedFocus();
+  }
+
+  /**
+   * Keyboard events only reach a listener on their own element or an ancestor,
+   * and this router listens on the reader surface and on each content document.
+   * Nothing else in the reader ever moves focus, so whenever focus ends up on
+   * the top-level body every reading key becomes inert -- permanently, because
+   * nothing puts it back. That happens on its own: swapping renderers destroys
+   * the content document that held focus, and the browser hands focus to the
+   * body rather than to the surface the document lived in.
+   *
+   * Focus is only claimed when it is sitting nowhere. A real control that holds
+   * it -- a panel field, a toolbar button -- keeps it.
+   */
+  private recaptureAbandonedFocus(): void {
+    const owner = this.hostElement.ownerDocument;
+    if (!owner || !this.focusIsAbandoned(owner)) return;
+    this.hostElement.focus?.({ preventScroll: true });
+  }
+
+  /** Focus sits on nothing: no element owns it, so no element can receive keys. */
+  private focusIsAbandoned(owner: Document): boolean {
+    const active = owner.activeElement;
+    return !active || active === owner.body || active === owner.documentElement;
+  }
+
+  private dispatchKeyCommand(event: Event): void {
+    if (!this.policy.keyboard || !this.state().enabled) return;
+    const key = event as KeyboardEvent;
+    if (isEditableTarget(key.target)) return;
+    const command = commandForKey(key, this.state().pageProgression);
+    if (!command) return;
+    if (shouldPreserveNativeSelectionCommand(key)) return;
+    key.preventDefault();
+    this.send(command);
+  }
+
+  /**
+   * Last resort for keys pressed while focus is abandoned. Focus can be dropped
+   * between the moments this router gets to look at it -- a dialog closing, the
+   * host page reassigning it -- and from there no reading key would ever reach
+   * a listener again, because nothing would move focus back.
+   *
+   * Nothing is double-handled: when any element owns focus, including this
+   * router's own surface, the event reaches that element's listener and this
+   * one declines. It only ever fires for keys that would otherwise be lost.
+   */
+  private attachAbandonedFocusFallback(owner: Document): () => void {
+    const onKeyDown = (event: Event) => {
+      if (!this.focusIsAbandoned(owner)) return;
+      this.dispatchKeyCommand(event);
+      this.recaptureAbandonedFocus();
+    };
+    owner.addEventListener('keydown', onKeyDown, { passive: false });
+    return () => owner.removeEventListener('keydown', onKeyDown);
   }
 
   dispose(): void {
@@ -65,16 +123,7 @@ export class BrowserReaderInputRouter {
   private attachTarget(target: EventTarget, surfaceElement?: HTMLElement): () => void {
     const cursorElement = semanticCursorElement(target);
     const originalCursor = cursorElement?.style.cursor ?? '';
-    const onKeyDown = (event: Event) => {
-      if (!this.policy.keyboard || !this.state().enabled) return;
-      const key = event as KeyboardEvent;
-      if (isEditableTarget(key.target)) return;
-      const command = commandForKey(key, this.state().pageProgression);
-      if (!command) return;
-      if (shouldPreserveNativeSelectionCommand(key)) return;
-      key.preventDefault();
-      this.send(command);
-    };
+    const onKeyDown = (event: Event) => this.dispatchKeyCommand(event);
 
     const onWheel = (event: Event) => {
       if (!this.state().enabled) return;

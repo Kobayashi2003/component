@@ -25,11 +25,18 @@ export function calculatePaginatedGeometry(input: PaginatedGeometryInput): Pagin
   const gap = nonNegative(input.pageGap, 'pageGap');
   const extent = Math.max(page, finite(input.scrollExtent, 'scrollExtent'));
   const advance = page + gap;
-  // `scrollExtent` already includes the trailing portion of the final column
-  // and the inter-column gaps. Adding another gap here creates a phantom page
-  // for exact two-column documents (for example 2 * page + 1 * gap), which can
-  // make the Next control appear to do nothing at the end of a section.
-  const pageCount = Math.max(1, Math.ceil((extent - 0.5) / advance));
+  // Fragmentation produces whole columns, so the measured extent is always
+  // within rounding distance of a whole number of them and the count is
+  // recovered by rounding rather than by rounding up.
+  //
+  // Rounding up needs the measurement to be exact, and it is not: the root box
+  // is the iframe's client box, whose height the browser rounds, while the
+  // fragmentainer height came from a viewport measurement that was floored. On
+  // a viewport whose height lands on a fraction of a pixel at or above .5 those
+  // disagree by one pixel, and rounding up turned that pixel into a whole extra
+  // page. It could never be scrolled to, so `navigateReflowable` never reported
+  // the end of the section and paging stopped there permanently.
+  const pageCount = Math.max(1, Math.round(extent / advance));
   const maxPage = pageCount - 1;
   const pageIndex = Math.max(0, Math.min(maxPage, Math.round(Math.max(0, input.logicalOffset) / advance)));
   const snappedOffset = pageIndex * advance;

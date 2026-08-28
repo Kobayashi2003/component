@@ -181,7 +181,7 @@ export class ReactEpubReaderStore {
     this.readingSessionCleared = true;
   }
   addHighlightFromSelection(highlight?: import('../core').AnnotationHighlightStyle, color?: import('../core').AnnotationColor) {
-    return this.requireReader().addHighlightFromSelection(highlight, color);
+    return this.run(reader => reader.addHighlightFromSelection(highlight, color));
   }
   /** A failed search reports no hits rather than a null the panel must handle. */
   async searchRun(query: string, options?: Partial<SearchOptions>) {
@@ -191,7 +191,10 @@ export class ReactEpubReaderStore {
   searchGoTo(index: number) { return this.run(reader => reader.search.goTo(index)); }
   searchNext() { return this.run(reader => reader.search.next()); }
   searchPrevious() { return this.run(reader => reader.search.previous()); }
-  addBookmark(label?: string) { return this.requireReader().marks.addBookmark(label); }
+  // Capturing a locator can fail the same way a page turn can, and both are
+  // reached from a button that ignores the result. Unguarded, the rejection
+  // had nowhere to go.
+  addBookmark(label?: string) { return this.run(reader => reader.marks.addBookmark(label)); }
   addHighlight(
     range: import('../core').LocatorRange,
     highlight?: import('../core').AnnotationHighlightStyle,

@@ -309,6 +309,56 @@ const item = publication.spine[0]!;
   assert(remoteSection === 'https://example.com/book/parts/', 'nested xml:base must preserve an inherited remote base');
 }
 
+// Page count is recovered by rounding, because fragmentation only ever produces
+// whole columns and the measured extent carries error from two directions.
+{
+  // The regression: the root box is the iframe's client box, whose height the
+  // browser rounds, while the fragmentainer height came from a floored viewport
+  // measurement. On a viewport height ending in .5 or above they differ by one
+  // pixel, and rounding up made a whole extra page out of it. That page could
+  // never be scrolled to, so the section never reported its end and paging
+  // stopped there for good.
+  const oneShortPage = calculatePaginatedGeometry({
+    scrollExtent: 536, pageExtent: 535, pageGap: 0, logicalOffset: 0,
+  });
+  assert(oneShortPage.pageCount === 1, `a single column measured one pixel taller than its fragmentainer is still one page, got ${oneShortPage.pageCount}`);
+
+  // The other direction still has to count every real column. Browsers leave
+  // the container's trailing padding out of the scroll extent, so N columns
+  // measure N * advance - inlineMargin; every engine tested agrees on this.
+  for (const [pageExtent, pageGap] of [[712, 0], [560, 40], [480, 120], [384, 216]] as const) {
+    const advance = pageExtent + pageGap;
+    const inlineMargin = pageGap / 2;
+    for (const columns of [1, 2, 3, 7, 24]) {
+      const scrollExtent = columns * advance - (columns > 1 ? inlineMargin : 0);
+      const geometry = calculatePaginatedGeometry({ scrollExtent, pageExtent, pageGap, logicalOffset: 0 });
+      assert(
+        geometry.pageCount === columns,
+        `${columns} columns of ${pageExtent}+${pageGap} must count as ${columns} pages, got ${geometry.pageCount}`,
+      );
+    }
+  }
+
+  // Every page the count claims has to be close enough to the scroll range that
+  // the turn still registers as movement. The clamp can leave the final page
+  // short by the inline margin, which only reveals blank gutter, but a shortfall
+  // of half a page or more means the page is not there at all -- which is what
+  // `navigateReflowable` treats as the end of the section.
+  for (const [pageExtent, pageGap] of [[712, 0], [560, 40], [384, 216]] as const) {
+    const advance = pageExtent + pageGap;
+    for (const columns of [1, 2, 5]) {
+      const scrollExtent = columns * advance - (columns > 1 ? pageGap / 2 : 0);
+      const geometry = calculatePaginatedGeometry({ scrollExtent, pageExtent, pageGap, logicalOffset: 0 });
+      const lastOffset = (geometry.pageCount - 1) * geometry.pageAdvance;
+      const scrollable = Math.max(0, scrollExtent - advance);
+      assert(
+        lastOffset - scrollable < advance / 2,
+        `the last of ${geometry.pageCount} pages must still register as a turn: needs ${lastOffset}, range is ${scrollable}`,
+      );
+    }
+  }
+}
+
 console.log('Reflowable pagination unit test: PASS');
 
 function assertThrows(fn: () => unknown, message: string): void {

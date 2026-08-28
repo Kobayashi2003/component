@@ -206,6 +206,73 @@ async function main() {
     router.dispose();
   }
 
+  // Focus can end up owned by nothing -- swapping renderers destroys the content
+  // document that held it, and the browser hands it to the body. Nothing else in
+  // the reader moves focus, so from there every reading key would be lost for
+  // good. The router keeps a document-level fallback for exactly that state, and
+  // it must not fire when some element does own focus, or every key would be
+  // handled twice.
+  {
+    const documentListeners = new Map<string, ((event: unknown) => void)[]>();
+    const stubElement = (localName: string) => ({ nodeType: 1, localName, hasAttribute: () => false }) as unknown as HTMLElement;
+    const body = stubElement('body');
+    const documentElement = stubElement('html');
+    let activeElement: unknown = body;
+    let focusCalls = 0;
+    const attributes = new Set<string>();
+    let tabIndex: number | undefined;
+    const owner = {
+      body,
+      documentElement,
+      get activeElement() { return activeElement; },
+      addEventListener: (type: string, handler: (event: unknown) => void) => {
+        documentListeners.set(type, [...(documentListeners.get(type) ?? []), handler]);
+      },
+      removeEventListener: () => {},
+    };
+    const host = {
+      style: {},
+      ownerDocument: owner,
+      get tabIndex() { return tabIndex ?? -0; },
+      set tabIndex(value: number) { tabIndex = value; attributes.add('tabindex'); },
+      hasAttribute: (name: string) => attributes.has(name),
+      focus: () => { focusCalls += 1; },
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+      contains: () => true,
+    } as unknown as HTMLElement;
+
+    const dispatched: string[] = [];
+    const router = new BrowserReaderInputRouter(
+      host,
+      () => ({
+        enabled: true,
+        pageProgression: 'ltr',
+        contentKind: 'reflowable',
+        presentation: 'paginated',
+        wheelBoundaryNavigation: false,
+        touchNavigation: 'both',
+        pageTurnZonePercent: 30,
+      }),
+      { dispatch: (command: { type: string; direction?: string }) => { dispatched.push(`${command.type}:${command.direction ?? ''}`); } } as never,
+    );
+
+    const documentKeydown = documentListeners.get('keydown')?.[0];
+    assert(documentKeydown, 'the router must keep a document-level fallback for abandoned focus');
+
+    documentKeydown!({ key: 'ArrowRight', target: body, preventDefault: () => {}, stopPropagation: () => {} });
+    assert(dispatched.length === 1, `a key pressed while focus sits on the body must still turn the page, got ${dispatched.length}`);
+    assert(focusCalls > 0, 'the router must take focus back once it handles a key nobody else could');
+
+    // Something owns focus now, so the event reaches it through its own listener
+    // and the fallback has to stay out of the way.
+    activeElement = stubElement('button');
+    documentKeydown!({ key: 'ArrowRight', target: activeElement, preventDefault: () => {}, stopPropagation: () => {} });
+    assert(dispatched.length === 1, 'the fallback must not double-handle a key an element already owns');
+    router.dispose();
+  }
+
   assert(commandForWheel(50, false)?.type === 'navigate', 'plain wheel should emit semantic navigation');
   const fontWheel = commandForWheel(-50, true);
   assert(fontWheel?.type === 'font-step' && fontWheel.delta === 1, 'modified wheel should emit font-size command');

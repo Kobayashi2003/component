@@ -587,7 +587,16 @@ export function navigateReflowable(
     const targetPage = geometry.currentPage - 1 + deltaPages;
     if (targetPage < 0) return { status: 'boundary', edge: 'start' };
     if (targetPage >= geometry.pageCount) return { status: 'boundary', edge: 'end' };
-    axis.write(targetPage * geometry.pageAdvance);
+    const requested = targetPage * geometry.pageAdvance;
+    axis.write(requested);
+    // The scroll range is the authority on where a page turn can land, and the
+    // page count is arithmetic derived from a measurement. When the two
+    // disagree, believing the arithmetic reports a turn that never happened,
+    // and the section never yields to the next one. The scrolled branches below
+    // have always verified their own movement; this one has to as well.
+    if (Math.abs(axis.read() - requested) > geometry.pageAdvance / 2) {
+      return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
+    }
     return {
       status: 'moved',
       layout: snapshotReflowableLayout(document, plan, presentation, policy),
