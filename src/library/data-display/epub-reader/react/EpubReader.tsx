@@ -11,7 +11,7 @@ import { EpubSearchPanel } from './EpubSearchPanel';
 import { EpubSettingsPanel } from './EpubSettingsPanel';
 import { EpubViewport } from './EpubViewport';
 import type { EpubSource } from './model';
-import type { ReaderFootnote, ReaderImageActivation, ReaderMarkActivation, ReaderSelectionActivation, ReaderTheme } from '../core';
+import type { ReaderTheme } from '../core';
 import { EpubSelectionToolbar } from './EpubSelectionToolbar';
 import { EpubMarkPopover } from './EpubMarkPopover';
 import { EpubImageViewer } from './EpubImageViewer';
@@ -19,11 +19,10 @@ import { useEpubReader } from './use-epub-reader';
 import { feedbackForIntent, type ReaderFeedbackSpec } from './feedback-model';
 import { useCompactReaderLayout } from './responsive';
 import { useDelayedFlag, useHeldValue } from './loading-delay';
+import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId } from './reader-surfaces';
 import { ChromeIcon, CloseIcon, FullscreenIcon, HistoryIcon, PinIcon, ReaderToolIcon } from './reader-icons';
 
-type Panel = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help' | null;
-
-const PANELS: readonly { id: Exclude<Panel, null>; label: string; shortLabel: string; description: string }[] = [
+const PANELS: readonly { id: ReaderPanelId; label: string; shortLabel: string; description: string }[] = [
   { id: 'contents', label: 'Contents', shortLabel: 'Contents', description: 'Navigate the publication' },
   { id: 'search', label: 'Search', shortLabel: 'Search', description: 'Find text in this book' },
   { id: 'marks', label: 'Bookmarks and annotations', shortLabel: 'Marks', description: 'Saved places and selections' },
@@ -42,25 +41,21 @@ const PANELS: readonly { id: Exclude<Panel, null>; label: string; shortLabel: st
 export function EpubReader({ source, onThemeChange }: { readonly source: EpubSource; readonly onThemeChange?: (theme: ReaderTheme) => void }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const compactLayout = useCompactReaderLayout(shellRef);
-  const [panel, setPanel] = useState<Panel>(null);
+  // Panels, footnotes, the selection toolbar, mark popovers and the image
+  // viewer are one thing: the surface currently over the page. Holding them as
+  // a single value is what makes them mutually exclusive — see reader-surfaces.
+  const surfaces = useReaderSurfaces(source);
+  const { panel, footnote, selection: selectionTool, mark: activeMark, image: activeImage } = surfaces;
   const [autoChromeHidden, setAutoChromeHidden] = useState(false);
   const [manualChromeHidden, setManualChromeHidden] = useState(false);
   const [chromePinned, setChromePinned] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [footnoteState, setFootnote] = useState<{ readonly source: EpubSource; readonly footnote: ReaderFootnote } | null>(null);
-  const footnote = footnoteState?.source === source ? footnoteState.footnote : null;
-  const [selectionTool, setSelectionTool] = useState<ReaderSelectionActivation | null>(null);
-  const [activeMark, setActiveMark] = useState<ReaderMarkActivation | null>(null);
-  const [activeImage, setActiveImage] = useState<ReaderImageActivation | null>(null);
   const [feedback, setFeedback] = useState<(ReaderFeedbackSpec & { readonly id: number }) | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackIdRef = useRef(0);
   const panelRef = useRef<HTMLElement | null>(null);
   const footnoteRef = useRef<HTMLElement | null>(null);
-  const footnoteReturnFocusRef = useRef<HTMLElement | null>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
-  const previousPanelRef = useRef<Panel>(null);
-  const buttonRefs = useRef(new Map<Exclude<Panel, null>, HTMLButtonElement>());
+  const buttonRefs = useRef(new Map<ReaderPanelId, HTMLButtonElement>());
   const instanceId = useId().replaceAll(':', '');
   const panelId = `${instanceId}-reader-panel`;
   const panelTitleId = `${instanceId}-reader-panel-title`;
@@ -74,92 +69,75 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
       setFeedback(null);
     }, next.tone === 'boundary' ? 1500 : 1800);
   }, []);
-  const rememberFocus = useCallback(() => {
-    if (returnFocusRef.current?.isConnected) return;
-    const active = document.activeElement;
-    if (active instanceof HTMLElement) returnFocusRef.current = active;
-  }, []);
-  const closePanel = useCallback(() => {
-    const closingPanel = previousPanelRef.current;
-    const target = returnFocusRef.current ?? (closingPanel ? buttonRefs.current.get(closingPanel) : null) ?? null;
-    setPanel(null);
+  /** Focus whatever raised the surface, or the page itself if it is gone. */
+  const restoreFocus = useCallback((target: HTMLElement | null) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const fallback = closingPanel ? buttonRefs.current.get(closingPanel) : null;
-        const resolved = target?.isConnected ? target : fallback;
-        resolved?.focus({ preventScroll: true });
+        const fallback = document.getElementById(viewportId);
+        const resolve = () => (target?.isConnected ? target : fallback);
+        resolve()?.focus({ preventScroll: true });
+        // Browsers drop focus to the body when the element holding it is removed
+        // in the same commit, so one retry after layout settles it.
         requestAnimationFrame(() => {
-          if (document.activeElement === document.body) {
-            const retry = target?.isConnected ? target : fallback;
-            retry?.focus({ preventScroll: true });
-            if (document.activeElement === document.body) fallback?.focus({ preventScroll: true });
-          }
-          returnFocusRef.current = null;
+          if (document.activeElement === document.body) resolve()?.focus({ preventScroll: true });
         });
       });
     });
-  }, []);
-  const closeFootnote = useCallback((restoreFocus = true) => {
-    const target = footnoteReturnFocusRef.current;
-    setFootnote(null);
-    footnoteReturnFocusRef.current = null;
-    if (!restoreFocus) return;
-    requestAnimationFrame(() => {
-      if (target?.isConnected && typeof target.focus === 'function') target.focus({ preventScroll: true });
-      else document.getElementById(viewportId)?.focus({ preventScroll: true });
-    });
   }, [viewportId]);
+  const closeSurface = useCallback((withFocus = true) => {
+    const target = surfaceReturnFocus(surfaces.surface);
+    surfaces.close();
+    if (withFocus) restoreFocus(target);
+  }, [restoreFocus, surfaces]);
+  /** The element to come back to after a surface opened by a keyboard command. */
+  const activeElement = useCallback(
+    () => (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+    [],
+  );
   const reader = useEpubReader(source, {
+    // A command that fails mid-read still leaves a readable book, so it is worth
+    // a line of feedback rather than a silent no-op.
+    onError: () => showFeedback({ message: 'That did not work. Try again.', tone: 'boundary' }),
     onIntent: intent => {
-      if (intent.type === 'open-search') { setManualChromeHidden(false); setActiveImage(null); rememberFocus(); setPanel('search'); }
-      else if (intent.type === 'open-help') { setManualChromeHidden(false); setActiveImage(null); rememberFocus(); setPanel('help'); }
+      // Every branch that opens something calls `show`, which replaces whatever
+      // was there. Nothing has to remember to close the other four.
+      if (intent.type === 'open-search') {
+        setManualChromeHidden(false);
+        surfaces.show({ kind: 'panel', panel: 'search', returnFocus: activeElement() });
+      }
+      else if (intent.type === 'open-help') {
+        setManualChromeHidden(false);
+        surfaces.show({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
+      }
       else if (intent.type === 'toggle-chrome') {
-        setPanel(null);
-        setFootnote(null);
-        setSelectionTool(null);
-        setActiveMark(null);
-        setActiveImage(null);
+        surfaces.close();
         setManualChromeHidden(current => !current);
       }
       else if (intent.type === 'open-footnote') {
         setManualChromeHidden(false);
-        setPanel(null);
-        setActiveImage(null);
-        returnFocusRef.current = null;
-        footnoteReturnFocusRef.current = intent.trigger;
-        setFootnote({ source, footnote: intent.footnote });
+        surfaces.show({ kind: 'footnote', source, footnote: intent.footnote, returnFocus: intent.trigger });
       }
       else if (intent.type === 'selection-changed') {
-        setSelectionTool(intent.activation);
         if (intent.activation) {
           setManualChromeHidden(false);
-          setPanel(null);
-          setFootnote(null);
-          setActiveImage(null);
+          surfaces.show({ kind: 'selection', activation: intent.activation });
+        } else if (selectionTool) {
+          // Only retract the toolbar; a selection cleared while some other
+          // surface is open must not close that one too.
+          surfaces.close();
         }
       }
       else if (intent.type === 'open-mark') {
         setManualChromeHidden(false);
-        setPanel(null);
-        setFootnote(null);
-        setSelectionTool(null);
-        setActiveImage(null);
-        setActiveMark(intent.activation);
+        surfaces.show({ kind: 'mark', activation: intent.activation });
       }
       else if (intent.type === 'open-image') {
         setManualChromeHidden(false);
-        setPanel(null);
-        setFootnote(null);
-        setSelectionTool(null);
-        setActiveMark(null);
-        setActiveImage(intent.activation);
+        surfaces.show({ kind: 'image', activation: intent.activation });
       }
       else if (intent.type === 'escape') {
-        if (activeImage) setActiveImage(null);
-        else if (activeMark) setActiveMark(null);
-        else if (selectionTool) setSelectionTool(null);
-        else if (footnote) closeFootnote();
-        else closePanel();
+        // The engine already dropped any selection before raising this.
+        closeSurface();
       }
       else {
         const nextFeedback = feedbackForIntent(intent);
@@ -280,7 +258,6 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
   };
 
   useEffect(() => {
-    previousPanelRef.current = panel;
     const frame = requestAnimationFrame(() => {
       if (panel) {
         const preferred = panel === 'search'
@@ -362,52 +339,26 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     };
   }, [activeImage]);
 
-  const togglePanel = (next: Exclude<Panel, null>, origin: HTMLButtonElement) => {
-    setSelectionTool(null);
-    setActiveMark(null);
-    setActiveImage(null);
-    returnFocusRef.current = origin;
-    if (panel === next) closePanel();
-    else setPanel(next);
+  const togglePanel = (next: ReaderPanelId, origin: HTMLButtonElement) => {
+    if (panel === next) closeSurface();
+    else surfaces.show({ kind: 'panel', panel: next, returnFocus: origin });
   };
 
   const handleShellKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = event.target;
     const editable = target instanceof HTMLElement
       && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
-    if (event.key === 'Escape' && activeImage) {
+    // One surface is open at most, so Escape has one thing to close and no
+    // ordering to get right.
+    if (event.key === 'Escape' && surfaces.open) {
       event.preventDefault();
       event.stopPropagation();
-      const image = activeImage.trigger;
-      setActiveImage(null);
-      requestAnimationFrame(() => image.isConnected ? image.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
-    } else if (event.key === 'Escape' && activeMark) {
-      event.preventDefault();
-      event.stopPropagation();
-      const target = activeMark.returnFocus;
-      setActiveMark(null);
-      requestAnimationFrame(() => target.isConnected ? target.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
-    } else if (event.key === 'Escape' && selectionTool) {
-      event.preventDefault();
-      event.stopPropagation();
-      const target = selectionTool.returnFocus;
-      reader.clearSelection();
-      setSelectionTool(null);
-      requestAnimationFrame(() => target.isConnected ? target.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
-    } else if (event.key === 'Escape' && footnote) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeFootnote();
-    } else if (event.key === 'Escape' && panel) {
-      event.preventDefault();
-      event.stopPropagation();
-      closePanel();
+      if (selectionTool) reader.clearSelection();
+      closeSurface();
     } else if (event.key === '?' && !event.altKey && !event.ctrlKey && !event.metaKey && !editable) {
       event.preventDefault();
       event.stopPropagation();
-      rememberFocus();
-      setActiveImage(null);
-      setPanel('help');
+      surfaces.show({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
     }
   };
 
@@ -499,9 +450,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
               title="Hide reader controls (C)"
               onClick={() => {
                 reader.clearSelection();
-                setSelectionTool(null);
-                setActiveMark(null);
-                setActiveImage(null);
+                surfaces.close();
                 setManualChromeHidden(true);
               }}
             >
@@ -522,7 +471,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
               type="button"
               aria-hidden="true"
               tabIndex={-1}
-              onClick={() => panel ? closePanel() : closeFootnote()}
+              onClick={() => closeSurface()}
             />
           ) : null}
           {panel ? (
@@ -541,7 +490,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
                   <strong id={panelTitleId}>{activePanel?.label}</strong>
                   <span>{activePanel?.description}</span>
                 </div>
-                <button type="button" onClick={closePanel} aria-label={`Close ${activePanel?.label ?? 'panel'}`}>
+                <button type="button" onClick={() => closeSurface()} aria-label={`Close ${activePanel?.label ?? 'panel'}`}>
                   <CloseIcon />
                 </button>
               </header>
@@ -558,14 +507,16 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
                             onEditMark={(mark, trigger) => {
                               const shellBounds = shellRef.current?.getBoundingClientRect();
                               const triggerBounds = trigger.getBoundingClientRect();
-                              setPanel(null);
-                              setActiveMark({
-                                mark,
-                                anchor: {
-                                  x: triggerBounds.left + triggerBounds.width / 2 - (shellBounds?.left ?? 0),
-                                  y: triggerBounds.bottom - (shellBounds?.top ?? 0),
+                              surfaces.show({
+                                kind: 'mark',
+                                activation: {
+                                  mark,
+                                  anchor: {
+                                    x: triggerBounds.left + triggerBounds.width / 2 - (shellBounds?.left ?? 0),
+                                    y: triggerBounds.bottom - (shellBounds?.top ?? 0),
+                                  },
+                                  returnFocus: trigger,
                                 },
-                                returnFocus: trigger,
                               });
                             }}
                           />
@@ -597,7 +548,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
                   <span>{footnote.label}</span>
                   <strong id={`${instanceId}-footnote-title`}>{footnote.title}</strong>
                 </div>
-                <button type="button" onClick={() => closeFootnote()} aria-label="Close footnote">
+                <button type="button" onClick={() => closeSurface()} aria-label="Close footnote">
                   <CloseIcon />
                 </button>
               </header>
@@ -609,7 +560,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
                   type="button"
                   onClick={() => {
                     const href = footnote.href;
-                    closeFootnote(false);
+                    closeSurface(false);
                     void reader.goTo({ kind: 'href', href });
                   }}
                 >
@@ -622,11 +573,9 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
             <EpubSelectionToolbar
               activation={selectionTool}
               reader={reader}
-              onDismiss={(restoreFocus = false) => {
-                const target = selectionTool.returnFocus;
+              onDismiss={(withFocus = false) => {
                 reader.clearSelection();
-                setSelectionTool(null);
-                if (restoreFocus) requestAnimationFrame(() => target.isConnected ? target.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
+                closeSurface(withFocus);
               }}
               onSaved={kind => showFeedback({ message: kind === 'highlight' ? 'Highlight saved' : 'Note saved', tone: 'success' })}
             />
@@ -635,11 +584,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
             <EpubMarkPopover
               activation={activeMark}
               reader={reader}
-              onClose={(restoreFocus = false) => {
-                const target = activeMark.returnFocus;
-                setActiveMark(null);
-                if (restoreFocus) requestAnimationFrame(() => target.isConnected ? target.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
-              }}
+              onClose={(withFocus = false) => closeSurface(withFocus)}
               onChanged={message => showFeedback({ message, tone: 'success' })}
             />
           ) : null}
@@ -648,11 +593,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
         {activeImage ? (
           <EpubImageViewer
             activation={activeImage}
-            onClose={(restoreFocus = false) => {
-              const target = activeImage.trigger;
-              setActiveImage(null);
-              if (restoreFocus) requestAnimationFrame(() => target.isConnected ? target.focus({ preventScroll: true }) : document.getElementById(viewportId)?.focus({ preventScroll: true }));
-            }}
+            onClose={(withFocus = false) => closeSurface(withFocus)}
           />
         ) : null}
         {feedback ? <EpubReaderFeedback feedback={feedback} feedbackId={feedback.id} /> : null}
@@ -683,10 +624,10 @@ function HistoryButton({ direction, enabled, onActivate }: { readonly direction:
 interface PanelButtonProps {
   readonly key?: string;
   readonly item: (typeof PANELS)[number];
-  readonly panel: Panel;
+  readonly panel: ReaderPanelId | null;
   readonly panelId: string;
-  readonly buttonRefs: import('react').MutableRefObject<Map<Exclude<Panel, null>, HTMLButtonElement>>;
-  readonly onToggle: (panel: Exclude<Panel, null>, origin: HTMLButtonElement) => void;
+  readonly buttonRefs: import('react').MutableRefObject<Map<ReaderPanelId, HTMLButtonElement>>;
+  readonly onToggle: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
   readonly secondary?: boolean;
 }
 

@@ -35,8 +35,9 @@ export interface EpubReaderHandle {
   readonly state: ReactEpubReaderSnapshot;
   readonly viewportRef: RefCallback<HTMLDivElement>;
   retry(): Promise<void>;
-  next(): Promise<import('../core').ReaderNavigationResult>;
-  previous(): Promise<import('../core').ReaderNavigationResult>;
+  /** Resolves to null when the command failed; the failure is reported through onError. */
+  next(): Promise<import('../core').ReaderNavigationResult | null>;
+  previous(): Promise<import('../core').ReaderNavigationResult | null>;
   goTo(target: NavigationTarget): Promise<Locator | null>;
   goToLocator(locator: Locator): Promise<Locator | null>;
   history: {
@@ -80,7 +81,7 @@ export interface EpubReaderHandle {
     remove(id: string): boolean;
     update(id: string, patch: import('../core').ReaderMarkPatch): import('../core').ReaderMark | null;
     clear(): void;
-    goTo(id: string): Promise<boolean>;
+    goTo(id: string): Promise<boolean | null>;
   };
 }
 

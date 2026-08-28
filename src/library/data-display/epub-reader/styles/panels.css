@@ -102,10 +102,24 @@
   border-radius: 50%;
   background-clip: content-box;
 }
-.epub-reader-selection-tool__colors button.is-yellow { background-color: #e7c955; }
-.epub-reader-selection-tool__colors button.is-pink { background-color: #df8fa7; }
-.epub-reader-selection-tool__colors button.is-green { background-color: #80b88b; }
-.epub-reader-selection-tool__colors button.is-blue { background-color: #75a9c8; }
+/* Swatch colours live in tokens.css; both surfaces read the same ones. */
+.epub-reader-selection-tool__colors button,
+.epub-reader-mark-popover__colors button {
+  background-color: var(--epub-highlight);
+}
+
+.epub-reader-selection-tool__colors button.is-yellow,
+.epub-reader-mark-popover__colors button.is-yellow { --epub-highlight: var(--epub-highlight-yellow); }
+.epub-reader-selection-tool__colors button.is-orange,
+.epub-reader-mark-popover__colors button.is-orange { --epub-highlight: var(--epub-highlight-orange); }
+.epub-reader-selection-tool__colors button.is-pink,
+.epub-reader-mark-popover__colors button.is-pink { --epub-highlight: var(--epub-highlight-pink); }
+.epub-reader-selection-tool__colors button.is-green,
+.epub-reader-mark-popover__colors button.is-green { --epub-highlight: var(--epub-highlight-green); }
+.epub-reader-selection-tool__colors button.is-blue,
+.epub-reader-mark-popover__colors button.is-blue { --epub-highlight: var(--epub-highlight-blue); }
+.epub-reader-selection-tool__colors button.is-purple,
+.epub-reader-mark-popover__colors button.is-purple { --epub-highlight: var(--epub-highlight-purple); }
 .epub-reader-selection-tool__colors button[aria-pressed="true"] {
   outline: 2px solid var(--epub-color-text);
   outline-offset: -5px;
@@ -263,12 +277,6 @@
   border-radius: 50%;
   background-clip: content-box;
 }
-.epub-reader-mark-popover__colors button.is-yellow { background-color: #e7c955; }
-.epub-reader-mark-popover__colors button.is-orange { background-color: #dfa15f; }
-.epub-reader-mark-popover__colors button.is-pink { background-color: #df8fa7; }
-.epub-reader-mark-popover__colors button.is-green { background-color: #80b88b; }
-.epub-reader-mark-popover__colors button.is-blue { background-color: #75a9c8; }
-.epub-reader-mark-popover__colors button.is-purple { background-color: #a48bc4; }
 .epub-reader-mark-popover__colors button[aria-pressed="true"] {
   outline: 2px solid var(--epub-color-accent-strong);
   outline-offset: 1px;
@@ -306,9 +314,9 @@
   font-family: Georgia, serif;
   text-align: center;
 }
-.epub-reader-mark-popover__styles .is-solid { border-radius: 2px; background: #e7c95566; }
-.epub-reader-mark-popover__styles .is-underline { text-decoration: underline 2px #e7c955; text-underline-offset: 3px; }
-.epub-reader-mark-popover__styles .is-strikethrough { text-decoration: line-through 2px #e7c955; }
+.epub-reader-mark-popover__styles .is-solid { border-radius: 2px; background: color-mix(in srgb, var(--epub-highlight-yellow) 40%, transparent); }
+.epub-reader-mark-popover__styles .is-underline { text-decoration: underline 2px var(--epub-highlight-yellow); text-underline-offset: 3px; }
+.epub-reader-mark-popover__styles .is-strikethrough { text-decoration: line-through 2px var(--epub-highlight-yellow); }
 .epub-reader-mark-popover__styles .is-outline { border: 1px solid #d2ae32; border-radius: 3px; }
 
 .epub-reader-mark-popover footer {

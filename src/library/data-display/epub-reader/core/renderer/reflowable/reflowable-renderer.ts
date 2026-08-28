@@ -35,7 +35,6 @@ import {
   buildReflowableLayoutCss,
   READER_LAYOUT_STYLE_ID,
   READER_PREFERENCES_STYLE_ID,
-  removeReaderStyle,
   upsertReaderStyle,
 } from './styles';
 

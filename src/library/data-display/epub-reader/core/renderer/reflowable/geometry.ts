@@ -1,5 +1,4 @@
-import { normalizeProgression, type TextDirection, type WritingMode } from '../../publication';
-import type { ReflowablePresentation } from './model';
+import { normalizeProgression } from '../../publication';
 
 export interface PaginatedGeometryInput {
   readonly scrollExtent: number;
@@ -75,6 +74,3 @@ function nonNegative(value: number, label: string): number {
   return value;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}

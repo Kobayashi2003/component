@@ -273,10 +273,6 @@ body::before {
 `;
 }
 
-export function removeReaderStyle(document: Document, id: string): void {
-  document.getElementById(id)?.remove();
-}
-
 export function buildReaderPreferenceCss(plan: RenditionPlan, resolvedTheme?: ReaderThemeDefinition | null): string {
   const preferences = plan.preferences;
   const rules: string[] = [

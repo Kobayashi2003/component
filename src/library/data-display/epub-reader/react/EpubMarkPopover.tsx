@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
-import type { AnnotationColor, AnnotationHighlightStyle, ReaderMarkActivation } from '../core';
+import type { AnnotationHighlightStyle, ReaderMarkActivation } from '../core';
+import { ANNOTATION_COLORS as COLORS } from './annotation-colors';
 import type { EpubReaderHandle } from './model';
 
-const COLORS: readonly AnnotationColor[] = ['yellow', 'orange', 'pink', 'green', 'blue', 'purple'];
 const STYLES: readonly { readonly value: AnnotationHighlightStyle; readonly label: string }[] = [
   { value: 'solid', label: 'Highlight' },
   { value: 'underline', label: 'Underline' },

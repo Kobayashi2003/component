@@ -68,14 +68,24 @@ export class ReactEpubReaderStore {
     };
   }
 
-  setSource(source: EpubSource, options: UseEpubReaderOptions = {}): void {
-    this.assertAlive();
-    if (this.source === source) {
-      this.options = options;
-      return;
-    }
-    this.source = source;
+  /**
+   * Refreshes the host callbacks without touching the open publication.
+   *
+   * Callbacks are invoked through this object rather than captured, so a host
+   * that re-renders with new closures keeps working while a large book stays
+   * open. Options consumed once at open time — preferences, mark store, reading
+   * session — take effect on the next {@link setSource}.
+   */
+  setOptions(options: UseEpubReaderOptions): void {
+    if (this.disposed) return;
     this.options = options;
+  }
+
+  setSource(source: EpubSource, options?: UseEpubReaderOptions): void {
+    this.assertAlive();
+    if (options) this.options = options;
+    if (this.source === source) return;
+    this.source = source;
     void this.reopen();
   }
 
@@ -111,18 +121,53 @@ export class ReactEpubReaderStore {
     void this.reopen();
   }
 
-  next() { return this.requireReader().next(); }
+  /**
+   * Runs a command against the open reader and reports a failure instead of
+   * leaving it as an unhandled rejection.
+   *
+   * The shell fires these and ignores the result — `void reader.next()` — so a
+   * renderer that threw mid-page-turn used to fail entirely silently: no toast,
+   * no status, nothing but a console warning the person reading never sees.
+   * `null` means the command failed and has already been reported.
+   */
+  private async run<T>(operation: (reader: BrowserEpubReader) => Promise<T>): Promise<T | null> {
+    const reader = this.requireReader();
+    try {
+      return await operation(reader);
+    } catch (error) {
+      this.reportOperationalError(reader, error);
+      return null;
+    }
+  }
+
+  /**
+   * A failure on an already-open reader. The publication is still readable, so
+   * the core lifecycle status is preserved rather than replaced with a
+   * React-only fatal state.
+   */
+  private reportOperationalError(reader: BrowserEpubReader, error: unknown): void {
+    if (this.reader !== reader || this.disposed) return;
+    this.publish({
+      status: statusFromReader(reader.snapshot),
+      reader: reader.snapshot,
+      diagnostics: reader.snapshot.diagnostics,
+      error,
+    });
+    this.options.onError?.(error);
+  }
+
+  next() { return this.run(reader => reader.next()); }
   async retry(): Promise<void> {
     this.assertAlive();
     if (!this.source || !this.container) return;
     return this.reopen();
   }
-  previous() { return this.requireReader().previous(); }
-  async goTo(target: NavigationTarget): Promise<Locator | null> { return this.requireReader().goTo(target); }
-  async goToLocator(locator: Locator): Promise<Locator | null> { return this.requireReader().goToLocator(locator); }
-  async historyBack(): Promise<Locator | null> { return this.requireReader().back(); }
-  async historyForward(): Promise<Locator | null> { return this.requireReader().forward(); }
-  async setPreferences(patch: Partial<ReaderPreferences>): Promise<void> { return this.requireReader().setPreferences(patch); }
+  previous() { return this.run(reader => reader.previous()); }
+  async goTo(target: NavigationTarget): Promise<Locator | null> { return this.run(reader => reader.goTo(target)); }
+  async goToLocator(locator: Locator): Promise<Locator | null> { return this.run(reader => reader.goToLocator(locator)); }
+  async historyBack(): Promise<Locator | null> { return this.run(reader => reader.back()); }
+  async historyForward(): Promise<Locator | null> { return this.run(reader => reader.forward()); }
+  async setPreferences(patch: Partial<ReaderPreferences>): Promise<void> { await this.run(reader => reader.setPreferences(patch)); }
   captureLocator() { return this.requireReader().captureLocator(); }
   registerTheme(theme: import('../core').ReaderThemeDefinition): void { this.requireReader().registerTheme(theme); }
   captureSelection() { return this.requireReader().captureSelection(); }
@@ -138,11 +183,14 @@ export class ReactEpubReaderStore {
   addHighlightFromSelection(highlight?: import('../core').AnnotationHighlightStyle, color?: import('../core').AnnotationColor) {
     return this.requireReader().addHighlightFromSelection(highlight, color);
   }
-  searchRun(query: string, options?: Partial<SearchOptions>) { return this.requireReader().search.run(query, options); }
+  /** A failed search reports no hits rather than a null the panel must handle. */
+  async searchRun(query: string, options?: Partial<SearchOptions>) {
+    return (await this.run(reader => reader.search.run(query, options))) ?? [];
+  }
   searchClear(): void { this.requireReader().search.clear(); }
-  searchGoTo(index: number) { return this.requireReader().search.goTo(index); }
-  searchNext() { return this.requireReader().search.next(); }
-  searchPrevious() { return this.requireReader().search.previous(); }
+  searchGoTo(index: number) { return this.run(reader => reader.search.goTo(index)); }
+  searchNext() { return this.run(reader => reader.search.next()); }
+  searchPrevious() { return this.run(reader => reader.search.previous()); }
   addBookmark(label?: string) { return this.requireReader().marks.addBookmark(label); }
   addHighlight(
     range: import('../core').LocatorRange,
@@ -162,7 +210,7 @@ export class ReactEpubReaderStore {
   removeMark(id: string): boolean { return this.requireReader().marks.remove(id); }
   updateMark(id: string, patch: import('../core').ReaderMarkPatch) { return this.requireReader().marks.update(id, patch); }
   clearMarks(): void { this.requireReader().marks.clear(); }
-  goToMark(id: string): Promise<boolean> { return this.requireReader().marks.goTo(id); }
+  goToMark(id: string): Promise<boolean | null> { return this.run(reader => reader.marks.goTo(id)); }
 
   dispose(): void {
     if (this.disposed) return;
@@ -273,19 +321,7 @@ export class ReactEpubReaderStore {
       this.resizeFrame = null;
       const reader = this.reader;
       if (!reader) return;
-      void reader.syncViewportFromElement().catch(error => {
-        if (this.reader !== reader || this.disposed) return;
-        // A resize/reflow failure is an operational error on an already-open
-        // reader. Preserve the core lifecycle status instead of inventing a
-        // React-only fatal state.
-        this.publish({
-          status: statusFromReader(reader.snapshot),
-          reader: reader.snapshot,
-          diagnostics: reader.snapshot.diagnostics,
-          error,
-        });
-        this.options.onError?.(error);
-      });
+      void reader.syncViewportFromElement().catch(error => this.reportOperationalError(reader, error));
     });
   }
 

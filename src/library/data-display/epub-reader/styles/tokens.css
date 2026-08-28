@@ -18,6 +18,14 @@
   --epub-scrollbar-thumb: color-mix(in srgb, var(--epub-color-text-muted) 48%, transparent);
   --epub-scrollbar-thumb-hover: color-mix(in srgb, var(--epub-color-text-muted) 72%, transparent);
   --epub-scrollbar-track: transparent;
+  /* Annotation swatches. One definition, because the selection toolbar and the
+     mark popover both offer them and they must not drift apart. */
+  --epub-highlight-yellow: #e7c955;
+  --epub-highlight-orange: #dfa15f;
+  --epub-highlight-pink: #df8fa7;
+  --epub-highlight-green: #80b88b;
+  --epub-highlight-blue: #75a9c8;
+  --epub-highlight-purple: #a48bc4;
   --epub-space-1: 4px;
   --epub-space-2: 8px;
   --epub-space-3: 12px;
