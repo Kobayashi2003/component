@@ -17,8 +17,15 @@ export function resolveSpreadSlotAssignment(
     throw new Error('Physical left/right spine-slot assignment requires a cross-spine spread plan.');
   }
 
+  // An authored true-spread pair is honored directly, but only once both halves
+  // are things this compositor may mount. Taking the hint unconditionally let a
+  // pair that spans a layout boundary bypass the eligibility rule below.
   const trueSpread = activePlan.spread.trueSpread;
-  if (trueSpread) {
+  if (trueSpread && [trueSpread.leftSpineIndex, trueSpread.rightSpineIndex]
+    .every(index => {
+      const item = publication.spine[index];
+      return item != null && isEligible(item);
+    })) {
     return {
       leftSpineIndex: trueSpread.leftSpineIndex,
       rightSpineIndex: trueSpread.rightSpineIndex,

@@ -220,4 +220,44 @@ function makePublication(
   assert(chapter.preferences.theme === 'sepia' && cover.preferences.theme === 'sepia', 'mixed-layout navigation must preserve the selected reader theme');
 }
 
+// 11. A layout boundary is not a physical sheet. Mixed-layout books routinely
+// author complementary left/right placements that straddle the seam between a
+// plate and the flowing chapter beside it; honoring that as a true spread put a
+// whole text chapter into one leaf, where it was shown once and then skipped.
+{
+  const publication = makePublication('rtl', [
+    makeItem(0, { pageSpread: 'right' }, 'reflowable'),
+    makeItem(1, { pageSpread: 'left' }, 'pre-paginated'),
+  ]);
+  const plate = planRendition({ publication, spineItem: publication.spine[1]!, viewport: { width: 1200, height: 800 } });
+  assert(plate.spread.trueSpread == null, 'a plate must not form a true spread with a flowing chapter beside it');
+  const slots = resolveSpreadSlotAssignment(publication, plate, item => item.index === 1);
+  assert(slots.rightSpineIndex == null, 'the flowing neighbor must not be pulled into the plate spread');
+  assert(slots.leftSpineIndex === 1, 'the plate keeps its authored slot with a blank facing leaf');
+
+  // Positive control: the same authored placements between two plates are a
+  // true spread, so the rule above rejects the boundary and nothing else.
+  const plates = makePublication('rtl', [
+    makeItem(0, { pageSpread: 'right' }, 'pre-paginated'),
+    makeItem(1, { pageSpread: 'left' }, 'pre-paginated'),
+  ]);
+  const paired = planRendition({ publication: plates, spineItem: plates.spine[1]!, viewport: { width: 1200, height: 800 } });
+  assert(paired.spread.trueSpread != null, 'two plates with complementary placements remain a true spread');
+}
+
+// 12. The eligibility rule has to cover the authored-true-spread path too. It
+// used to be applied only to the scanning fallback, so a true-spread hint was
+// enough to mount a neighbor the compositor had already ruled out.
+{
+  const publication = makePublication('rtl', [
+    makeItem(0, { pageSpread: 'right' }, 'pre-paginated'),
+    makeItem(1, { pageSpread: 'left' }, 'pre-paginated'),
+  ]);
+  const plan = planRendition({ publication, spineItem: publication.spine[1]!, viewport: { width: 1200, height: 800 } });
+  assert(plan.spread.trueSpread != null, 'fixture must actually carry a true-spread hint');
+  const slots = resolveSpreadSlotAssignment(publication, plan, item => item.index === 1);
+  assert(!slots.trueSpread, 'a true spread whose partner is ineligible must fall back to the scanning walk');
+  assert(slots.rightSpineIndex == null, 'the ineligible partner must stay unmounted');
+}
+
 console.log('Fixed-layout spread unit test: PASS');

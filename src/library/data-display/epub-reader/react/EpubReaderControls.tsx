@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import type { EpubReaderHandle } from './model';
 import { useOptionalEpubReaderContext } from './context';
-import { publicationProgress, spineIndexForPublicationProgress } from './controls-model';
+import { locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from './controls-model';
 
 export function EpubReaderControls({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
@@ -30,11 +30,19 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
   // position readout between "page in section" and "page in publication" every
   // time the reader turns into an illustration page.
   const fixedLayout = snapshot?.presentation.layout === 'fixed-layout';
+  // A mixed book is mostly single-page sections — plates, title pages, a table
+  // of contents — and none of those is ever partway through itself. Reporting
+  // the position inside the current section leaves the bar at 0% for the whole
+  // front matter, so mixed books measure against the publication like fully
+  // pre-paginated ones, with the current section's own progress blended in so a
+  // long chapter still advances it.
+  const publicationScoped = fixedLayout || snapshot?.presentation.layout === 'mixed';
   const spineCount = snapshot?.publication.spine.length ?? 0;
   const spineIndex = snapshot?.locator?.spineIndex ?? 0;
-  const resolvedProgress = fixedLayout
-    ? publicationProgress(spineIndex, spineCount)
-    : snapshot?.locator?.locations.progression ?? layout?.progression ?? 0;
+  const sectionProgression = snapshot?.locator?.locations.progression ?? layout?.progression ?? 0;
+  const resolvedProgress = publicationScoped
+    ? publicationProgress(spineIndex, spineCount, fixedLayout ? 0 : sectionProgression)
+    : sectionProgression;
   const progress = Math.round(resolvedProgress * 100);
   // A composed spread shows two sections at once, so name both. Reporting only
   // the active one made every spread look like it had skipped a section.
@@ -52,17 +60,22 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
     const locator = snapshot?.locator;
     if (!locator || seekDraft == null || seekDraft === progress || !interactive) return;
     const timer = setTimeout(() => {
-      const targetIndex = fixedLayout
-        ? spineIndexForPublicationProgress(seekDraft / 100, spineCount)
-        : locator.spineIndex;
-      const target = fixedLayout ? snapshot?.publication.spine[targetIndex] : null;
-      void reader.goToLocator(fixedLayout && target
-        ? { href: target.href, spineIndex: targetIndex, locations: { progression: 0 } }
-        : { href: locator.href, spineIndex: locator.spineIndex, locations: { progression: seekDraft / 100 } }
+      // The scrubber has to seek in whatever unit it is displaying, so a
+      // publication-scoped bar resolves back to a section plus an offset
+      // inside it rather than scrubbing the current section alone.
+      const destination = fixedLayout
+        ? { spineIndex: spineIndexForPublicationProgress(seekDraft / 100, spineCount), progression: 0 }
+        : publicationScoped
+          ? locationForPublicationProgress(seekDraft / 100, spineCount)
+          : { spineIndex: locator.spineIndex, progression: seekDraft / 100 };
+      const target = snapshot?.publication.spine[destination.spineIndex];
+      void reader.goToLocator(publicationScoped && target
+        ? { href: target.href, spineIndex: destination.spineIndex, locations: { progression: destination.progression } }
+        : { href: locator.href, spineIndex: locator.spineIndex, locations: { progression: destination.progression } }
       ).finally(() => setSeekDraft(current => current === seekDraft ? null : current));
     }, 120);
     return () => clearTimeout(timer);
-  }, [fixedLayout, interactive, progress, reader, seekDraft, snapshot?.locator, snapshot?.publication.spine, spineCount]);
+  }, [fixedLayout, interactive, progress, publicationScoped, reader, seekDraft, snapshot?.locator, snapshot?.publication.spine, spineCount]);
   const status = failed
     ? 'Unavailable'
     : opening
@@ -94,8 +107,8 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
           step="1"
           value={seekValue}
           disabled={!interactive || !snapshot?.locator}
-          aria-label={fixedLayout ? 'Position in publication' : 'Position in current section'}
-          aria-valuetext={`${seekValue}% through ${fixedLayout ? 'publication' : 'section'}`}
+          aria-label={publicationScoped ? 'Position in publication' : 'Position in current section'}
+          aria-valuetext={`${seekValue}% through ${publicationScoped ? 'publication' : 'section'}`}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             const value = Number(event.currentTarget.value);
             setSeekDraft(value);

@@ -244,15 +244,25 @@ export function detectTrueSpreadPair(
   publication: Publication,
   item: SpineItem,
 ): SpreadPairHint | undefined {
-  const activePlacement = resolveSpineRendition(publication, item).pageSpread;
+  const activeRendition = resolveSpineRendition(publication, item);
+  const activePlacement = activeRendition.pageSpread;
   if (activePlacement !== 'left' && activePlacement !== 'right') return undefined;
   const progression = publication.pageProgressionDirection === 'rtl' ? 'rtl' : 'ltr';
   const firstPlacement: PageSpread = progression === 'rtl' ? 'right' : 'left';
   const neighborIndex = item.index + (activePlacement === firstPlacement ? 1 : -1);
   const neighbor = publication.spine[neighborIndex];
   if (!neighbor) return undefined;
-  const neighborPlacement = resolveSpineRendition(publication, neighbor).pageSpread;
-  if (!areComplementary(activePlacement, neighborPlacement)) return undefined;
+  const neighborRendition = resolveSpineRendition(publication, neighbor);
+  if (!areComplementary(activePlacement, neighborRendition.pageSpread)) return undefined;
+  // A true spread is one physical sheet photographed as two leaves, so both
+  // halves have to render the same way. Mixed-layout books commonly carry an
+  // authored left/right pair that spans the boundary between a plate and the
+  // flowing chapter beside it; honoring that pairs a fixed-layout plate with a
+  // whole text chapter, which then gets squeezed into one leaf and skipped.
+  // Such neighbours may still compose a synthetic spread — that decision is
+  // made from real plans in the spread renderer, which can see whether the
+  // reflowable side is a single page.
+  if (activeRendition.layout !== neighborRendition.layout) return undefined;
 
   return activePlacement === 'left'
     ? { leftSpineIndex: item.index, rightSpineIndex: neighbor.index }

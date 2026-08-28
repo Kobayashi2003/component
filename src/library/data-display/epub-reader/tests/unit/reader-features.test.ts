@@ -9,7 +9,7 @@ import { commandForClickZone, commandForKey, commandForSwipe, commandForWheel, i
 import { buildReaderPreferenceCss } from '../../core/renderer/reflowable';
 import { BrowserReaderInputRouter, semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
 import type { RenditionPlan } from '../../core/rendition';
-import { publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
+import { locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -70,6 +70,30 @@ async function main() {
 
   assert(Math.round(publicationProgress(10, 197) * 100) === 5, 'fixed-layout controls should derive progress from the active spine page');
   assert(spineIndexForPublicationProgress(0.5, 197) === 98, 'fixed-layout seeking should resolve publication progress to a spine page');
+
+  // A mixed-layout book spends its whole front matter in single-page sections.
+  // Those are never partway through themselves, so a section-scoped bar reads
+  // 0% for a dozen consecutive turns; the publication-scoped one has to move.
+  const frontMatter = [0, 1, 2, 3, 4, 5, 6, 7].map(index => Math.round(publicationProgress(index, 25, 0) * 100));
+  assert(new Set(frontMatter).size === frontMatter.length, 'every single-page section must report a distinct publication progress');
+  assert(frontMatter[0] === 0, 'the first section of a publication is 0%');
+  assert(Math.round(publicationProgress(24, 25, 0) * 100) === 100, 'the last section of a publication is 100%');
+
+  // Blending the position inside the current section keeps a long chapter
+  // advancing without ever passing the section that follows it.
+  assert(publicationProgress(10, 25, 0.5) > publicationProgress(10, 25, 0), 'progress within a section must advance the publication bar');
+  assert(publicationProgress(10, 25, 1) === publicationProgress(11, 25, 0), 'the end of one section must meet the start of the next');
+  assert(publicationProgress(10, 25, 2) === publicationProgress(10, 25, 1), 'out-of-range section progress must clamp');
+  assert(publicationProgress(10, 25, Number.NaN) === publicationProgress(10, 25, 0), 'a non-finite section progress must not poison the bar');
+
+  // Seeking has to invert whatever the bar is showing.
+  for (const [index, within] of [[0, 0], [7, 0.25], [13, 0.5], [24, 0]] as const) {
+    const round = locationForPublicationProgress(publicationProgress(index, 25, within), 25);
+    assert(round.spineIndex === index, `seeking must land back on section ${index}, got ${round.spineIndex}`);
+    assert(Math.abs(round.progression - within) < 1e-9, `seeking must recover the offset inside section ${index}`);
+  }
+  assert(locationForPublicationProgress(1.5, 25).spineIndex === 24, 'seeking past the end clamps to the last section');
+  assert(locationForPublicationProgress(-1, 25).spineIndex === 0, 'seeking before the start clamps to the first section');
 
   const search = new PublicationSearch(publication, provider);
   const normal = await search.search('alpha');
