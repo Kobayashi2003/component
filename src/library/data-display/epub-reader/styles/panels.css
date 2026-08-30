@@ -1,6 +1,6 @@
 .epub-reader-shell__panel {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: var(--epub-chrome-top) auto var(--epub-chrome-bottom) 0;
   z-index: 20;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -34,7 +34,7 @@
 .epub-reader-footnote {
   position: absolute;
   right: max(18px, env(safe-area-inset-right));
-  bottom: 18px;
+  bottom: calc(var(--epub-chrome-bottom) + 18px);
   z-index: 24;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -540,6 +540,7 @@
 .epub-reader-shell__panel-head span {
   color: var(--epub-color-text-muted);
   font-size: 0.68rem;
+  overflow-wrap: anywhere;
 }
 
 .epub-reader-shell__panel-head button {
@@ -700,6 +701,7 @@
   background: transparent;
   color: var(--epub-color-text-muted);
   line-height: 1.35;
+  overflow-wrap: anywhere;
   text-align: left;
 }
 
@@ -707,6 +709,7 @@
   padding: 9px 10px;
   color: var(--epub-color-text);
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .epub-contents__link:hover:not(:disabled) {
@@ -791,6 +794,11 @@
   background: color-mix(in srgb, var(--epub-color-accent) 24%, transparent);
   color: inherit;
   font-weight: 700;
+}
+
+.epub-search-result__excerpt,
+.epub-marks-panel__list li > button:first-child span {
+  overflow-wrap: anywhere;
 }
 
 .epub-search-panel__results li > button[aria-current="true"] {
@@ -1314,6 +1322,10 @@
 }
 
 @container epub-reader (max-width: 700px) {
+  .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__body.has-compact-modal {
+    z-index: 32;
+  }
+
   .epub-reader-selection-tool,
   .epub-reader-selection-tool.is-below {
     top: auto;

@@ -5,6 +5,7 @@ declare module 'react' {
   export interface FormEvent<T = Element> extends Event { readonly currentTarget: T }
   export interface ChangeEvent<T = Element> extends Event { readonly currentTarget: T }
   export interface KeyboardEvent<T = Element> extends Event { readonly currentTarget: T; readonly target: EventTarget; readonly key: string; readonly altKey: boolean; readonly ctrlKey: boolean; readonly metaKey: boolean; preventDefault(): void; stopPropagation(): void }
+  export interface FocusEvent<T = Element> extends Event { readonly currentTarget: T; readonly relatedTarget: EventTarget | null }
   export interface MouseEvent<T = Element> extends Event { readonly currentTarget: T }
   export interface DragEvent<T = Element> extends Event { readonly currentTarget: T; readonly relatedTarget: EventTarget | null; readonly dataTransfer: DataTransfer; preventDefault(): void }
   export interface Context<T> { Provider: (props: { value: T; children?: ReactNode }) => unknown }

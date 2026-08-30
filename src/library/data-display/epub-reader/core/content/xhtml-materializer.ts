@@ -50,25 +50,9 @@ export async function materializeXhtmlSpineItem(
   }
 
   const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-  let document = platform.parseXml(source, 'application/xhtml+xml');
-  if (!isParsedXhtml(document)) {
-    const htmlDocument = platform.parseXml(source, 'text/html');
-    assertParsedXhtml(htmlDocument, item.path);
-    document = htmlDocument;
-    diagnostics.push({
-      code: 'CONTENT_XHTML_PARSED_AS_HTML',
-      severity: 'warning',
-      phase: 'compatibility',
-      message: `Recovered non-well-formed XHTML content ${item.path} with the browser HTML parser.`,
-      path: item.path,
-      spineIndex: item.index,
-      repair: {
-        strategy: 'parse-malformed-xhtml-as-html',
-        description: 'Use browser HTML parsing as a compatibility fallback, then serialize deterministic script-disabled markup.',
-        confidence: 0.9,
-      },
-    });
-  }
+  const parsed = parseXhtmlContentDocument(source, item.path, item.index, platform);
+  const document = parsed.document;
+  diagnostics.push(...parsed.diagnostics);
 
   if (options.disableScripts ?? true) {
     disableScripts(document, diagnostics, item.path);
@@ -98,6 +82,36 @@ export async function materializeXhtmlSpineItem(
     mediaType: 'application/xhtml+xml',
     hints,
     diagnostics,
+  };
+}
+
+export function parseXhtmlContentDocument(
+  source: string,
+  path: PublicationPath,
+  spineIndex: number,
+  platform: BrowserXmlPlatform,
+): { readonly document: Document; readonly diagnostics: readonly PublicationDiagnostic[] } {
+  let document = platform.parseXml(source, 'application/xhtml+xml');
+  if (isParsedXhtml(document)) return { document, diagnostics: [] };
+
+  const htmlDocument = platform.parseXml(source, 'text/html');
+  assertParsedXhtml(htmlDocument, path);
+  document = htmlDocument;
+  return {
+    document,
+    diagnostics: [{
+      code: 'CONTENT_XHTML_PARSED_AS_HTML',
+      severity: 'warning',
+      phase: 'compatibility',
+      message: `Recovered non-well-formed XHTML content ${path} with the browser HTML parser.`,
+      path,
+      spineIndex,
+      repair: {
+        strategy: 'parse-malformed-xhtml-as-html',
+        description: 'Use browser HTML parsing as a compatibility fallback, then serialize deterministic script-disabled markup.',
+        confidence: 0.9,
+      },
+    }],
   };
 }
 

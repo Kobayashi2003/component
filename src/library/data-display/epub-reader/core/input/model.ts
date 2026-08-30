@@ -10,7 +10,7 @@ export type ReaderCommand =
   | { readonly type: 'font-step'; readonly delta: 1 | -1; readonly source: InputSource }
   | { readonly type: 'escape'; readonly source: InputSource };
 
-export type InputSource = 'keyboard' | 'wheel' | 'click-zone' | 'swipe';
+export type InputSource = 'keyboard' | 'wheel' | 'click-zone' | 'center-tap' | 'swipe';
 
 export interface ReaderInputPolicy {
   readonly keyboard: boolean;

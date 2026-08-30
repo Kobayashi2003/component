@@ -1,5 +1,6 @@
 import type { Locator, Publication } from '../publication';
 import { locatorAtResourceEnd, locatorAtResourceStart } from '../locator';
+import type { LayoutTransactionReason } from '../renderer';
 import type {
   NavigationDirection,
   NavigationPlanProvider,
@@ -62,6 +63,15 @@ export class ReaderNavigator {
 
   goToLocator(locator: Locator): Promise<Locator | null> {
     return this.enqueue(() => this.performGoToLocator(locator));
+  }
+
+  relayout(reason: LayoutTransactionReason): Promise<void> {
+    return this.enqueue(async () => {
+      const current = this.host.state.plan;
+      if (!current) return;
+      const plan = await this.plans.planForSpine(current.spineIndex);
+      await this.host.present(plan, reason);
+    });
   }
 
   private async performMove(direction: NavigationDirection): Promise<ReaderNavigationResult> {

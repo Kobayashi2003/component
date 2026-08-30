@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { EpubContents } from './EpubContents';
 import { EpubCompatibilityPanel } from './EpubCompatibilityPanel';
 import { EpubMarksPanel } from './EpubMarksPanel';
 import { EpubKeyboardHelp } from './EpubKeyboardHelp';
 import { EpubReaderControls } from './EpubReaderControls';
 import { EpubReaderFeedback } from './EpubReaderFeedback';
+import { EpubReaderFullscreenButton, useEpubReaderFullscreen } from './EpubReaderFullscreen';
 import { EpubReaderStatus } from './EpubReaderStatus';
 import { EpubReaderProvider } from './context';
 import { EpubSearchPanel } from './EpubSearchPanel';
 import { EpubSettingsPanel } from './EpubSettingsPanel';
 import { EpubViewport } from './EpubViewport';
-import type { EpubSource } from './model';
+import type { EpubSource, UseEpubReaderOptions } from './model';
 import type { ReaderTheme } from '../core';
 import { EpubSelectionToolbar } from './EpubSelectionToolbar';
 import { EpubMarkPopover } from './EpubMarkPopover';
@@ -20,25 +21,27 @@ import { feedbackForIntent, type ReaderFeedbackSpec } from './feedback-model';
 import { useCompactReaderLayout } from './responsive';
 import { useDelayedFlag, useHeldValue } from './loading-delay';
 import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId } from './reader-surfaces';
-import { ChromeIcon, CloseIcon, FullscreenIcon, HistoryIcon, PinIcon, ReaderToolIcon } from './reader-icons';
+import { ChromeIcon, CloseIcon, FullscreenIcon, HistoryIcon, MoreIcon, PinIcon, ReaderToolIcon } from './reader-icons';
+import { useReaderChrome, type ReaderChromeControls } from './use-reader-chrome';
+import { shouldLockReaderChrome } from './reader-chrome-model';
 
-const PANELS: readonly { id: ReaderPanelId; label: string; shortLabel: string; description: string }[] = [
+const PANELS = [
   { id: 'contents', label: 'Contents', shortLabel: 'Contents', description: 'Navigate the publication' },
   { id: 'search', label: 'Search', shortLabel: 'Search', description: 'Find text in this book' },
   { id: 'marks', label: 'Bookmarks and annotations', shortLabel: 'Marks', description: 'Saved places and selections' },
   { id: 'settings', label: 'Reading settings', shortLabel: 'Appearance', description: 'Theme, type and layout' },
   { id: 'compatibility', label: 'Book information', shortLabel: 'Book info', description: 'Compatibility and repairs' },
   { id: 'help', label: 'Keyboard shortcuts', shortLabel: 'Help', description: 'Reader keyboard commands' },
-] as const;
+] as const satisfies readonly { id: ReaderPanelId; label: string; shortLabel: string; description: string }[];
 
-/**
- * Dependency-free reader shell.
- *
- * It deliberately accepts an EPUB source and nothing related to file picking;
- * host applications can obtain that source from upload, fetch, IndexedDB, a
- * desktop bridge or any other mechanism.
- */
-export function EpubReader({ source, onThemeChange }: { readonly source: EpubSource; readonly onThemeChange?: (theme: ReaderTheme) => void }) {
+/** Reader shell independent of how the host obtains the EPUB source. */
+export interface EpubReaderProps {
+  readonly source: EpubSource;
+  readonly readerOptions?: UseEpubReaderOptions;
+  readonly onThemeChange?: (theme: ReaderTheme) => void;
+}
+
+export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const compactLayout = useCompactReaderLayout(shellRef);
   // Panels, footnotes, the selection toolbar, mark popovers and the image
@@ -46,19 +49,19 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
   // a single value is what makes them mutually exclusive — see reader-surfaces.
   const surfaces = useReaderSurfaces(source);
   const { panel, footnote, selection: selectionTool, mark: activeMark, image: activeImage } = surfaces;
-  const [autoChromeHidden, setAutoChromeHidden] = useState(false);
-  const [manualChromeHidden, setManualChromeHidden] = useState(false);
-  const [chromePinned, setChromePinned] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [chromeHoverLocked, setChromeHoverLocked] = useState(false);
+  const [chromeFocusLocked, setChromeFocusLocked] = useState(false);
   const [feedback, setFeedback] = useState<(ReaderFeedbackSpec & { readonly id: number }) | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackIdRef = useRef(0);
   const panelRef = useRef<HTMLElement | null>(null);
   const footnoteRef = useRef<HTMLElement | null>(null);
   const buttonRefs = useRef(new Map<ReaderPanelId, HTMLButtonElement>());
+  const chromeActionsRef = useRef<Pick<ReaderChromeControls, 'show' | 'toggle'> | null>(null);
   const instanceId = useId().replaceAll(':', '');
   const panelId = `${instanceId}-reader-panel`;
   const panelTitleId = `${instanceId}-reader-panel-title`;
+  const compactToolsMenuId = `${instanceId}-reader-tools-menu`;
   const viewportId = `${instanceId}-reader-viewport`;
   const instructionsId = `${instanceId}-reader-instructions`;
   const showFeedback = useCallback((next: ReaderFeedbackSpec) => {
@@ -95,31 +98,42 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     [],
   );
   const reader = useEpubReader(source, {
+    ...readerOptions,
     // A command that fails mid-read still leaves a readable book, so it is worth
     // a line of feedback rather than a silent no-op.
-    onError: () => showFeedback({ message: 'That did not work. Try again.', tone: 'boundary' }),
+    onError: error => {
+      showFeedback({ message: 'That did not work. Try again.', tone: 'boundary' });
+      readerOptions?.onError?.(error);
+    },
+    onExternalLink: href => {
+      if (readerOptions?.onExternalLink) readerOptions.onExternalLink(href);
+      else showFeedback({ message: 'External link opening is not enabled.', tone: 'boundary' });
+    },
+    onUnresolvedPublicationLink: href => {
+      showFeedback({ message: 'This book link could not be opened.', tone: 'boundary' });
+      readerOptions?.onUnresolvedPublicationLink?.(href);
+    },
     onIntent: intent => {
       // Every branch that opens something calls `show`, which replaces whatever
       // was there. Nothing has to remember to close the other four.
       if (intent.type === 'open-search') {
-        setManualChromeHidden(false);
+        chromeActionsRef.current?.show();
         surfaces.show({ kind: 'panel', panel: 'search', returnFocus: activeElement() });
       }
       else if (intent.type === 'open-help') {
-        setManualChromeHidden(false);
+        chromeActionsRef.current?.show();
         surfaces.show({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
       }
       else if (intent.type === 'toggle-chrome') {
-        surfaces.close();
-        setManualChromeHidden(current => !current);
+        if (!surfaces.open) chromeActionsRef.current?.toggle();
       }
       else if (intent.type === 'open-footnote') {
-        setManualChromeHidden(false);
+        chromeActionsRef.current?.show();
         surfaces.show({ kind: 'footnote', source, footnote: intent.footnote, returnFocus: intent.trigger });
       }
       else if (intent.type === 'selection-changed') {
         if (intent.activation) {
-          setManualChromeHidden(false);
+          chromeActionsRef.current?.show();
           surfaces.show({ kind: 'selection', activation: intent.activation });
         } else if (selectionTool) {
           // Only retract the toolbar; a selection cleared while some other
@@ -128,11 +142,11 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
         }
       }
       else if (intent.type === 'open-mark') {
-        setManualChromeHidden(false);
+        chromeActionsRef.current?.show();
         surfaces.show({ kind: 'mark', activation: intent.activation });
       }
       else if (intent.type === 'open-image') {
-        setManualChromeHidden(false);
+        chromeActionsRef.current?.show();
         surfaces.show({ kind: 'image', activation: intent.activation });
       }
       else if (intent.type === 'escape') {
@@ -143,6 +157,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
         const nextFeedback = feedbackForIntent(intent);
         if (nextFeedback) showFeedback(nextFeedback);
       }
+      readerOptions?.onIntent?.(intent);
     },
   });
   const activePanel = PANELS.find(item => item.id === panel);
@@ -170,13 +185,39 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
   //   data-renderer / data-writing-mode / data-page-progression / data-spread
   //     page-scoped. Only content-area styles may use these.
   const presentation = snapshot?.presentation;
-  const immersive = presentation?.chrome === 'immersive';
+  // Chrome is a shell invariant, not an optional consequence of publication
+  // loading. Until the package profile is known, use the stable standard shell;
+  // a fixed-layout publication may explicitly promote it to immersive once its
+  // presentation resolves. Leaving the attribute absent made the same toolbar
+  // fall through to its bright base surface during opening, then restyle itself
+  // as soon as the snapshot arrived.
+  const chromeStyle = presentation?.chrome ?? 'standard';
   const readingMode = presentation?.layout === 'fixed-layout'
     ? 'fixed'
     : presentation && presentation.writingMode !== 'horizontal-tb'
       ? 'text-vertical'
       : 'text-horizontal';
-  const chromeHidden = manualChromeHidden || autoChromeHidden;
+  // Only the publication-opening gap owns chrome visibility. Navigation and
+  // preference changes briefly report a non-ready status too, but retain the
+  // current snapshot; treating those ordinary transactions as an opening made
+  // every fixed-layout page/section turn reveal the controls again.
+  const readerChrome = useReaderChrome(shouldLockReaderChrome({
+    hasPublicationSnapshot: snapshot != null,
+    surfaceOpen: surfaces.open,
+    pointerOverChrome: chromeHoverLocked,
+    focusInChrome: chromeFocusLocked,
+  }));
+  const fullscreen = useEpubReaderFullscreen(shellRef, {
+    onError: () => showFeedback({ message: 'Full screen is not available.', tone: 'boundary' }),
+  });
+  const chromeHidden = !readerChrome.visible;
+
+  useEffect(() => {
+    chromeActionsRef.current = readerChrome;
+    return () => {
+      chromeActionsRef.current = null;
+    };
+  }, [readerChrome]);
 
   useEffect(() => {
     const theme = snapshot?.preferences.theme;
@@ -189,43 +230,42 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
 
   useEffect(() => {
     const shell = shellRef.current;
-    if (!shell || !immersive || chromePinned || panel || footnote || selectionTool || activeMark || activeImage || manualChromeHidden) {
-      setAutoChromeHidden(false);
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const clear = () => {
-      if (timer != null) clearTimeout(timer);
-      timer = null;
+    if (!shell) return;
+    const toolbar = shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar');
+    const controls = shell.querySelector<HTMLElement>('.epub-reader-controls');
+    const updateFocusLock = () => {
+      const active = shell.ownerDocument.activeElement;
+      setChromeFocusLocked(Boolean(active && (toolbar?.contains(active) || controls?.contains(active))));
     };
-    const reveal = () => {
-      setAutoChromeHidden(false);
-      clear();
-      timer = setTimeout(() => {
-        if (!shell.matches(':focus-within')) setAutoChromeHidden(true);
-      }, 2400);
+    const holdHoverLock = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse') setChromeHoverLocked(true);
     };
-    const hold = () => {
-      setAutoChromeHidden(false);
-      clear();
+    const releaseHoverLock = () => setChromeHoverLocked(false);
+    let focusFrame: number | null = null;
+    const deferFocusUpdate = () => {
+      if (focusFrame != null) cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(() => {
+        focusFrame = null;
+        updateFocusLock();
+      });
     };
-    shell.addEventListener('pointermove', reveal, { passive: true });
-    shell.addEventListener('pointerdown', reveal, { passive: true });
-    shell.addEventListener('click', reveal);
-    shell.addEventListener('pointerleave', reveal, { passive: true });
-    shell.addEventListener('focusin', hold);
-    shell.addEventListener('focusout', reveal);
-    reveal();
+    toolbar?.addEventListener('pointerenter', holdHoverLock, { passive: true });
+    toolbar?.addEventListener('pointerleave', releaseHoverLock, { passive: true });
+    controls?.addEventListener('pointerenter', holdHoverLock, { passive: true });
+    controls?.addEventListener('pointerleave', releaseHoverLock, { passive: true });
+    shell.addEventListener('focusin', updateFocusLock);
+    shell.addEventListener('focusout', deferFocusUpdate);
+    updateFocusLock();
     return () => {
-      clear();
-      shell.removeEventListener('pointermove', reveal);
-      shell.removeEventListener('pointerdown', reveal);
-      shell.removeEventListener('click', reveal);
-      shell.removeEventListener('pointerleave', reveal);
-      shell.removeEventListener('focusin', hold);
-      shell.removeEventListener('focusout', reveal);
+      toolbar?.removeEventListener('pointerenter', holdHoverLock);
+      toolbar?.removeEventListener('pointerleave', releaseHoverLock);
+      controls?.removeEventListener('pointerenter', holdHoverLock);
+      controls?.removeEventListener('pointerleave', releaseHoverLock);
+      shell.removeEventListener('focusin', updateFocusLock);
+      shell.removeEventListener('focusout', deferFocusUpdate);
+      if (focusFrame != null) cancelAnimationFrame(focusFrame);
     };
-  }, [activeImage, activeMark, chromePinned, immersive, footnote, manualChromeHidden, panel, selectionTool]);
+  }, []);
 
   // Hand the reader the keyboard once a book is open, so page keys work without
   // having to click into the page first. Only when nothing has claimed focus:
@@ -239,23 +279,6 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     });
     return () => cancelAnimationFrame(frame);
   }, [reader.state.status, source, viewportId]);
-
-  useEffect(() => {
-    const update = () => setFullscreen(document.fullscreenElement === shellRef.current);
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, []);
-
-  const toggleFullscreen = async () => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    try {
-      if (document.fullscreenElement === shell) await document.exitFullscreen();
-      else await shell.requestFullscreen();
-    } catch {
-      setFullscreen(false);
-    }
-  };
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -282,11 +305,8 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     const modal = panel ? panelRef.current : footnoteRef.current;
     const shell = shellRef.current;
     if (!modal || !shell) return;
-    const isolated = [
-      shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar'),
-      shell.querySelector<HTMLElement>('.epub-reader-shell__viewport'),
-      shell.querySelector<HTMLElement>('.epub-reader-controls'),
-    ].filter((element): element is HTMLElement => Boolean(element));
+    const isolated = [shell.querySelector<HTMLElement>('.epub-reader-shell__viewport')]
+      .filter((element): element is HTMLElement => Boolean(element));
     for (const element of isolated) {
       element.inert = true;
       element.setAttribute('aria-hidden', 'true');
@@ -322,11 +342,8 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     if (!activeImage) return;
     const shell = shellRef.current;
     if (!shell) return;
-    const isolated = [
-      shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar'),
-      shell.querySelector<HTMLElement>('.epub-reader-shell__body'),
-      shell.querySelector<HTMLElement>('.epub-reader-controls'),
-    ].filter((element): element is HTMLElement => Boolean(element));
+    const isolated = [shell.querySelector<HTMLElement>('.epub-reader-shell__body')]
+      .filter((element): element is HTMLElement => Boolean(element));
     for (const element of isolated) {
       element.inert = true;
       element.setAttribute('aria-hidden', 'true');
@@ -338,6 +355,30 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
       }
     };
   }, [activeImage]);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const bars = [
+      shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar'),
+      shell.querySelector<HTMLElement>('.epub-reader-controls'),
+    ].filter((element): element is HTMLElement => Boolean(element));
+    const inert = chromeHidden || (compactLayout && Boolean(panel || footnote)) || Boolean(activeImage);
+    if (inert && bars.some(element => element.contains(document.activeElement))) {
+      document.getElementById(viewportId)?.focus({ preventScroll: true });
+    }
+    for (const element of bars) {
+      element.inert = inert;
+      if (inert) element.setAttribute('aria-hidden', 'true');
+      else element.removeAttribute('aria-hidden');
+    }
+    return () => {
+      for (const element of bars) {
+        element.inert = false;
+        element.removeAttribute('aria-hidden');
+      }
+    };
+  }, [activeImage, chromeHidden, compactLayout, footnote, panel, viewportId]);
 
   const togglePanel = (next: ReaderPanelId, origin: HTMLButtonElement) => {
     if (panel === next) closeSurface();
@@ -366,8 +407,8 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
     <EpubReaderProvider reader={reader}>
       <div
         ref={shellRef}
-        className={`epub-reader-shell${chromeHidden ? ' is-chrome-hidden' : ''}${manualChromeHidden ? ' is-chrome-manual' : ''}${fullscreen ? ' is-fullscreen' : ''}`}
-        data-chrome={presentation?.chrome ?? undefined}
+        className={`epub-reader-shell${chromeHidden ? ' is-chrome-hidden' : ''}${fullscreen.active ? ' is-fullscreen' : ''}`}
+        data-chrome={chromeStyle}
         data-book-layout={presentation?.layout ?? undefined}
         data-reading-mode={readingMode}
         data-renderer={plan?.renderer ?? undefined}
@@ -385,17 +426,6 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
         <span id={instructionsId} className="epub-reader-visually-hidden">
           Use the Left and Right Arrow keys to turn pages. Press C to toggle controls or question mark for keyboard help.
         </span>
-        {manualChromeHidden ? (
-          <button
-            className="epub-reader-shell__chrome-restore"
-            type="button"
-            aria-label="Show reader controls"
-            title="Show reader controls (C)"
-            onClick={() => setManualChromeHidden(false)}
-          >
-            <ChromeIcon hidden />
-          </button>
-        ) : null}
         <header className="epub-reader-shell__toolbar" aria-label="EPUB reader toolbar">
           <div className="epub-reader-shell__toolbar-start" role="toolbar" aria-label="Publication navigation">
             <HistoryButton direction="back" enabled={snapshot?.navigationHistory.canGoBack ?? false} onActivate={() => void reader.history.back()} />
@@ -410,53 +440,48 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
             {PANELS.slice(1, 4).map(item => (
               <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} />
             ))}
-            <span className="epub-reader-shell__toolbar-divider" aria-hidden="true" />
-            {PANELS.slice(4).map(item => (
-              <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} secondary />
-            ))}
-            {immersive ? (
-              <button
-                className="epub-reader-shell__tool is-secondary epub-reader-shell__fullscreen"
-                type="button"
-                aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'}
-                title={fullscreen ? 'Exit full screen' : 'Enter full screen'}
-                onClick={() => void toggleFullscreen()}
-              >
-                <FullscreenIcon active={fullscreen} />
-                <span>{fullscreen ? 'Exit full screen' : 'Full screen'}</span>
-              </button>
-            ) : null}
-            {immersive ? (
-              <button
-                className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-pin"
-                type="button"
-                aria-label={chromePinned ? 'Allow controls to hide automatically' : 'Keep controls visible'}
-                aria-pressed={chromePinned}
-                title={chromePinned ? 'Allow controls to hide automatically' : 'Keep controls visible'}
-                onClick={() => {
-                  setChromePinned(current => !current);
-                  setAutoChromeHidden(false);
-                }}
-              >
-                <PinIcon active={chromePinned} />
-                <span>{chromePinned ? 'Unpin controls' : 'Pin controls'}</span>
-              </button>
-            ) : null}
-            <button
-              className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-hide"
-              type="button"
-              aria-label="Hide reader controls"
-              aria-keyshortcuts="C"
-              title="Hide reader controls (C)"
-              onClick={() => {
-                reader.clearSelection();
-                surfaces.close();
-                setManualChromeHidden(true);
-              }}
-            >
-              <ChromeIcon hidden={false} />
-              <span>Hide controls</span>
-            </button>
+            {compactLayout ? (
+              <CompactReaderToolsMenu
+                id={compactToolsMenuId}
+                panel={panel}
+                panelId={panelId}
+                fullscreen={fullscreen}
+                readerChrome={readerChrome}
+                hideDisabled={surfaces.open || readerChrome.pinned}
+                onTogglePanel={togglePanel}
+              />
+            ) : (
+              <>
+                <span className="epub-reader-shell__toolbar-divider" aria-hidden="true" />
+                {PANELS.slice(4).map(item => (
+                  <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} secondary />
+                ))}
+                <EpubReaderFullscreenButton controller={fullscreen} />
+                <button
+                  className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-pin"
+                  type="button"
+                  aria-label={readerChrome.pinned ? 'Allow controls to hide automatically' : 'Keep controls visible'}
+                  aria-pressed={readerChrome.pinned}
+                  title={readerChrome.pinned ? 'Allow controls to hide automatically' : 'Keep controls visible'}
+                  onClick={() => readerChrome.setPinned(!readerChrome.pinned)}
+                >
+                  <PinIcon active={readerChrome.pinned} />
+                  <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
+                </button>
+                <button
+                  className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-hide"
+                  type="button"
+                  aria-label="Hide reader controls"
+                  aria-keyshortcuts="C"
+                  title="Hide reader controls (C)"
+                  disabled={surfaces.open || readerChrome.pinned}
+                  onClick={readerChrome.hide}
+                >
+                  <ChromeIcon hidden={false} />
+                  <span>Hide controls</span>
+                </button>
+              </>
+            )}
             {compatibility ? (
               <span className={`epub-reader-shell__health is-${compatibility}`} title={`Compatibility: ${compatibility}`}>
                 <span aria-hidden="true" /><span className="epub-reader-visually-hidden">Compatibility: {compatibility}</span>
@@ -464,7 +489,7 @@ export function EpubReader({ source, onThemeChange }: { readonly source: EpubSou
             ) : null}
           </div>
         </header>
-        <div className={`epub-reader-shell__body${panel ? ' has-panel' : ''}`}>
+        <div className={`epub-reader-shell__body${panel ? ' has-panel' : ''}${compactLayout && (panel || footnote) ? ' has-compact-modal' : ''}`}>
           {compactLayout && (panel || footnote) ? (
             <button
               className="epub-reader-shell__modal-scrim"
@@ -652,4 +677,168 @@ function PanelButton({ item, panel, panelId, buttonRefs, onToggle, secondary = f
       <span>{item.shortLabel}</span>
     </button>
   );
+}
+
+interface CompactReaderToolsMenuProps {
+  readonly id: string;
+  readonly panel: ReaderPanelId | null;
+  readonly panelId: string;
+  readonly fullscreen: ReturnType<typeof useEpubReaderFullscreen>;
+  readonly readerChrome: ReaderChromeControls;
+  readonly hideDisabled: boolean;
+  readonly onTogglePanel: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
+}
+
+function CompactReaderToolsMenu({
+  id,
+  panel,
+  panelId,
+  fullscreen,
+  readerChrome,
+  hideDisabled,
+  onTogglePanel,
+}: CompactReaderToolsMenuProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const owner = rootRef.current?.ownerDocument;
+    const closeFromPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    owner?.addEventListener('pointerdown', closeFromPointer, true);
+    const frame = requestAnimationFrame(() => {
+      menuButtons(menuRef.current)[0]?.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      owner?.removeEventListener('pointerdown', closeFromPointer, true);
+    };
+  }, [open]);
+
+  const close = (restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+  };
+  const activatePanel = (next: ReaderPanelId) => {
+    const origin = triggerRef.current;
+    close();
+    if (origin) onTogglePanel(next, origin);
+  };
+  const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const buttons = menuButtons(menuRef.current);
+    const current = buttons.indexOf(event.target as HTMLButtonElement);
+    let next = -1;
+    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % buttons.length;
+    else if (event.key === 'ArrowUp') next = current < 0 ? buttons.length - 1 : (current - 1 + buttons.length) % buttons.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      close(true);
+      return;
+    } else return;
+    if (next >= 0) {
+      event.preventDefault();
+      buttons[next]?.focus();
+    }
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="epub-reader-shell__compact-tools"
+      onBlur={(event: FocusEvent<HTMLDivElement>) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
+      }}
+    >
+      <button
+        ref={triggerRef}
+        className="epub-reader-shell__tool is-secondary"
+        type="button"
+        aria-label="More reader tools"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        title="More reader tools"
+        onClick={() => setOpen(current => !current)}
+      >
+        <MoreIcon />
+        <span>More</span>
+      </button>
+      {open ? (
+        <div
+          id={id}
+          ref={menuRef}
+          className="epub-reader-shell__tools-menu"
+          role="menu"
+          aria-label="More reader tools"
+          onKeyDown={handleMenuKeyDown}
+        >
+          {PANELS.slice(4).map(item => (
+            <button
+              key={item.id}
+              className="epub-reader-shell__tool"
+              type="button"
+              role="menuitem"
+              aria-pressed={panel === item.id}
+              aria-controls={panel === item.id ? panelId : undefined}
+              onClick={() => activatePanel(item.id)}
+            >
+              <ReaderToolIcon id={item.id} />
+              <span>{item.shortLabel}</span>
+            </button>
+          ))}
+          <button
+            className="epub-reader-shell__tool"
+            type="button"
+            role="menuitem"
+            disabled={!fullscreen.supported}
+            aria-pressed={fullscreen.active}
+            onClick={() => {
+              close();
+              void fullscreen.toggle();
+            }}
+          >
+            <FullscreenIcon active={fullscreen.active} />
+            <span>{fullscreen.active ? 'Exit full screen' : 'Full screen'}</span>
+          </button>
+          <button
+            className="epub-reader-shell__tool"
+            type="button"
+            role="menuitem"
+            aria-pressed={readerChrome.pinned}
+            onClick={() => {
+              readerChrome.setPinned(!readerChrome.pinned);
+              close(true);
+            }}
+          >
+            <PinIcon active={readerChrome.pinned} />
+            <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
+          </button>
+          <button
+            className="epub-reader-shell__tool"
+            type="button"
+            role="menuitem"
+            disabled={hideDisabled}
+            onClick={() => {
+              close();
+              readerChrome.hide();
+            }}
+          >
+            <ChromeIcon hidden={false} />
+            <span>Hide controls</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function menuButtons(menu: HTMLDivElement | null): HTMLButtonElement[] {
+  return menu ? Array.from(menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')) : [];
 }

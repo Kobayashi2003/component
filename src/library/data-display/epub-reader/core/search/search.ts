@@ -49,6 +49,7 @@ export class PublicationSearch {
       }
       throwIfAborted(signal);
       if (!document || !document.text) continue;
+      diagnostics.push(...(document.diagnostics ?? []));
       const remaining = sentinelLimit - hits.length;
       const matches = findMatches(document.text, needle, config, remaining);
       for (const match of matches) {

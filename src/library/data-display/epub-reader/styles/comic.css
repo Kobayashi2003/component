@@ -7,52 +7,32 @@
  * backgrounds, theme palette, even the host bar — on an ordinary page turn.
  * Only publications that are pre-paginated from cover to colophon get this. */
 .epub-reader-shell[data-chrome="immersive"] {
-  grid-template-rows: minmax(0, 1fr);
   color: var(--epub-color-text);
   background: var(--epub-color-reader);
 }
 
-.epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__body,
-.epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__toolbar,
-.epub-reader-shell[data-chrome="immersive"] .epub-reader-controls {
-  grid-area: 1 / 1;
-}
-
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__body {
-  z-index: 1;
   background: var(--epub-color-reader);
 }
 
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__toolbar,
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-controls {
-  position: relative;
   width: 100%;
   border-color: var(--epub-color-line);
-  background: var(--epub-color-reader);
-  box-shadow: 0 1px 8px rgba(20, 22, 20, 0.035);
-  backdrop-filter: blur(12px);
-  transition: opacity 180ms ease, transform 220ms ease;
 }
 
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__toolbar {
   z-index: 31;
-  align-self: start;
 }
 
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-controls {
   z-index: 31;
-  align-self: end;
   padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
 /* The panel is inset past the overlaid chrome, so these must track the toolbar
    and controls bars rather than restate their heights as literals. */
-.epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__panel {
-  z-index: 32;
-  top: var(--epub-chrome-top);
-  bottom: var(--epub-chrome-bottom);
-  color: var(--epub-color-text);
-}
+.epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__panel { color: var(--epub-color-text); }
 
 .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__viewport {
   background:
@@ -144,59 +124,9 @@
   scrollbar-color: color-mix(in srgb, var(--epub-color-text-muted) 58%, transparent) transparent;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden .epub-reader-controls {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden .epub-reader-shell__toolbar {
-    transform: translateY(-100%);
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden .epub-reader-controls {
-    transform: translateY(100%);
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden:hover .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden:hover .epub-reader-controls,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden:focus-within .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-hidden:focus-within .epub-reader-controls {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:hover .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:hover .epub-reader-controls,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:focus-within .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:focus-within .epub-reader-controls {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:hover .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:focus-within .epub-reader-shell__toolbar {
-    transform: translateY(-100%);
-  }
-
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:hover .epub-reader-controls,
-  .epub-reader-shell[data-chrome="immersive"].is-chrome-manual:focus-within .epub-reader-controls {
-    transform: translateY(100%);
-  }
-}
-
 @container epub-reader (max-width: 700px) {
   .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__panel {
     top: auto;
     bottom: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .epub-reader-shell[data-chrome="immersive"] .epub-reader-shell__toolbar,
-  .epub-reader-shell[data-chrome="immersive"] .epub-reader-controls {
-    transition: none;
   }
 }

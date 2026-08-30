@@ -21,7 +21,23 @@ export function EpubCompatibilityPanel({ reader: explicit }: { readonly reader?:
   if (!reader) throw new Error('<EpubCompatibilityPanel> requires a reader prop or EpubReaderProvider.');
 
   const snapshot = reader.state.reader;
-  if (!snapshot) return <section className="epub-reader-panel" aria-label="EPUB compatibility" />;
+  if (!snapshot) {
+    const groups = groupDiagnostics(reader.state.diagnostics);
+    return (
+      <section className="epub-reader-panel epub-compatibility-panel" aria-label="EPUB compatibility">
+        {groups.length > 0 ? (
+          <>
+            <header className="epub-compatibility-panel__summary">
+              <span className="epub-compatibility-badge is-blocked">Blocked</span>
+              <strong>This publication could not be opened.</strong>
+              <span>{groups.length} diagnostic group{groups.length === 1 ? '' : 's'}</span>
+            </header>
+            <DiagnosticGroups groups={groups} open />
+          </>
+        ) : <p className="epub-reader-panel__empty">No publication diagnostics are available.</p>}
+      </section>
+    );
+  }
   const report = snapshot.compatibility;
   const metadata = snapshot.publication.metadata;
   const groups = groupDiagnostics(snapshot.diagnostics);
@@ -57,22 +73,28 @@ export function EpubCompatibilityPanel({ reader: explicit }: { readonly reader?:
       ) : null}
 
       {groups.length > 0 ? (
-        <details className="epub-compatibility-panel__details">
-          <summary>Technical diagnostics <span>{groups.length}</span></summary>
-          <ol>
-            {groups.map(group => (
-              <li key={group.code}>
-                <span className="epub-compatibility-panel__diagnostic-head">
-                  <code>{group.code}</code>
-                  <span>{group.count > 1 ? `×${group.count}` : group.severity}</span>
-                </span>
-                <span>{group.message}</span>
-              </li>
-            ))}
-          </ol>
-        </details>
+        <DiagnosticGroups groups={groups} />
       ) : null}
     </section>
+  );
+}
+
+function DiagnosticGroups({ groups, open = false }: { readonly groups: readonly DiagnosticGroup[]; readonly open?: boolean }) {
+  return (
+    <details className="epub-compatibility-panel__details" open={open}>
+      <summary>Technical diagnostics <span>{groups.length}</span></summary>
+      <ol>
+        {groups.map(group => (
+          <li key={group.code}>
+            <span className="epub-compatibility-panel__diagnostic-head">
+              <code>{group.code}</code>
+              <span>{group.count > 1 ? `×${group.count}` : group.severity}</span>
+            </span>
+            <span>{group.message}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 

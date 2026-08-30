@@ -164,7 +164,7 @@ async function idpfXor(bytes: Uint8Array, identifier: string): Promise<Uint8Arra
   const key = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(normalized)));
   const out = bytes.slice();
   const limit = Math.min(1040, out.length);
-  for (let i = 0; i < limit; i += 1) out[i] ^= key[i % key.length]!;
+  for (let i = 0; i < limit; i += 1) out[i] = out[i]! ^ key[i % key.length]!;
   return out;
 }
 

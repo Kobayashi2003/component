@@ -28,7 +28,7 @@ export class ReaderSearchController {
     this.active?.abort(new DOMException('Superseded search.', 'AbortError'));
     const controller = new AbortController();
     this.active = controller;
-    this.setState({ ...this.stateValue, query, searching: true, error: null });
+    this.setState({ query, hits: [], index: -1, searching: true, truncated: false, diagnostics: [], error: null });
     try {
       const result = await this.searchEngine.search(query, options, controller.signal);
       if (this.active === controller) {

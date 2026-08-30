@@ -53,6 +53,19 @@ export function commandForClickZone(
   return null;
 }
 
+export function commandForPageClick(
+  clientX: number,
+  width: number,
+  ratio: number,
+  progression: PageProgressionDirection,
+  edgeNavigation: boolean,
+): ReaderCommand | null {
+  if (!(width > 0) || !Number.isFinite(clientX)) return null;
+  const navigation = commandForClickZone(clientX, width, ratio, progression);
+  if (navigation) return edgeNavigation ? navigation : null;
+  return { type: 'toggle-chrome', source: 'center-tap' };
+}
+
 export function commandForSwipe(
   deltaX: number,
   threshold: number,

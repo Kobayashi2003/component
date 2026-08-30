@@ -58,6 +58,10 @@ export function buildReflowableLayoutCss(
   const leadingBlank = writingMode === 'horizontal-tb' && reflowableNeedsLeadingBlankPage(plan);
 
   if (plan.renderer === 'reflowable-paginated') {
+    if (usesSingleImagePageLayout(plan)) {
+      return buildSingleImagePageLayoutCss(plan);
+    }
+
     // Both writing modes fragment through CSS multicol, and the reader never
     // decides a page boundary itself. A boundary computed as `index * pageSize`
     // bears no relation to where the line boxes actually fall, so it slices
@@ -84,6 +88,7 @@ html {
   scrollbar-width: none !important;
   scroll-behavior: auto !important;
 }
+
 html, body { scrollbar-width: none !important; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; }
 body {
@@ -194,6 +199,78 @@ body {
   overflow: visible !important;
 }
 ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
+`;
+}
+
+/**
+ * A pure image document is page-like content carried by a reflowable spine
+ * item, not flowing prose. It needs a definite viewport containing block, but
+ * it must not be relabelled as fixed-layout: doing that would change authored
+ * rendition semantics, navigation capabilities and spread composition.
+ *
+ * Keep the recovery deliberately narrower than preflight's broader
+ * `pageLike` hint. A short caption is real flow content and must not be hidden
+ * behind a viewport-positioned image.
+ */
+function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
+  const page = plan.contentPage;
+  return page?.kind === 'single-image-page'
+    && page.pageLike
+    && page.replacedElementCount === 1
+    && page.semanticTextLength === 0
+    && page.intrinsicViewport != null;
+}
+
+/**
+ * Fit the sole image against the iframe viewport itself. Percentage max-height
+ * on publisher wrapper chains such as `div > p > img.fit` resolves against an
+ * auto-height containing block and therefore does not constrain the image to a
+ * fragmentainer. Fixed positioning removes the replaced element from that
+ * indefinite chain while preserving its XHTML node, intrinsic ratio, links and
+ * accessibility metadata.
+ */
+function buildSingleImagePageLayoutCss(plan: RenditionPlan): string {
+  const width = cssPixels(plan.viewport.width);
+  const height = cssPixels(plan.viewport.height);
+  return `
+html {
+  box-sizing: border-box !important;
+  width: ${width} !important;
+  height: ${height} !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+}
+body {
+  box-sizing: border-box !important;
+  position: relative !important;
+  width: ${width} !important;
+  height: ${height} !important;
+  min-width: ${width} !important;
+  min-height: ${height} !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  column-width: auto !important;
+  column-count: auto !important;
+  column-gap: 0 !important;
+  overflow: hidden !important;
+}
+body img {
+  position: fixed !important;
+  inset: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: ${width} !important;
+  max-height: ${height} !important;
+  margin: auto !important;
+  object-fit: contain !important;
+  break-inside: avoid !important;
+}
 `;
 }
 

@@ -14,7 +14,7 @@ export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubR
 
   if (isBusy && showLoading) {
     const progress = reader.state.openProgress;
-    const percent = progress ? Math.round((progress.completed / Math.max(1, progress.total - 1)) * 100) : 0;
+    const percent = progress ? Math.round((progress.completed / Math.max(1, progress.total)) * 100) : 0;
     return (
       <div className="epub-reader-status" role="status">
         <span className="epub-reader-status__loader" aria-hidden="true"><span /></span>

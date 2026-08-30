@@ -10,7 +10,12 @@ import { EpubFilePicker, EpubReader } from './react'
 const [file, setFile] = useState<File | null>(null)
 
 <EpubFilePicker onFile={setFile} />
-{file ? <EpubReader source={file} /> : null}
+{file ? (
+  <EpubReader
+    source={file}
+    readerOptions={{ onExternalLink: href => window.open(href, '_blank', 'noopener,noreferrer') }}
+  />
+) : null}
 ```
 
 ## Layers
@@ -22,5 +27,6 @@ const [file, setFile] = useState<File | null>(null)
 ## Notes
 
 - `EpubReader` accepts a `Blob`, `File`, `ArrayBuffer`, or `Uint8Array`. File picking is optional.
+- `EpubReader` includes a full-screen control. Hosts that need an external trigger can pair `useEpubReaderFullscreen(targetRef)` with `EpubReaderFullscreenButton`.
 - EPUB bytes, reading position, and marks remain local by default; persistence is injectable.
 - See [Architecture](./docs/architecture.md) for the lifecycle and ownership boundaries.

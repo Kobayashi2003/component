@@ -22,7 +22,9 @@ export type BrowserEpubReaderOpenPhase = 'archive' | 'package' | 'preflight' | '
 export interface BrowserEpubReaderOpenProgress {
   readonly phase: BrowserEpubReaderOpenPhase;
   readonly label: string;
+  /** Number of phases reached, from 1 through total. */
   readonly completed: number;
+  /** Total number of phases in the open pipeline. */
   readonly total: number;
 }
 

@@ -139,13 +139,18 @@ function parseMetadata(
   if (!identifier?.value) diagnostics.push(diag('PACKAGE_IDENTIFIER_MISSING', 'error', 'Publication identifier is missing.', packagePath));
 
   const titleElements = dc('title');
-  const title = titleElements.map(textContent).find(Boolean);
-  let subtitle: string | undefined;
+  const titleTypes = new Map<XmlElementNode, string | undefined>();
   for (const element of titleElements) {
     const id = attr(element, 'id');
-    if (!id) continue;
-    const titleType = findRefinementValue(refinements.get(id), 'title-type');
-    if (titleType === 'subtitle') {
+    titleTypes.set(element, id ? findRefinementValue(refinements.get(id), 'title-type') : undefined);
+  }
+  const mainTitle = titleElements.find(element => titleTypes.get(element) === 'main')
+    ?? titleElements.find(element => titleTypes.get(element) !== 'subtitle')
+    ?? titleElements[0];
+  const title = mainTitle ? textContent(mainTitle) || undefined : undefined;
+  let subtitle: string | undefined;
+  for (const element of titleElements) {
+    if (titleTypes.get(element) === 'subtitle') {
       subtitle = textContent(element);
       break;
     }

@@ -51,3 +51,13 @@ export function PinIcon({ active }: { readonly active: boolean }) {
     </svg>
   );
 }
+
+export function MoreIcon() {
+  return (
+    <svg className="epub-reader-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.35" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

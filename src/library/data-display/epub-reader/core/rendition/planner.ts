@@ -75,6 +75,7 @@ export function planRendition(input: PlanRenditionInput): RenditionPlan {
     orientation,
     spread: spread.spread,
     alignXCenter: publicationRendition.alignXCenter,
+    contentPage: input.contentHints?.page,
     intrinsicViewport: input.contentHints?.viewport,
     preferences,
     capabilities: buildRenditionCapabilities(

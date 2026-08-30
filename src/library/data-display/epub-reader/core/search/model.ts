@@ -20,6 +20,7 @@ export interface SearchDocument {
   readonly spineIndex: number;
   readonly href: PublicationHref;
   readonly text: string;
+  readonly diagnostics?: readonly PublicationDiagnostic[];
   locatorRange(startOffset: number, endOffset: number): LocatorRange;
 }
 

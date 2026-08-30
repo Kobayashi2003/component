@@ -5,11 +5,11 @@ import { ReaderMarkController } from '../../core/annotations/controller';
 import { PublicationSearch, ReaderSearchController } from '../../core/search';
 import type { SearchDocumentProvider } from '../../core/search';
 import type { Locator, LocatorRange, Publication } from '../../core/publication';
-import { commandForClickZone, commandForKey, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/input';
+import { commandForClickZone, commandForKey, commandForPageClick, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/input';
 import { buildReaderPreferenceCss } from '../../core/renderer/reflowable';
-import { BrowserReaderInputRouter, semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
+import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
 import type { RenditionPlan } from '../../core/rendition';
-import { locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
+import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -67,8 +67,31 @@ async function main() {
   assert(verticalScrollTarget(0, 300, -60) == null, 'wheel routing should expose the top boundary for page navigation');
   assert(semanticCursorForClickZone(10, 100, 0.2) === 'pointer', 'fixed-layout edge zones should expose clickable cursor semantics');
   assert(semanticCursorForClickZone(50, 100, 0.2) == null, 'the fixed-layout center should retain its native cursor');
+  const spreadCentre = mapContentClientXToViewport(
+    0,
+    1000,
+    { left: 400, width: 400 },
+    { left: 0, width: 800 },
+  );
+  assert(spreadCentre === 400, 'the inner edge of a spread leaf must map to the centre of the shared reader viewport');
+  assert(commandForPageClick(spreadCentre, 800, 0.22, 'rtl', true)?.type === 'toggle-chrome', 'a spread-centre click must toggle controls instead of turning a page');
+  const spreadOuterEdge = mapContentClientXToViewport(
+    1000,
+    1000,
+    { left: 400, width: 400 },
+    { left: 0, width: 800 },
+  );
+  assert(commandForPageClick(spreadOuterEdge, 800, 0.22, 'rtl', true)?.type === 'navigate', 'the outer edge of a spread must remain a page-turn zone');
+  const screenshotInnerPage = mapContentClientXToViewport(
+    1450,
+    1700,
+    { left: 0, width: 1035 },
+    { left: 0, width: 2070 },
+  );
+  assert(screenshotInnerPage > 800 && screenshotInnerPage < 1035, 'a scaled left-page inner region must remain near the shared viewport centre');
+  assert(commandForPageClick(screenshotInnerPage, 2070, 0.4, 'rtl', true)?.type === 'toggle-chrome', 'the fit-width inner-page region must remain a control gesture even with the widest tap zones');
 
-  assert(Math.round(publicationProgress(10, 197) * 100) === 5, 'fixed-layout controls should derive progress from the active spine page');
+  assert(Math.round(fixedLayoutPublicationProgress(10, 197) * 100) === 5, 'fixed-layout controls should derive progress from the active spine page');
   assert(spineIndexForPublicationProgress(0.5, 197) === 98, 'fixed-layout seeking should resolve publication progress to a spine page');
 
   // A mixed-layout book spends its whole front matter in single-page sections.
@@ -77,7 +100,8 @@ async function main() {
   const frontMatter = [0, 1, 2, 3, 4, 5, 6, 7].map(index => Math.round(publicationProgress(index, 25, 0) * 100));
   assert(new Set(frontMatter).size === frontMatter.length, 'every single-page section must report a distinct publication progress');
   assert(frontMatter[0] === 0, 'the first section of a publication is 0%');
-  assert(Math.round(publicationProgress(24, 25, 0) * 100) === 100, 'the last section of a publication is 100%');
+  assert(publicationProgress(24, 25, 0) < 1, 'the start of a final continuous section must leave room for its internal progress');
+  assert(publicationProgress(24, 25, 1) === 1, 'the end of the final section is 100%');
 
   // Blending the position inside the current section keeps a long chapter
   // advancing without ever passing the section that follows it.
@@ -87,7 +111,7 @@ async function main() {
   assert(publicationProgress(10, 25, Number.NaN) === publicationProgress(10, 25, 0), 'a non-finite section progress must not poison the bar');
 
   // Seeking has to invert whatever the bar is showing.
-  for (const [index, within] of [[0, 0], [7, 0.25], [13, 0.5], [24, 0]] as const) {
+  for (const [index, within] of [[0, 0], [7, 0.25], [13, 0.5], [24, 0], [24, 0.5], [24, 1]] as const) {
     const round = locationForPublicationProgress(publicationProgress(index, 25, within), 25);
     assert(round.spineIndex === index, `seeking must land back on section ${index}, got ${round.spineIndex}`);
     assert(Math.abs(round.progression - within) < 1e-9, `seeking must recover the offset inside section ${index}`);
@@ -203,6 +227,161 @@ async function main() {
     assert(keydown, 'the router must listen for keys on the element it was given');
     keydown!({ key: 'ArrowRight', target: host, preventDefault: () => {}, stopPropagation: () => {} });
     assert(dispatched.includes('navigate:forward'), 'a key on the router host must reach the dispatcher');
+    const click = listeners.get('click')?.[0];
+    assert(click, 'the router must listen for clicks on the reading surface');
+    click!({ button: 0, clientX: 400, target: host, cancelable: true, preventDefault: () => {} });
+    assert(dispatched.includes('toggle-chrome:'), 'a center click must toggle reader controls');
+    router.dispose();
+  }
+
+  // Paginated documents use their scrolling element as a private page
+  // transport. Every plain-wheel event that reaches that transport must be
+  // claimed, including sub-threshold deltas and events suppressed by the
+  // cooldown; otherwise the browser applies the ignored event as native
+  // scrolling and leaves a vertical page between fragmentainer boundaries.
+  // Real nested overflow regions still scroll first, while a genuinely
+  // scrolled rendition keeps native wheel behaviour.
+  {
+    const listeners = new Map<string, ((event: unknown) => void)[]>();
+    const attributes = new Set<string>();
+    let tabIndex: number | undefined;
+    const host = {
+      nodeType: 1,
+      localName: 'div',
+      style: {},
+      parentElement: null,
+      scrollTop: 0,
+      scrollHeight: 600,
+      clientHeight: 600,
+      get tabIndex() { return tabIndex ?? -0; },
+      set tabIndex(value: number) { tabIndex = value; attributes.add('tabindex'); },
+      hasAttribute: (name: string) => attributes.has(name),
+      addEventListener: (type: string, handler: (event: unknown) => void) => {
+        listeners.set(type, [...(listeners.get(type) ?? []), handler]);
+      },
+      removeEventListener: () => {},
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+      contains: () => true,
+    } as unknown as HTMLElement;
+    let presentation: 'paginated' | 'scrolled' = 'paginated';
+    let contentKind: 'reflowable' | 'fixed-layout' = 'reflowable';
+    let wheelBoundaryNavigation = false;
+    const dispatched: string[] = [];
+    const router = new BrowserReaderInputRouter(
+      host,
+      () => ({
+        enabled: true,
+        pageProgression: 'ltr',
+        contentKind,
+        presentation,
+        wheelBoundaryNavigation,
+        touchNavigation: 'both',
+        pageTurnZonePercent: 30,
+      }),
+      { dispatch: (command: { type: string; direction?: string }) => { dispatched.push(`${command.type}:${command.direction ?? ''}`); } } as never,
+    );
+    const wheel = listeners.get('wheel')?.[0];
+    assert(wheel, 'the router must listen for wheel input');
+    const prevented: number[] = [];
+    const preventedCount = () => prevented.length;
+    const fire = (deltaY: number, target: EventTarget = host) => wheel!({
+      deltaY,
+      deltaMode: 0,
+      target,
+      cancelable: true,
+      ctrlKey: false,
+      metaKey: false,
+      preventDefault: () => { prevented.push(deltaY); },
+    });
+
+    fire(30);
+    assert(dispatched.length === 1 && preventedCount() === 1, `the first paginated wheel gesture must turn one page and claim native scrolling (dispatched ${dispatched.length}, prevented ${preventedCount()})`);
+    fire(30);
+    assert(dispatched.length === 1 && preventedCount() === 2, 'a cooldown-suppressed wheel event must still be claimed by paginated mode');
+    fire(5);
+    assert(dispatched.length === 1 && preventedCount() === 3, 'a sub-threshold wheel event must not leak into the paginated scrolling element');
+
+    const nestedDocument = { defaultView: { getComputedStyle: () => ({ overflowY: 'auto' }) } };
+    const nested = {
+      nodeType: 1,
+      localName: 'div',
+      parentElement: host,
+      ownerDocument: nestedDocument,
+      scrollTop: 20,
+      scrollHeight: 300,
+      clientHeight: 100,
+    } as unknown as HTMLElement;
+    fire(30, nested);
+    assert(nested.scrollTop === 50, 'a nested publication overflow region must consume wheel movement before page navigation');
+    assert(dispatched.length === 1 && preventedCount() === 4, 'nested scrolling must not also dispatch a page turn');
+
+    presentation = 'scrolled';
+    Object.defineProperty(host, 'ownerDocument', {
+      value: { scrollingElement: host, defaultView: { getComputedStyle: () => ({ overflowY: 'auto' }) } },
+    });
+    fire(30);
+    assert(dispatched.length === 1 && preventedCount() === 4, 'a scrolled rendition must retain native wheel behaviour on its document scrolling element');
+
+    // Fixed-layout cover/width fitting scrolls a host-realm container outside
+    // the content iframe. Wheel events originate in the iframe document, so the
+    // router has to cross from its surface element to that outer owner without
+    // relying on same-realm HTMLElement identity.
+    presentation = 'paginated';
+    contentKind = 'fixed-layout';
+    wheelBoundaryNavigation = true;
+    const outerDocument = { defaultView: { getComputedStyle: () => ({ overflowY: 'auto' }) } };
+    const outer = {
+      nodeType: 1,
+      localName: 'div',
+      parentElement: null,
+      ownerDocument: outerDocument,
+      scrollTop: 40,
+      scrollHeight: 500,
+      clientHeight: 200,
+    } as unknown as HTMLElement;
+    const surface = {
+      nodeType: 1,
+      localName: 'iframe',
+      style: {},
+      parentElement: outer,
+      ownerDocument: outerDocument,
+      scrollTop: 0,
+      scrollHeight: 200,
+      clientHeight: 200,
+    } as unknown as HTMLElement;
+    const contentListeners = new Map<string, ((event: unknown) => void)[]>();
+    const contentRoot = {
+      nodeType: 1,
+      localName: 'html',
+      style: {},
+      parentElement: null,
+      scrollTop: 0,
+      scrollHeight: 600,
+      clientHeight: 200,
+    } as unknown as HTMLElement;
+    const contentDocument = {
+      documentElement: contentRoot,
+      scrollingElement: contentRoot,
+      addEventListener: (type: string, handler: (event: unknown) => void) => {
+        contentListeners.set(type, [...(contentListeners.get(type) ?? []), handler]);
+      },
+      removeEventListener: () => {},
+    } as unknown as Document;
+    Object.defineProperty(contentRoot, 'ownerDocument', { value: contentDocument });
+    router.syncDocuments([{ spineIndex: 0, href: 'page.xhtml', document: contentDocument, surfaceElement: surface }]);
+    const contentWheel = contentListeners.get('wheel')?.[0];
+    assert(contentWheel, 'the router must listen for wheel input inside a fixed-layout document');
+    contentWheel!({
+      deltaY: 30,
+      deltaMode: 0,
+      target: contentRoot,
+      cancelable: true,
+      ctrlKey: false,
+      metaKey: false,
+      preventDefault: () => { prevented.push(30); },
+    });
+    assert(outer.scrollTop === 70, 'a fixed-layout host container must scroll before wheel input turns the page at its boundary');
+    assert(dispatched.length === 1 && preventedCount() === 5, 'fixed-layout canvas scrolling must consume the gesture without a page turn');
     router.dispose();
   }
 
@@ -278,6 +457,9 @@ async function main() {
   assert(fontWheel?.type === 'font-step' && fontWheel.delta === 1, 'modified wheel should emit font-size command');
   const leftClick = commandForClickZone(5, 100, 0.2, 'rtl');
   assert(leftClick?.type === 'navigate' && leftClick.direction === 'forward', 'RTL left click-zone should move forward');
+  assert(commandForPageClick(50, 100, 0.2, 'ltr', true)?.type === 'toggle-chrome', 'the center page zone should toggle reader controls');
+  assert(commandForPageClick(5, 100, 0.2, 'ltr', false) == null, 'a disabled edge zone must not become a controls gesture');
+  assert(commandForPageClick(50, 100, 0.2, 'ltr', false)?.type === 'toggle-chrome', 'disabling tap navigation should retain the center control gesture');
   const swipeLeft = commandForSwipe(-100, 40, 'ltr');
   assert(swipeLeft?.type === 'navigate' && swipeLeft.direction === 'forward', 'LTR swipe-left should reveal the next page');
   assert(touchNavigationAllows('both', 'tap') && touchNavigationAllows('both', 'swipe'), 'combined touch mode should allow both gestures');

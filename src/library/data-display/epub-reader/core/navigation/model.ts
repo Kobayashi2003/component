@@ -1,15 +1,13 @@
 import type { Locator, PublicationHref } from '../publication';
 import type { RenditionPlan } from '../rendition';
-import type { ReadingDirection, RendererHostState, RendererNavigationResult } from '../renderer';
+import type { LayoutTransactionReason, ReadingDirection, RendererHostState, RendererNavigationResult } from '../renderer';
 
 export type NavigationDirection = 'forward' | 'backward';
-
-
 
 export interface NavigationRendererHost {
   readonly state: RendererHostState;
   navigateWithin(direction: ReadingDirection): Promise<RendererNavigationResult>;
-  present(plan: RenditionPlan, reason?: import('../renderer').LayoutTransactionReason, targetLocator?: Locator): Promise<RendererHostState>;
+  present(plan: RenditionPlan, reason?: LayoutTransactionReason, targetLocator?: Locator): Promise<RendererHostState>;
   captureLocator(): Promise<Locator | null>;
 }
 

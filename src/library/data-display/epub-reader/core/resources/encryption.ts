@@ -101,6 +101,6 @@ export async function deobfuscateIdpfFont(
   const key = new Uint8Array(keyBuffer);
   const output = bytes.slice();
   const limit = Math.min(1040, output.length);
-  for (let i = 0; i < limit; i += 1) output[i] ^= key[i % key.length]!;
+  for (let i = 0; i < limit; i += 1) output[i] = output[i]! ^ key[i % key.length]!;
   return output;
 }

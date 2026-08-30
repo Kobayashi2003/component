@@ -73,6 +73,9 @@ class FakeHost implements NavigationRendererHost {
   activeNavigations = 0;
   maxConcurrentNavigations = 0;
   navigationCalls = 0;
+  presentationDelayMs = 0;
+  activePresentations = 0;
+  maxConcurrentPresentations = 0;
 
   async navigateWithin(): Promise<RendererNavigationResult> {
     this.navigationCalls += 1;
@@ -87,6 +90,12 @@ class FakeHost implements NavigationRendererHost {
 
   async present(plan: RenditionPlan, _reason?: string, targetLocator?: Locator): Promise<RendererHostState> {
     void _reason;
+    this.activePresentations += 1;
+    this.maxConcurrentPresentations = Math.max(this.maxConcurrentPresentations, this.activePresentations);
+    if (this.presentationDelayMs > 0) {
+      await new Promise<void>(resolve => setTimeout(resolve, this.presentationDelayMs));
+    }
+    this.activePresentations -= 1;
     this.locator = targetLocator ?? { href: plan.href, spineIndex: plan.spineIndex, locations: { progression: 0 } };
     this.state = {
       ...this.state,
@@ -244,6 +253,19 @@ async function main() {
   await Promise.all([navigator.next(), navigator.next()]);
   assert(host.navigationCalls === 2, 'two rapid next inputs should execute as two navigation operations');
   assert(host.maxConcurrentNavigations === 1, 'publication navigation operations must be serialized');
+
+  // Relayout must wait for an in-flight cross-spine navigation. Reading the
+  // committed host plan while that navigation is rendering yields the old
+  // spine; presenting it as a resize would supersede and lose the destination.
+  host.state = { ...host.state, plan: plans[0]!, layout: { pageCount: 1, currentPage: 1 } };
+  host.presentationDelayMs = 5;
+  host.maxConcurrentPresentations = 0;
+  await Promise.all([
+    navigator.goToLocator({ href: publication.spine[2]!.href, spineIndex: 2, locations: { progression: 0 } }),
+    navigator.relayout('viewport-resize'),
+  ]);
+  assert(host.maxConcurrentPresentations === 1, 'relayout must not overlap publication navigation');
+  assert(host.state.plan?.spineIndex === 2, 'relayout after navigation must preserve the destination spine');
 
   console.log('Navigation and locator unit test: PASS');
 }

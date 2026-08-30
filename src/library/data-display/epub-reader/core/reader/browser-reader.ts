@@ -314,22 +314,22 @@ export class BrowserEpubReader {
   ): Promise<BrowserEpubReader> {
     assertUsableContainer(container);
     throwIfAborted(options.signal);
-    reportOpenProgress(options, 'archive', 'Opening EPUB container', 0);
+    reportOpenProgress(options, 'archive', 'Opening EPUB container', 1);
     const opened = await OcfZipArchive.open(source, options.archiveLimits, options.compatibilityMode ?? 'compatible');
     throwIfAborted(options.signal);
     if (!opened.archive) {
       throw new BrowserEpubReaderOpenError('The EPUB container could not be opened.', opened.diagnostics);
     }
-    reportOpenProgress(options, 'package', 'Reading publication metadata', 1);
+    reportOpenProgress(options, 'package', 'Reading publication metadata', 2);
     const loaded = await loadPublicationFromArchive(opened.archive, opened.diagnostics, { controlDocumentLimits: options.controlDocumentLimits });
     throwIfAborted(options.signal);
     if (!loaded.publication) {
       throw new BrowserEpubReaderOpenError('The EPUB package could not be parsed.', loaded.diagnostics);
     }
-    reportOpenProgress(options, 'preflight', `Inspecting ${loaded.publication.spine.length} reading sections`, 2);
+    reportOpenProgress(options, 'preflight', `Inspecting ${loaded.publication.spine.length} reading sections`, 3);
     const preflight = await preflightPublicationContent(opened.archive, loaded.publication, options.signal);
     throwIfAborted(options.signal);
-    reportOpenProgress(options, 'resources', 'Preparing publication resources', 3);
+    reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
     const resource = await ResourceResolver.create(opened.archive, loaded.publication, options.resourcePolicy);
     throwIfAborted(options.signal);
     const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory());
@@ -348,7 +348,7 @@ export class BrowserEpubReader {
     );
 
     try {
-      reportOpenProgress(options, 'rendition', 'Laying out the first section', 4);
+      reportOpenProgress(options, 'rendition', 'Laying out the first section', 5);
       const initial = resolveInitialLocator(loaded.publication, options);
       await reader.goToLocator(initial);
       throwIfAborted(options.signal);
@@ -418,18 +418,16 @@ export class BrowserEpubReader {
     const next = normalizeReaderPreferences({ ...this.preferences, ...patch });
     if (samePreferences(this.preferences, next)) return;
     const previous = this.preferences;
-    const current = this.host.state.plan;
     this.preferences = next;
     try {
-      if (current && renderPreferencesChanged(previous, next)) {
-        const plan = this.planForSpine(current.spineIndex);
-        await this.host.present(plan, spreadChanged(current.preferences, next) ? 'spread-change' : 'preferences');
+      if (this.host.state.plan && renderPreferencesChanged(previous, next)) {
+        await this.navigator.relayout(spreadChanged(previous, next) ? 'spread-change' : 'preferences');
       }
     } catch (error) {
       // The public snapshot must never claim a preference was applied when the
       // renderer rejected that transition. The host owns renderer rollback/error
       // state; the composition root owns preference-state rollback.
-      this.preferences = previous;
+      if (this.preferences === next) this.preferences = previous;
       this.publish(this.snapshotValue.status, error);
       throw error;
     }
@@ -442,15 +440,14 @@ export class BrowserEpubReader {
     if (sameViewport(this.viewport, next)) return;
     const previous = this.viewport;
     this.viewport = next;
-    const current = this.host.state.plan;
     try {
-      if (current) {
-        await this.host.present(this.planForSpine(current.spineIndex), 'viewport-resize');
+      if (this.host.state.plan) {
+        await this.navigator.relayout('viewport-resize');
       }
     } catch (error) {
       // ResizeObserver can race with renderer work. Keep the externally visible
       // viewport aligned with the last successfully committed layout.
-      this.viewport = previous;
+      if (this.viewport === next) this.viewport = previous;
       this.publish(this.snapshotValue.status, error);
       throw error;
     }

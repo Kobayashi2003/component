@@ -97,7 +97,11 @@ function parseTocOl(
     }
     try {
       const ref = resolvePublicationReference(navPath, sourceHref);
-      if (ref.remote) diagnostics.push(diag('NAV_CORE_LINK_REMOTE', 'error', `toc link must resolve to top-level EPUB content: ${sourceHref}.`, navPath));
+      if (ref.remote) {
+        diagnostics.push(diag('NAV_CORE_LINK_REMOTE', 'error', `toc link must resolve to top-level EPUB content: ${sourceHref}.`, navPath));
+        items.push({ id, label: label || '(untitled)', children });
+        continue;
+      }
       items.push({ id, label: label || '(untitled)', href: ref.href, path: ref.path, fragment: ref.fragment, children });
     } catch (cause) {
       diagnostics.push({ ...diag('NAV_TOC_HREF_INVALID', 'warning', `Could not resolve toc href ${sourceHref}.`, navPath), cause });
@@ -121,7 +125,10 @@ function parsePageList(
     if (!link || !href) continue;
     try {
       const ref = resolvePublicationReference(navPath, href);
-      if (ref.remote) diagnostics.push(diag('NAV_PAGE_LIST_REMOTE', 'error', `page-list link must stay in the EPUB: ${href}.`, navPath));
+      if (ref.remote) {
+        diagnostics.push(diag('NAV_PAGE_LIST_REMOTE', 'error', `page-list link must stay in the EPUB: ${href}.`, navPath));
+        continue;
+      }
       out.push({ label: navigationLabel(link), href: ref.href, path: ref.path, fragment: ref.fragment });
     } catch (cause) {
       diagnostics.push({ ...diag('NAV_PAGE_LIST_HREF_INVALID', 'warning', `Could not resolve page-list href ${href}.`, navPath), cause });
@@ -148,7 +155,10 @@ function parseLandmarks(
     }
     try {
       const ref = resolvePublicationReference(navPath, href);
-      if (ref.remote) diagnostics.push(diag('NAV_LANDMARK_REMOTE', 'error', `landmarks link must stay in the EPUB: ${href}.`, navPath));
+      if (ref.remote) {
+        diagnostics.push(diag('NAV_LANDMARK_REMOTE', 'error', `landmarks link must stay in the EPUB: ${href}.`, navPath));
+        continue;
+      }
       out.push({ types, label: navigationLabel(link), href: ref.href, path: ref.path, fragment: ref.fragment });
     } catch (cause) {
       diagnostics.push({ ...diag('NAV_LANDMARK_HREF_INVALID', 'warning', `Could not resolve landmark href ${href}.`, navPath), cause });

@@ -153,7 +153,7 @@ export class ReactEpubReaderStore {
       diagnostics: reader.snapshot.diagnostics,
       error,
     });
-    this.options.onError?.(error);
+    this.notifyError(error);
   }
 
   next() { return this.run(reader => reader.next()); }
@@ -241,11 +241,13 @@ export class ReactEpubReaderStore {
     const generation = ++this.generation;
     this.closeReader();
     const openController = new AbortController();
-    const openSignal = combineAbortSignals(this.options.signal, openController.signal);
+    const externalSignal = this.options.signal;
+    const openSignal = combineAbortSignals(externalSignal, openController.signal);
     this.openAbortController = openController;
     this.publish({ status: 'loading', reader: null, diagnostics: [], error: null });
     try {
       const bytes = await sourceBytes(this.source);
+      throwIfAborted(openSignal);
       if (this.disposed || generation !== this.generation || this.container !== element) return;
       const session = this.resolveReadingSession(this.source, bytes, element.ownerDocument.defaultView);
       const saved = session.storage?.load(session.key) ?? null;
@@ -268,16 +270,20 @@ export class ReactEpubReaderStore {
         onOpenProgress: progress => {
           if (this.disposed || generation !== this.generation || openSignal.aborted) return;
           this.publish({ status: 'loading', reader: null, diagnostics: [], error: null, openProgress: progress });
-          this.options.onOpenProgress?.(progress);
+          this.invokeHostCallback(this.options.onOpenProgress, progress);
         },
         // Keep host callbacks live without reopening the publication when a
         // parent React component re-renders with new callback identities.
-        onIntent: intent => this.options.onIntent?.(intent),
-        onDiagnostics: diagnostics => this.options.onDiagnostics?.(diagnostics),
-        onExternalLink: href => this.options.onExternalLink?.(href),
-        onUnresolvedPublicationLink: href => this.options.onUnresolvedPublicationLink?.(href),
+        onIntent: intent => this.invokeHostCallback(this.options.onIntent, intent),
+        onDiagnostics: diagnostics => this.invokeHostCallback(this.options.onDiagnostics, diagnostics),
+        onExternalLink: href => this.invokeHostCallback(this.options.onExternalLink, href),
+        onUnresolvedPublicationLink: href => this.invokeHostCallback(this.options.onUnresolvedPublicationLink, href),
       };
       const reader = await this.openReader(bytes, element, readerOptions);
+      if (openSignal.aborted) {
+        reader.dispose();
+        throw abortReason(openSignal);
+      }
       if (this.disposed || generation !== this.generation || this.container !== element) {
         reader.dispose();
         return;
@@ -291,13 +297,17 @@ export class ReactEpubReaderStore {
       });
       this.publish({ status: 'ready', reader: reader.snapshot, diagnostics: reader.snapshot.diagnostics, error: null });
       this.scheduleReadingSessionSave(reader.snapshot, session.saveDelayMs, session.persistPreferences);
-      this.options.onReady?.(reader.snapshot);
+      this.invokeHostCallback(this.options.onReady, reader.snapshot);
     } catch (error) {
       if (this.openAbortController === openController) this.openAbortController = null;
-      if (openSignal.aborted) return;
       if (this.disposed || generation !== this.generation) return;
+      if (openController.signal.aborted) return;
+      if (externalSignal?.aborted) {
+        this.publish({ status: 'idle', reader: null, diagnostics: [], error: null });
+        return;
+      }
       this.publish({ status: 'error', reader: null, diagnostics: error instanceof BrowserEpubReaderOpenError ? error.diagnostics : [], error });
-      this.options.onError?.(error);
+      this.notifyError(error);
     }
   }
 
@@ -413,6 +423,23 @@ export class ReactEpubReaderStore {
     for (const listener of this.listeners) listener();
   }
 
+  private invokeHostCallback<T>(callback: ((value: T) => void) | undefined, value: T): void {
+    if (!callback) return;
+    try {
+      callback(value);
+    } catch (error) {
+      this.notifyError(error);
+    }
+  }
+
+  private notifyError(error: unknown): void {
+    try {
+      this.options.onError?.(error);
+    } catch {
+      // Host error handlers cannot participate in reader lifecycle state.
+    }
+  }
+
   private assertAlive(): void {
     if (this.disposed) throw new Error('ReactEpubReaderStore has been disposed.');
   }
@@ -452,6 +479,16 @@ const SERVER_SNAPSHOT: ReactEpubReaderSnapshot = Object.freeze({ status: 'idle',
 async function sourceBytes(source: EpubSource): Promise<Uint8Array | ArrayBuffer> {
   if (source instanceof Uint8Array || source instanceof ArrayBuffer) return source;
   return source.arrayBuffer();
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw abortReason(signal);
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Publication open aborted.', 'AbortError');
 }
 
 function stripReactCallbacks(options: UseEpubReaderOptions): BrowserEpubReaderOptions {

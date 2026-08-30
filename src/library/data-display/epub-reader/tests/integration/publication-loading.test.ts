@@ -13,12 +13,13 @@ const packageXml = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="pub-id">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="pub-id">urn:uuid:test</dc:identifier>
-    <dc:title id="title">Reader Fixture</dc:title>
     <dc:title id="subtitle">A subtitle</dc:title>
+    <dc:title id="title">Reader Fixture</dc:title>
     <dc:language>en</dc:language>
     <dc:creator id="creator">Example Author</dc:creator>
     <meta refines="#creator" property="role" scheme="marc:relators">aut</meta>
     <meta refines="#subtitle" property="title-type">subtitle</meta>
+    <meta refines="#title" property="title-type">main</meta>
     <meta property="dcterms:modified">2026-08-23T00:00:00Z</meta>
     <meta property="rendition:layout">reflowable</meta>
     <meta property="rendition:spread">both</meta>
@@ -42,10 +43,11 @@ const navXml = `<?xml version="1.0" encoding="UTF-8"?>
   <ol>
     <li><a href="text/ch1.xhtml">Chapter <strong>One</strong></a></li>
     <li><span>Plate group</span><ol><li><a href="pages/p1.xhtml#art"><img alt="Plate One" src="cover.jpg"/></a></li></ol></li>
+    <li><a href="https://example.com/contents">Publisher website</a></li>
   </ol>
 </nav>
-<nav epub:type="page-list"><ol><li><a href="text/ch1.xhtml#p1">1</a></li></ol></nav>
-<nav epub:type="landmarks"><ol><li><a epub:type="bodymatter" href="text/ch1.xhtml">Start</a></li></ol></nav>
+<nav epub:type="page-list"><ol><li><a href="text/ch1.xhtml#p1">1</a></li><li><a href="https://example.com/page">remote</a></li></ol></nav>
+<nav epub:type="landmarks"><ol><li><a epub:type="bodymatter" href="text/ch1.xhtml">Start</a></li><li><a epub:type="bodymatter" href="https://example.com/start">remote</a></li></ol></nav>
 </body></html>`;
 
 
@@ -118,6 +120,9 @@ async function main() {
   assert(book.navigation.source === 'epub3-nav', 'EPUB 3 nav should be authoritative');
   assert(book.navigation.toc[1]?.href === undefined, 'span TOC group must remain unlinked');
   assert(book.navigation.toc[1]?.children[0]?.label === 'Plate One', 'image alt should contribute to navigation label');
+  assert(book.navigation.toc[2]?.label === 'Publisher website' && book.navigation.toc[2]?.href === undefined, 'remote TOC entries must remain readable but not become internal navigation targets');
+  assert(book.navigation.pageList.length === 1, 'remote page-list entries must not enter the publication location model');
+  assert(book.navigation.landmarks.length === 1, 'remote landmarks must not enter internal navigation');
   assert(book.navigation.landmarks[0]?.types.includes('bodymatter'), 'landmark semantic should parse');
   assert(book.manifest.find(item => item.id === 'remote')?.remote === true, 'remote manifest resources must be preserved');
 

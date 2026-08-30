@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import type { EpubReaderHandle } from './model';
 import { useOptionalEpubReaderContext } from './context';
-import { locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from './controls-model';
+import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from './controls-model';
 
 export function EpubReaderControls({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
@@ -41,7 +41,9 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
   const spineIndex = snapshot?.locator?.spineIndex ?? 0;
   const sectionProgression = snapshot?.locator?.locations.progression ?? layout?.progression ?? 0;
   const resolvedProgress = publicationScoped
-    ? publicationProgress(spineIndex, spineCount, fixedLayout ? 0 : sectionProgression)
+    ? fixedLayout
+      ? fixedLayoutPublicationProgress(spineIndex, spineCount)
+      : publicationProgress(spineIndex, spineCount, sectionProgression)
     : sectionProgression;
   const progress = Math.round(resolvedProgress * 100);
   // A composed spread shows two sections at once, so name both. Reporting only

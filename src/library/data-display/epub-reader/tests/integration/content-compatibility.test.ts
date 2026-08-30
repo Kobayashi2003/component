@@ -6,6 +6,7 @@ import { parseXml } from '../../core/xml';
 import { semanticXmlText, collectRubySamples } from '../../core/text';
 import type { Publication, PublicationPath } from '../../core/publication';
 import { preflightPublicationContent } from '../../core/content/preflight';
+import { parseXhtmlContentDocument, type BrowserXmlPlatform } from '../../core/content';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -67,6 +68,8 @@ async function main() {
   assert(textPlan.writingMode.value === 'vertical-rl', 'preflight writing mode must reach the planner');
   assert(imagePlan.spread.execution === 'cross-spine', 'page-like portrait reflowable image should join physical spread composition');
   assert(spreadPlan.spread.execution === 'spanning-document', 'unmarked landscape image should occupy the whole synthetic spread');
+  assert(imagePlan.contentPage === imageHints.page && spreadPlan.contentPage === spreadHints.page,
+    'the planner must preserve page-like content semantics for renderer execution');
 
   const xml = parseXml(await archive.readText('EPUB/text.xhtml'), 'EPUB/text.xhtml', 'content').root!;
   const projected = semanticXmlText(xml);
@@ -80,7 +83,24 @@ async function main() {
   assert(normalized.normalizedProperties.includes('-epub-writing-mode'), 'normalizer should report the legacy property it repaired');
   assert(createCompatibilityReport(preflight.diagnostics).status === 'repaired', 'explicit preflight compatibility repairs must be observable');
 
+  const parserError = fakeParsedDocument('parsererror', true);
+  const recoveredHtml = fakeParsedDocument('html', false);
+  const parsingPlatform: BrowserXmlPlatform = {
+    parseXml: (_source, mediaType) => mediaType === 'application/xhtml+xml' ? parserError : recoveredHtml,
+    serializeXml: () => '',
+  };
+  const recovered = parseXhtmlContentDocument('<html><body><p>broken', publication.spine[0]!.path!, 0, parsingPlatform);
+  assert(recovered.document === recoveredHtml, 'malformed XHTML must use the same HTML fallback used by rendered content');
+  assert(recovered.diagnostics.some(diagnostic => diagnostic.code === 'CONTENT_XHTML_PARSED_AS_HTML'), 'search-compatible parsing must retain the recovery diagnostic');
+
   console.log('Content compatibility integration test: PASS');
+}
+
+function fakeParsedDocument(rootName: string, parserError: boolean): Document {
+  return {
+    documentElement: { localName: rootName },
+    getElementsByTagName: (name: string) => name === 'parsererror' && parserError ? [{}] : [],
+  } as unknown as Document;
 }
 
 class CountingMemoryPublicationArchive extends MemoryPublicationArchive {

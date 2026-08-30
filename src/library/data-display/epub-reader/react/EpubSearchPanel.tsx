@@ -32,11 +32,17 @@ export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubRe
         </div>
       </form>
       {state?.searching ? <p role="status">Searching…</p> : null}
-      {state && !state.searching && state.query ? (
+      {state?.error && !state.searching ? <p className="epub-search-panel__summary" role="alert">Search could not be completed.</p> : null}
+      {state && !state.searching && state.query && !state.error ? (
         <p className="epub-search-panel__summary" role="status" aria-live="polite">
-          {state.hits.length === 0 ? 'No results found.' : `${state.hits.length} result${state.hits.length === 1 ? '' : 's'} found.`}
+          {state.hits.length === 0
+            ? 'No results found.'
+            : state.truncated
+              ? `Showing the first ${state.hits.length} results.`
+              : `${state.hits.length} result${state.hits.length === 1 ? '' : 's'} found.`}
         </p>
       ) : null}
+      {state && !state.searching && state.diagnostics.length > 0 ? <p className="epub-search-panel__summary">Some sections required compatibility recovery or could not be searched.</p> : null}
       {state && state.hits.length > 0 ? (
         <>
           <div className="epub-search-panel__pager">

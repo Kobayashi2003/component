@@ -1,5 +1,5 @@
 import type { RendererContentDocument } from '../renderer';
-import { commandForClickZone, commandForKey, commandForSwipe, commandForWheel, touchNavigationAllows } from './commands';
+import { commandForKey, commandForPageClick, commandForSwipe, commandForWheel, touchNavigationAllows } from './commands';
 import { DEFAULT_READER_INPUT_POLICY, type ReaderCommand, type ReaderInputDispatcher, type ReaderInputPolicy, type ReaderInputState } from './model';
 
 interface PointerStart { readonly id: number; readonly x: number; readonly y: number; readonly target: EventTarget | null }
@@ -126,49 +126,66 @@ export class BrowserReaderInputRouter {
     const onKeyDown = (event: Event) => this.dispatchKeyCommand(event);
 
     const onWheel = (event: Event) => {
-      if (!this.state().enabled) return;
+      const state = this.state();
+      if (!state.enabled) return;
       const wheel = event as WheelEvent;
       const modified = Boolean(wheel.ctrlKey || wheel.metaKey);
       if (modified && !this.policy.ctrlWheelFontSize) return;
       if (!modified && this.policy.wheel !== 'page') return;
-      if (Math.abs(wheel.deltaY) < this.policy.wheelThreshold) return;
 
       if (!modified) {
-        const scrollOwner = surfaceElement
-          ? findVerticalScrollOwner(surfaceElement)
-          : findVerticalScrollOwner(asElement(wheel.target));
+        const targetElement = asElement(wheel.target);
+        // A document scrolling element is never an ordinary nested overflow
+        // region. Paginated renderers use it as their private page transport,
+        // while scrolled renditions should retain its native wheel behaviour.
+        // Nested overflow regions remain eligible, as does a fixed-layout
+        // container outside the iframe.
+        const targetDocument = targetElement?.ownerDocument;
+        const documentScrollingElement = targetDocument?.scrollingElement ?? null;
+        const scrollOwner = findVerticalScrollOwner(targetElement, documentScrollingElement)
+          ?? (surfaceElement ? findVerticalScrollOwner(surfaceElement) : null);
         if (scrollOwner && consumeVerticalWheel(scrollOwner, wheel)) {
           if (wheel.cancelable) wheel.preventDefault();
           return;
         }
-        if (scrollOwner && this.state().presentation === 'scrolled' && !this.state().wheelBoundaryNavigation) {
+        if (scrollOwner && state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) {
           if (wheel.cancelable) wheel.preventDefault();
           return;
         }
-        if (this.state().presentation === 'scrolled' && !this.state().wheelBoundaryNavigation) return;
+        if (state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) return;
+
+        // Paginated and boundary-navigating fixed-layout surfaces own the
+        // gesture even when this particular event is below the threshold or is
+        // suppressed by the cooldown. Returning without claiming it would hand
+        // it back to the browser's native scrolling after all.
+        if (wheel.cancelable) wheel.preventDefault();
       }
 
+      if (Math.abs(wheel.deltaY) < this.policy.wheelThreshold) return;
       const now = Date.now();
       if (!modified && now - this.lastWheelAt < this.policy.wheelCooldownMs) return;
       const command = commandForWheel(wheel.deltaY, modified);
       if (!command) return;
       if (!modified) this.lastWheelAt = now;
-      if (wheel.cancelable) wheel.preventDefault();
+      if (modified && wheel.cancelable) wheel.preventDefault();
       this.send(command);
     };
 
     const onClick = (event: Event) => {
       const state = this.state();
-      if (!this.policy.clickZones || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'tap')) return;
+      if (!state.enabled) return;
       const click = event as MouseEvent;
       if (Date.now() < this.suppressClickUntil) return;
       if (click.button !== 0 || isInteractivePublicationTarget(click.target) || hasMeaningfulSelection(click.target)) return;
-      const viewport = viewportWidthForTarget(target, this.hostElement);
-      const x = clientXForTarget(click, target, this.hostElement);
+      const viewport = viewportWidthForTarget(target, this.hostElement, surfaceElement);
+      const x = clientXForTarget(click, target, this.hostElement, surfaceElement);
       const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
-      const command = commandForClickZone(x, viewport, ratio, state.pageProgression);
+      const edgeNavigation = this.policy.clickZones
+        && state.presentation !== 'scrolled'
+        && touchNavigationAllows(state.touchNavigation, 'tap');
+      const command = commandForPageClick(x, viewport, ratio, state.pageProgression, edgeNavigation);
       if (!command) return;
-      if (click.cancelable) click.preventDefault();
+      if (command.type === 'navigate' && click.cancelable) click.preventDefault();
       this.send(command);
     };
 
@@ -216,8 +233,8 @@ export class BrowserReaderInputRouter {
         cursorElement.style.cursor = originalCursor;
         return;
       }
-      const viewport = viewportWidthForTarget(target, this.hostElement);
-      const x = clientXForTarget(pointer, target, this.hostElement);
+      const viewport = viewportWidthForTarget(target, this.hostElement, surfaceElement);
+      const x = clientXForTarget(pointer, target, this.hostElement, surfaceElement);
       const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
       cursorElement.style.cursor = semanticCursorForClickZone(x, viewport, ratio) ?? originalCursor;
     };
@@ -311,23 +328,64 @@ function asElement(target: EventTarget | null): Element | null {
   return node.nodeType === 1 ? node as Element : node.parentElement;
 }
 
-function viewportWidthForTarget(target: EventTarget, fallback: HTMLElement): number {
+function viewportWidthForTarget(
+  target: EventTarget,
+  fallback: HTMLElement,
+  surfaceElement?: HTMLElement,
+): number {
   if ((target as Document).documentElement) {
+    // Every document in a synthetic spread is only one leaf. Tap zones belong
+    // to the reader viewport, not to each leaf independently; otherwise the
+    // visual centre/gutter is simultaneously the right edge of one iframe and
+    // the left edge of the other, so a centre tap turns the page.
+    if (surfaceElement) return fallback.getBoundingClientRect().width;
     const document = target as Document;
     return document.defaultView?.innerWidth ?? document.documentElement.clientWidth;
   }
   return fallback.getBoundingClientRect().width;
 }
 
-function clientXForTarget(event: MouseEvent, target: EventTarget, fallback: HTMLElement): number {
-  if ((target as Document).documentElement) return event.clientX;
+function clientXForTarget(
+  event: MouseEvent,
+  target: EventTarget,
+  fallback: HTMLElement,
+  surfaceElement?: HTMLElement,
+): number {
+  if ((target as Document).documentElement) {
+    if (!surfaceElement) return event.clientX;
+    return mapContentClientXToViewport(
+      event.clientX,
+      surfaceElement.offsetWidth,
+      surfaceElement.getBoundingClientRect(),
+      fallback.getBoundingClientRect(),
+    );
+  }
   return event.clientX - fallback.getBoundingClientRect().left;
 }
 
-function findVerticalScrollOwner(start: Element | null): HTMLElement | null {
+/** Map an iframe-local pointer coordinate into the shared reader viewport. */
+export function mapContentClientXToViewport(
+  clientX: number,
+  surfaceLayoutWidth: number,
+  surface: Pick<DOMRect, 'left' | 'width'>,
+  viewport: Pick<DOMRect, 'left' | 'width'>,
+): number {
+  if (!Number.isFinite(clientX) || !(surfaceLayoutWidth > 0) || !(surface.width > 0) || !(viewport.width > 0)) return clientX;
+  // A real pointer event inside a transformed iframe reports coordinates in
+  // that browsing context's untransformed CSS pixels. Translate through the
+  // iframe's visual/layout scale before adding its position in the shared
+  // reader viewport. Without this scale, fit-width pages classify their inner
+  // half as an outer page-turn edge.
+  return surface.left - viewport.left + clientX * surface.width / surfaceLayoutWidth;
+}
+
+function findVerticalScrollOwner(start: Element | null, excluded: Element | null = null): HTMLElement | null {
   let current: Element | null = start;
   while (current) {
-    if (current instanceof HTMLElement && current.scrollHeight > current.clientHeight + 1) {
+    // Content elements belong to the iframe realm, where `instanceof` against
+    // the host window's HTMLElement constructor is false. Scroll metrics are a
+    // sufficient structural check and work in both realms.
+    if (current !== excluded && hasVerticalScrollMetrics(current) && current.scrollHeight > current.clientHeight + 1) {
       const style = current.ownerDocument.defaultView?.getComputedStyle(current);
       const overflowY = style?.overflowY ?? 'visible';
       if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return current;
@@ -335,6 +393,13 @@ function findVerticalScrollOwner(start: Element | null): HTMLElement | null {
     current = current.parentElement;
   }
   return null;
+}
+
+function hasVerticalScrollMetrics(element: Element): element is HTMLElement {
+  const candidate = element as Partial<HTMLElement>;
+  return typeof candidate.scrollTop === 'number'
+    && typeof candidate.scrollHeight === 'number'
+    && typeof candidate.clientHeight === 'number';
 }
 
 function consumeVerticalWheel(owner: HTMLElement, event: WheelEvent): boolean {

@@ -52,6 +52,61 @@ async function main(): Promise<void> {
     assert(String(replay.snapshot.status) === 'disposed', 'final lifecycle release must dispose the store');
   }
 
+  // Cancelling the currently requested publication is different from silently
+  // superseding an older generation. With no successor open to publish another
+  // state, the store must leave its loading state when the host aborts it.
+  {
+    const external = new AbortController();
+    const cancelled = new ReactEpubReaderStore(async (_source, _element, options) => {
+      return await new Promise<BrowserEpubReader>((_resolve, reject) => {
+        const signal = options?.signal;
+        if (signal?.aborted) reject(signal.reason);
+        else signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    });
+    const cancelledContainer = {
+      ownerDocument: { defaultView: null },
+      clientWidth: 800,
+      clientHeight: 600,
+      getBoundingClientRect: () => ({ width: 800, height: 600 }),
+    } as unknown as HTMLDivElement;
+    cancelled.setSource(new Uint8Array([7]), { signal: external.signal });
+    cancelled.attachViewport(cancelledContainer);
+    await Promise.resolve();
+    assert(String(cancelled.snapshot.status) === 'loading', 'external-cancellation fixture must begin opening');
+    external.abort(new DOMException('Host cancelled publication open.', 'AbortError'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert(String(cancelled.snapshot.status) === 'idle', 'external cancellation must leave the store idle rather than permanently loading');
+    cancelled.dispose();
+  }
+
+  // A host callback runs outside the publication lifecycle boundary. Its own
+  // exception may be reported, but it must not turn a successfully opened and
+  // still-live reader into a React-only fatal state.
+  {
+    const opened = new FakeReader('callback-safe');
+    let reported: unknown = null;
+    const callbackSafe = new ReactEpubReaderStore(async () => opened as unknown as BrowserEpubReader);
+    const callbackContainer = {
+      ownerDocument: { defaultView: null },
+      clientWidth: 800,
+      clientHeight: 600,
+      getBoundingClientRect: () => ({ width: 800, height: 600 }),
+    } as unknown as HTMLDivElement;
+    callbackSafe.setSource(new Uint8Array([6]), {
+      onReady: () => { throw new Error('host onReady failed'); },
+      onError: error => { reported = error; },
+    });
+    callbackSafe.attachViewport(callbackContainer);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert(String(callbackSafe.snapshot.status) === 'ready', 'onReady failure must not replace a successful reader with an error snapshot');
+    assert(callbackSafe.activeReader === opened as unknown as BrowserEpubReader, 'onReady failure must retain the successfully opened reader instance');
+    assert(reported instanceof Error && reported.message === 'host onReady failed', 'onReady failure should still be reported to the host error channel');
+    callbackSafe.dispose();
+  }
+
   // Open failures stay terminal until the user explicitly retries. This keeps
   // ResizeObserver/ref churn from turning one failure into an open loop.
   {
@@ -178,7 +233,7 @@ async function main(): Promise<void> {
     const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
     const key = bytes[0] ?? 0;
     openSignals.set(key, options?.signal);
-    options?.onOpenProgress?.({ phase: 'archive', label: 'Opening fixture', completed: 0, total: 5 });
+    options?.onOpenProgress?.({ phase: 'archive', label: 'Opening fixture', completed: 1, total: 5 });
     const gate = deferred<FakeReader>();
     pending.set(key, gate);
     const reader = await gate.promise;

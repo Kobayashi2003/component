@@ -13,5 +13,6 @@ export * from './EpubSettingsPanel';
 export * from './EpubMarksPanel';
 export * from './EpubCompatibilityPanel';
 export * from './EpubReader';
+export * from './EpubReaderFullscreen';
 export * from './EpubReaderBackground';
 export * from './EpubFilePicker';

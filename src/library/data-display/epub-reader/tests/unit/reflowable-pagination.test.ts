@@ -265,7 +265,58 @@ const item = publication.spine[0]!;
   assert(css.includes('inset-inline-start: 80px') && css.includes('column-gap: 192px'), 'layout CSS should center every text column inside its physical page slot');
 }
 
-// 8. srcset tokenization must not mistake the comma inside a data URL for a
+// 8. A strictly pure single-image document is page content, not prose waiting
+// to fragment. Its image is fitted against the definite iframe viewport rather
+// than an auto-height publisher wrapper; captions and scrolled flow stay on the
+// ordinary reflowable path.
+{
+  const pureImagePage = {
+    kind: 'single-image-page' as const,
+    pageLike: true,
+    semanticTextLength: 0,
+    replacedElementCount: 1,
+    intrinsicViewport: { width: 1600, height: 1142 },
+    likelySpanningSpread: true,
+  };
+  const plan = planRendition({
+    publication,
+    spineItem: item,
+    viewport: { width: 1600, height: 650 },
+    contentHints: { writingMode: 'horizontal-tb', page: pureImagePage },
+  });
+  assert(plan.contentPage === pureImagePage, 'renderer plan must retain the preflight page profile');
+  const css = buildReflowableLayoutCss(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
+  assert(css.includes('body img {') && css.includes('position: fixed !important'),
+    'a pure image page must escape indefinite publisher wrapper geometry');
+  assert(css.includes('max-width: 1600px !important') && css.includes('max-height: 650px !important'),
+    'a pure image page must be bounded by the exact content viewport');
+  assert(css.includes('width: auto !important') && css.includes('height: auto !important'),
+    'viewport containment must preserve the image intrinsic aspect ratio');
+  assert(!css.includes('column-fill: auto'), 'a pure image page must not enter prose fragmentation');
+
+  const captionedPlan = planRendition({
+    publication,
+    spineItem: item,
+    viewport: { width: 1600, height: 650 },
+    contentHints: { page: { ...pureImagePage, semanticTextLength: 4 } },
+  });
+  const captionedCss = buildReflowableLayoutCss(captionedPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
+  assert(captionedCss.includes('column-fill: auto') && !captionedCss.includes('position: fixed !important'),
+    'a page with a caption must retain ordinary reflowable layout');
+
+  const scrolledPlan = planRendition({
+    publication,
+    spineItem: item,
+    viewport: { width: 1600, height: 650 },
+    preferences: { ...DEFAULT_READER_PREFERENCES, flow: 'scrolled' },
+    contentHints: { page: pureImagePage },
+  });
+  const scrolledCss = buildReflowableLayoutCss(scrolledPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
+  assert(scrolledPlan.renderer === 'reflowable-scroll' && !scrolledCss.includes('position: fixed !important'),
+    'the page-sized image recovery must not override an explicit scrolled flow');
+}
+
+// 9. srcset tokenization must not mistake the comma inside a data URL for a
 // candidate separator.
 {
   const candidates = parseSrcset('data:image/svg+xml,%3Csvg%3E 1x, images/a.png 2x');
@@ -274,7 +325,7 @@ const item = publication.spine[0]!;
   assert(candidates[0]?.descriptor === '1x' && candidates[1]?.descriptor === '2x', 'srcset descriptors must be retained');
 }
 
-// 8. XHTML <base href> participates in resource resolution, including an
+// 10. XHTML <base href> participates in resource resolution, including an
 // intentionally remote base, while local bases remain container constrained.
 {
   const local = resolvePublicationDocumentReference(

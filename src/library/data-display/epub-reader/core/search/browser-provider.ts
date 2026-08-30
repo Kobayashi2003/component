@@ -1,5 +1,5 @@
 import type { BrowserXmlPlatform } from '../content';
-import { BrowserDomXmlPlatform } from '../content';
+import { BrowserDomXmlPlatform, parseXhtmlContentDocument } from '../content';
 import { createCompositeLocator } from '../locator';
 import type { Publication } from '../publication';
 import type { PublicationResourceSession } from '../resources';
@@ -30,8 +30,11 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
     const read = await this.resources.resolver.read('', item.path);
     if (!read.resource) return null;
     const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-    const parsed = this.xmlPlatform.parseXml(source, media === 'image/svg+xml' ? 'image/svg+xml' : 'application/xhtml+xml');
-    if (parsed.documentElement?.localName === 'parsererror' || parsed.getElementsByTagName('parsererror').length > 0) {
+    const parsedContent = media === 'image/svg+xml'
+      ? { document: this.xmlPlatform.parseXml(source, 'image/svg+xml'), diagnostics: [] }
+      : parseXhtmlContentDocument(source, item.path, item.index, this.xmlPlatform);
+    const parsed = parsedContent.document;
+    if (media === 'image/svg+xml' && (parsed.documentElement?.localName === 'parsererror' || parsed.getElementsByTagName('parsererror').length > 0)) {
       throw new Error(`Search content document is not well-formed XML: ${item.path}.`);
     }
     removeExecutableScripts(parsed);
@@ -44,6 +47,7 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
       spineIndex,
       href: item.href,
       text,
+      diagnostics: parsedContent.diagnostics,
       locatorRange: (start, end) => {
         const startPoint = pointAt(projection.segments, Math.max(0, Math.min(text.length, start)), false);
         const endPoint = pointAt(projection.segments, Math.max(0, Math.min(text.length, end)), true);

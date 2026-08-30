@@ -1,4 +1,5 @@
 import type {
+  ContentPageProfile,
   ContentPresentationHints,
   EffectiveSpineRendition,
   IntrinsicViewport,
@@ -161,6 +162,13 @@ export interface RenditionPlan {
   readonly orientation: OrientationPlan;
   readonly spread: SpreadPlan;
   readonly alignXCenter: boolean;
+  /**
+   * Structural page semantics discovered before rendering. Keep this distinct
+   * from the authored rendition: a reflowable document may still be a single
+   * image page that needs page-sized execution without being promoted to
+   * fixed-layout.
+   */
+  readonly contentPage?: ContentPageProfile;
   readonly intrinsicViewport?: IntrinsicViewport;
 
   readonly preferences: ReaderPreferences;
