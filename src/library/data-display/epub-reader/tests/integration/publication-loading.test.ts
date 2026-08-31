@@ -126,6 +126,22 @@ async function main() {
   assert(book.navigation.landmarks[0]?.types.includes('bodymatter'), 'landmark semantic should parse');
   assert(book.manifest.find(item => item.id === 'remote')?.remote === true, 'remote manifest resources must be preserved');
 
+  const multipleRootfiles = new MemoryPublicationArchive({
+    'META-INF/container.xml': `<?xml version="1.0"?>
+      <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>
+        <rootfile full-path="ALT/package.opf" media-type="application/xml"/>
+        <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
+      </rootfiles></container>`,
+    'ALT/package.opf': packageXml.replace('Reader Fixture', 'Publisher First Package'),
+    'EPUB/package.opf': packageXml,
+    'ALT/nav.xhtml': navXml,
+    'EPUB/nav.xhtml': navXml,
+  });
+  const preferredRootfile = await loadPublicationFromArchive(multipleRootfiles);
+  assert(preferredRootfile.publication?.metadata.title === 'Reader Fixture', 'default rootfile recovery should prefer the standard OPF package');
+  const publisherRootfile = await loadPublicationFromArchive(multipleRootfiles, [], { selectPreferredRootfile: false });
+  assert(publisherRootfile.publication?.metadata.title === 'Publisher First Package', 'disabling rootfile recovery should preserve publisher declaration order');
+
   const epub2 = await loadPublicationFromArchive(new MemoryPublicationArchive({
     'META-INF/container.xml': containerXml,
     'EPUB/package.opf': epub2PackageXml,
@@ -138,6 +154,15 @@ async function main() {
   assert(epub2.publication?.navigation.pageList[0]?.fragment === 'page1', 'NCX pageList should parse');
   assert(epub2.publication?.navigation.landmarks[0]?.types[0] === 'text', 'EPUB 2 guide should supply fallback landmarks');
   assert(epub2.publication?.metadata.creators[0]?.fileAs === 'Author, Legacy', 'EPUB 2 opf:file-as should parse');
+
+  const epub2WithoutFallback = await loadPublicationFromArchive(new MemoryPublicationArchive({
+    'META-INF/container.xml': containerXml,
+    'EPUB/package.opf': epub2PackageXml,
+    'EPUB/toc.ncx': ncxXml,
+    'EPUB/chapter.xhtml': '<html/>',
+  }), [], { useLegacyNavigationFallback: false });
+  assert(epub2WithoutFallback.publication?.navigation.source === 'none', 'disabling legacy navigation must not parse NCX as the active navigation model');
+  assert(epub2WithoutFallback.publication?.navigation.landmarks.length === 0, 'disabling legacy navigation must not import EPUB 2 Guide landmarks');
 
   const conflict = await loadPublicationFromArchive(new MemoryPublicationArchive({
     'META-INF/container.xml': containerXml,

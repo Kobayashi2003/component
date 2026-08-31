@@ -29,7 +29,7 @@ const PANELS = [
   { id: 'contents', label: 'Contents', shortLabel: 'Contents', description: 'Navigate the publication' },
   { id: 'search', label: 'Search', shortLabel: 'Search', description: 'Find text in this book' },
   { id: 'marks', label: 'Bookmarks and annotations', shortLabel: 'Marks', description: 'Saved places and selections' },
-  { id: 'settings', label: 'Reading settings', shortLabel: 'Appearance', description: 'Theme, type and layout' },
+  { id: 'settings', label: 'Reader settings', shortLabel: 'Settings', description: 'Display, layout and controls' },
   { id: 'compatibility', label: 'Book information', shortLabel: 'Book info', description: 'Compatibility and repairs' },
   { id: 'help', label: 'Keyboard shortcuts', shortLabel: 'Help', description: 'Reader keyboard commands' },
 ] as const satisfies readonly { id: ReaderPanelId; label: string; shortLabel: string; description: string }[];
@@ -511,9 +511,12 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
               tabIndex={-1}
             >
               <header className="epub-reader-shell__panel-head">
-                <div>
-                  <strong id={panelTitleId}>{activePanel?.label}</strong>
-                  <span>{activePanel?.description}</span>
+                <div className="epub-reader-shell__panel-context">
+                  {activePanel ? <span className="epub-reader-shell__panel-icon"><ReaderToolIcon id={activePanel.id} /></span> : null}
+                  <div>
+                    <strong id={panelTitleId}>{activePanel?.label}</strong>
+                    <span>{activePanel?.description}</span>
+                  </div>
                 </div>
                 <button type="button" onClick={() => closeSurface()} aria-label={`Close ${activePanel?.label ?? 'panel'}`}>
                   <CloseIcon />

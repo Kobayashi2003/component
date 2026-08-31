@@ -5,7 +5,6 @@ import type {
   Locator,
   LocatorRange,
   NavigationTarget,
-  ReaderPreferences,
   SearchHit,
   SearchOptions,
 } from '../core';
@@ -18,6 +17,8 @@ export type ReactEpubReaderStatus = 'idle' | 'loading' | 'ready' | 'error' | 'di
 export interface ReactEpubReaderSnapshot {
   readonly status: ReactEpubReaderStatus;
   readonly reader: BrowserEpubReaderSnapshot | null;
+  /** Last active or attempted preferences, retained so a failed compatibility experiment can be undone. */
+  readonly preferences?: import('../core').ReaderPreferences;
   readonly diagnostics: readonly import('../core').PublicationDiagnostic[];
   readonly error: unknown | null;
   readonly openProgress?: import('../core').BrowserEpubReaderOpenProgress;
@@ -44,7 +45,7 @@ export interface EpubReaderHandle {
     back(): Promise<Locator | null>;
     forward(): Promise<Locator | null>;
   };
-  setPreferences(patch: Partial<ReaderPreferences>): Promise<void>;
+  setPreferences(patch: import('../core').ReaderPreferencesPatch): Promise<void>;
   captureLocator(): Promise<Locator | null>;
   registerTheme(theme: import('../core').ReaderThemeDefinition): void;
   captureSelection(): import('../core').ReaderSelection | null;

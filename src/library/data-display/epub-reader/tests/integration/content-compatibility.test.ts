@@ -92,6 +92,13 @@ async function main() {
   const recovered = parseXhtmlContentDocument('<html><body><p>broken', publication.spine[0]!.path!, 0, parsingPlatform);
   assert(recovered.document === recoveredHtml, 'malformed XHTML must use the same HTML fallback used by rendered content');
   assert(recovered.diagnostics.some(diagnostic => diagnostic.code === 'CONTENT_XHTML_PARSED_AS_HTML'), 'search-compatible parsing must retain the recovery diagnostic');
+  let strictParsingFailed = false;
+  try {
+    parseXhtmlContentDocument('<html><body><p>broken', publication.spine[0]!.path!, 0, parsingPlatform, false);
+  } catch {
+    strictParsingFailed = true;
+  }
+  assert(strictParsingFailed, 'disabling malformed XHTML recovery must reject the invalid content document');
 
   console.log('Content compatibility integration test: PASS');
 }

@@ -294,6 +294,20 @@ const item = publication.spine[0]!;
     'viewport containment must preserve the image intrinsic aspect ratio');
   assert(!css.includes('column-fill: auto'), 'a pure image page must not enter prose fragmentation');
 
+  const unassistedPlan = planRendition({
+    publication,
+    spineItem: item,
+    viewport: { width: 1600, height: 650 },
+    preferences: {
+      ...DEFAULT_READER_PREFERENCES,
+      compatibility: { ...DEFAULT_READER_PREFERENCES.compatibility, fitSingleImagePages: false },
+    },
+    contentHints: { page: pureImagePage },
+  });
+  const unassistedCss = buildReflowableLayoutCss(unassistedPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
+  assert(unassistedCss.includes('column-fill: auto') && !unassistedCss.includes('position: fixed !important'),
+    'disabling single-image compatibility must preserve publisher reflowable layout');
+
   const captionedPlan = planRendition({
     publication,
     spineItem: item,

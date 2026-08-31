@@ -50,7 +50,13 @@ export async function materializeXhtmlSpineItem(
   }
 
   const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-  const parsed = parseXhtmlContentDocument(source, item.path, item.index, platform);
+  const parsed = parseXhtmlContentDocument(
+    source,
+    item.path,
+    item.index,
+    platform,
+    options.recoverMalformedXhtml !== false,
+  );
   const document = parsed.document;
   diagnostics.push(...parsed.diagnostics);
 
@@ -90,9 +96,13 @@ export function parseXhtmlContentDocument(
   path: PublicationPath,
   spineIndex: number,
   platform: BrowserXmlPlatform,
+  recoverMalformed = true,
 ): { readonly document: Document; readonly diagnostics: readonly PublicationDiagnostic[] } {
   let document = platform.parseXml(source, 'application/xhtml+xml');
   if (isParsedXhtml(document)) return { document, diagnostics: [] };
+  if (!recoverMalformed) {
+    throw new Error(`XHTML content document is not well-formed XML: ${path}.`);
+  }
 
   const htmlDocument = platform.parseXml(source, 'text/html');
   assertParsedXhtml(htmlDocument, path);

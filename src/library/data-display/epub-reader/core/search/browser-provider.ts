@@ -13,6 +13,7 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
     private readonly resources: PublicationResourceSession,
     ownerDocument: Document,
     private readonly xmlPlatform: BrowserXmlPlatform = new BrowserDomXmlPlatform(ownerDocument),
+    private readonly recoverMalformedXhtml: () => boolean = () => true,
   ) {}
 
   async load(spineIndex: number, signal: AbortSignal): Promise<SearchDocument | null> {
@@ -32,7 +33,7 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
     const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
     const parsedContent = media === 'image/svg+xml'
       ? { document: this.xmlPlatform.parseXml(source, 'image/svg+xml'), diagnostics: [] }
-      : parseXhtmlContentDocument(source, item.path, item.index, this.xmlPlatform);
+      : parseXhtmlContentDocument(source, item.path, item.index, this.xmlPlatform, this.recoverMalformedXhtml());
     const parsed = parsedContent.document;
     if (media === 'image/svg+xml' && (parsed.documentElement?.localName === 'parsererror' || parsed.getElementsByTagName('parsererror').length > 0)) {
       throw new Error(`Search content document is not well-formed XML: ${item.path}.`);

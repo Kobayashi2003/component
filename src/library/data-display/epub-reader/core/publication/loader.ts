@@ -43,6 +43,8 @@ export async function loadEpub(
  */
 export interface LoadPublicationFromArchiveOptions {
   readonly controlDocumentLimits?: Partial<PublicationControlDocumentLimits>;
+  readonly selectPreferredRootfile?: boolean;
+  readonly useLegacyNavigationFallback?: boolean;
 }
 
 export async function loadPublicationFromArchive(
@@ -92,8 +94,10 @@ export async function loadPublicationFromArchive(
 
   const container = parseContainerDocument(containerXml, CONTAINER_PATH);
   diagnostics.push(...container.diagnostics);
-  const preferred = container.rootfiles.find(rootfile => rootfile.mediaType === PACKAGE_MEDIA_TYPE)
-    ?? container.rootfiles[0];
+  const preferred = options.selectPreferredRootfile === false
+    ? container.rootfiles[0]
+    : container.rootfiles.find(rootfile => rootfile.mediaType === PACKAGE_MEDIA_TYPE)
+      ?? container.rootfiles[0];
   if (!preferred) return { publication: null, diagnostics };
 
   if (container.rootfiles.length > 1) {
@@ -104,8 +108,10 @@ export async function loadPublicationFromArchive(
       message: `container.xml declares ${container.rootfiles.length} package documents; the reading system selects ${preferred.fullPath}.`,
       path: CONTAINER_PATH,
       repair: {
-        strategy: 'select-preferred-rootfile',
-        description: 'Select the first package rootfile whose media type is application/oebps-package+xml, otherwise the first declared rootfile.',
+        strategy: options.selectPreferredRootfile === false ? 'select-first-rootfile' : 'select-preferred-rootfile',
+        description: options.selectPreferredRootfile === false
+          ? 'Use the first package rootfile in publisher order.'
+          : 'Select the first package rootfile whose media type is application/oebps-package+xml, otherwise the first declared rootfile.',
         confidence: 0.8,
       },
     });
@@ -163,7 +169,7 @@ export async function loadPublicationFromArchive(
 
   // EPUB 2 compatibility and malformed EPUB 3 fallback: use NCX only if the
   // EPUB 3 Navigation Document did not produce a usable TOC.
-  if (navigation.toc.length === 0 && parsedPackage.ncxItem?.path) {
+  if (options.useLegacyNavigationFallback !== false && navigation.toc.length === 0 && parsedPackage.ncxItem?.path) {
     const result = await tryParseNcx(archive, parsedPackage.ncxItem.path, diagnostics, controlLimits.maxNavigationDocumentBytes);
     if (result) {
       navigation = {
@@ -186,7 +192,7 @@ export async function loadPublicationFromArchive(
         });
       }
     }
-  } else if (navigation.source === 'none' && parsedPackage.epub2Guide.length > 0) {
+  } else if (options.useLegacyNavigationFallback !== false && navigation.source === 'none' && parsedPackage.epub2Guide.length > 0) {
     navigation = { ...navigation, landmarks: parsedPackage.epub2Guide };
   }
 

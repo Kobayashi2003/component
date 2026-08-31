@@ -83,7 +83,11 @@ export class FixedLayoutRenderer implements RendererInstance {
     const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
     const materialized = mediaType === 'image/svg+xml'
       ? await materializeSvgSpineItem(item, this.environment.resources, platform)
-      : await materializeXhtmlSpineItem(item, this.environment.resources, platform, { disableScripts: true, annotateLinks: true });
+      : await materializeXhtmlSpineItem(item, this.environment.resources, platform, {
+        disableScripts: true,
+        annotateLinks: true,
+        recoverMalformedXhtml: plan.preferences.compatibility.recoverMalformedXhtml,
+      });
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);
     this.environment.onPresentationHints?.(materialized.hints);

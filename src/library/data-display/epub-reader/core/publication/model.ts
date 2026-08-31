@@ -265,6 +265,33 @@ export type FixedLayoutFit = 'contain' | 'width' | 'height' | 'original';
 export type TouchNavigationPreference = 'both' | 'tap' | 'swipe' | 'off';
 export type ReaderTheme = 'publisher' | 'light' | 'dark' | 'sepia' | (string & {});
 
+export interface ReaderCompatibilityPreferences {
+  /** Accept recoverable OCF/ZIP container deviations. */
+  readonly recoverContainerStructure: boolean;
+  /** Prefer the standard OPF rootfile when a container declares several. */
+  readonly selectPreferredRootfile: boolean;
+  /** Recover non-well-formed XHTML with the browser HTML parser. */
+  readonly recoverMalformedXhtml: boolean;
+  /** Use EPUB 2 NCX/Guide navigation when EPUB 3 navigation is unavailable. */
+  readonly useLegacyNavigationFallback: boolean;
+  /** Add standard CSS declarations for legacy EPUB/WebKit aliases. */
+  readonly normalizeLegacyCss: boolean;
+  /** Fit a sole image in a reflowable document into one reader viewport. */
+  readonly fitSingleImagePages: boolean;
+  /** Decode fonts protected with the standard IDPF obfuscation algorithm. */
+  readonly deobfuscateIdpfFonts: boolean;
+}
+
+export const DEFAULT_READER_COMPATIBILITY_PREFERENCES: ReaderCompatibilityPreferences = Object.freeze({
+  recoverContainerStructure: true,
+  selectPreferredRootfile: true,
+  recoverMalformedXhtml: true,
+  useLegacyNavigationFallback: true,
+  normalizeLegacyCss: true,
+  fitSingleImagePages: true,
+  deobfuscateIdpfFonts: true,
+});
+
 /**
  * User preferences are requests, not commands. The rendition planner decides
  * which preferences are meaningful for the active spine item. For example,
@@ -287,8 +314,13 @@ export interface ReaderPreferences {
   readonly touchNavigation: TouchNavigationPreference;
   /** Width of each page-turn edge zone as a percentage of the viewport. */
   readonly pageTurnZonePercent: number;
+  readonly compatibility: ReaderCompatibilityPreferences;
   readonly theme: ReaderTheme;
 }
+
+export type ReaderPreferencesPatch = Omit<Partial<ReaderPreferences>, 'compatibility'> & {
+  readonly compatibility?: Partial<ReaderCompatibilityPreferences>;
+};
 
 export const DEFAULT_READER_PREFERENCES: ReaderPreferences = Object.freeze({
   flow: 'auto',
@@ -302,6 +334,7 @@ export const DEFAULT_READER_PREFERENCES: ReaderPreferences = Object.freeze({
   fixedLayoutGutter: 0,
   touchNavigation: 'both',
   pageTurnZonePercent: 22,
+  compatibility: DEFAULT_READER_COMPATIBILITY_PREFERENCES,
   theme: 'publisher',
 });
 

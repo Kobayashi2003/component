@@ -103,6 +103,7 @@
 
 .epub-reader-shell[data-chrome="immersive"][data-theme="dark"],
 .epub-reader-shell[data-chrome="immersive"][data-theme="graphite"] {
+  color-scheme: dark;
   --epub-color-reader: #111315;
   --epub-color-surface: #222529;
   --epub-color-surface-raised: #2b2f34;

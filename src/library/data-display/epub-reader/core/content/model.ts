@@ -24,4 +24,6 @@ export interface XhtmlMaterializerOptions {
   readonly disableScripts?: boolean;
   /** Preserve http(s) anchors as metadata but prevent iframe navigation later. */
   readonly annotateLinks?: boolean;
+  /** Recover malformed XHTML with the browser HTML parser. */
+  readonly recoverMalformedXhtml?: boolean;
 }

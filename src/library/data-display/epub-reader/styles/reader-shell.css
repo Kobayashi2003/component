@@ -62,10 +62,7 @@
   padding-inline: max(var(--epub-space-3), env(safe-area-inset-left)) max(var(--epub-space-3), env(safe-area-inset-right));
   border-bottom: 1px solid var(--epub-color-line);
   background: var(--epub-color-surface);
-  background: color-mix(in srgb, var(--epub-color-surface) 76%, transparent);
   box-shadow: 0 6px 22px rgba(20, 22, 20, 0.07);
-  -webkit-backdrop-filter: saturate(1.18) blur(18px);
-  backdrop-filter: saturate(1.18) blur(18px);
   transition: opacity 180ms ease, transform 220ms ease;
 }
 
@@ -259,6 +256,7 @@
 
 .epub-reader-shell[data-chrome="standard"][data-theme="dark"],
 .epub-reader-shell[data-chrome="standard"][data-theme="graphite"] {
+  color-scheme: dark;
   --epub-color-reader: #111315;
   --epub-color-surface: #222529;
   --epub-color-surface-raised: #2b2f34;
@@ -305,10 +303,7 @@
   padding-block: 7px max(7px, env(safe-area-inset-bottom));
   padding-inline: max(var(--epub-space-3), env(safe-area-inset-left)) max(var(--epub-space-3), env(safe-area-inset-right));
   background: var(--epub-color-surface);
-  background: color-mix(in srgb, var(--epub-color-surface) 76%, transparent);
   box-shadow: 0 -6px 22px rgba(20, 22, 20, 0.07);
-  -webkit-backdrop-filter: saturate(1.18) blur(18px);
-  backdrop-filter: saturate(1.18) blur(18px);
   transition: opacity 180ms ease, transform 220ms ease;
 }
 

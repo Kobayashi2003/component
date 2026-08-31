@@ -1,4 +1,4 @@
-import { BrowserEpubReader, BrowserEpubReaderOpenError, MemoryReaderMarkStore, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type SearchOptions } from '../core';
+import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, MemoryReaderMarkStore, normalizeReaderPreferences, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type SearchOptions } from '../core';
 import type { EpubSource, ReactEpubReaderSnapshot, UseEpubReaderOptions } from './model';
 import {
   BrowserReadingSessionStorage,
@@ -38,6 +38,7 @@ export class ReactEpubReaderStore {
   private readingSessionCleared = false;
   private readingSessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private openAbortController: AbortController | null = null;
+  private reopenPreferences: ReaderPreferences | null = null;
   private snapshotValue: ReactEpubReaderSnapshot = Object.freeze({ status: 'idle', reader: null, diagnostics: [], error: null });
 
   get snapshot(): ReactEpubReaderSnapshot { return this.snapshotValue; }
@@ -86,6 +87,7 @@ export class ReactEpubReaderStore {
     if (options) this.options = options;
     if (this.source === source) return;
     this.source = source;
+    this.reopenPreferences = null;
     void this.reopen();
   }
 
@@ -160,6 +162,7 @@ export class ReactEpubReaderStore {
   async retry(): Promise<void> {
     this.assertAlive();
     if (!this.source || !this.container) return;
+    this.reopenPreferences = this.reader?.snapshot.preferences ?? this.reopenPreferences;
     return this.reopen();
   }
   previous() { return this.run(reader => reader.previous()); }
@@ -167,7 +170,17 @@ export class ReactEpubReaderStore {
   async goToLocator(locator: Locator): Promise<Locator | null> { return this.run(reader => reader.goToLocator(locator)); }
   async historyBack(): Promise<Locator | null> { return this.run(reader => reader.back()); }
   async historyForward(): Promise<Locator | null> { return this.run(reader => reader.forward()); }
-  async setPreferences(patch: Partial<ReaderPreferences>): Promise<void> { await this.run(reader => reader.setPreferences(patch)); }
+  async setPreferences(patch: ReaderPreferencesPatch): Promise<void> {
+    if (this.reader) {
+      await this.run(reader => reader.setPreferences(patch));
+      return;
+    }
+    const current = this.snapshotValue.preferences;
+    if (!current) return;
+    const next = mergePreferences(current, patch);
+    this.reopenPreferences = next;
+    this.publish({ ...this.snapshotValue, preferences: next });
+  }
   captureLocator() { return this.requireReader().captureLocator(); }
   registerTheme(theme: import('../core').ReaderThemeDefinition): void { this.requireReader().registerTheme(theme); }
   captureSelection() { return this.requireReader().captureSelection(); }
@@ -258,18 +271,35 @@ export class ReactEpubReaderStore {
       this.readingSessionKey = session.storage ? session.key : null;
       this.readingSessionPersistPreferences = session.persistPreferences;
       this.readingSessionCleared = false;
+      const savedPreferences: ReaderPreferencesPatch = saved && session.persistPreferences ? saved.preferences ?? {} : {};
+      const optionPreferences: ReaderPreferencesPatch = this.options.preferences ?? {};
+      const retryPreferences: ReaderPreferencesPatch = this.reopenPreferences ?? {};
       const readerOptions: BrowserEpubReaderOptions = {
         ...stripReactCallbacks(this.options),
         ...(saved && this.options.initialLocator == null ? { initialLocator: saved.locator } : {}),
         preferences: {
-          ...(saved && session.persistPreferences ? saved.preferences ?? {} : {}),
-          ...this.options.preferences,
+          ...savedPreferences,
+          ...optionPreferences,
+          ...retryPreferences,
+          compatibility: {
+            ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+            ...savedPreferences.compatibility,
+            ...optionPreferences.compatibility,
+            ...retryPreferences.compatibility,
+          },
         },
         ...(restoredMarkStore ? { markStore: restoredMarkStore } : {}),
         signal: openSignal,
         onOpenProgress: progress => {
           if (this.disposed || generation !== this.generation || openSignal.aborted) return;
-          this.publish({ status: 'loading', reader: null, diagnostics: [], error: null, openProgress: progress });
+          this.publish({
+            status: 'loading',
+            reader: null,
+            preferences: this.snapshotValue.preferences,
+            diagnostics: [],
+            error: null,
+            openProgress: progress,
+          });
           this.invokeHostCallback(this.options.onOpenProgress, progress);
         },
         // Keep host callbacks live without reopening the publication when a
@@ -279,6 +309,8 @@ export class ReactEpubReaderStore {
         onExternalLink: href => this.invokeHostCallback(this.options.onExternalLink, href),
         onUnresolvedPublicationLink: href => this.invokeHostCallback(this.options.onUnresolvedPublicationLink, href),
       };
+      const attemptedPreferences = mergePreferences(DEFAULT_READER_PREFERENCES, readerOptions.preferences ?? {});
+      this.publish({ status: 'loading', reader: null, preferences: attemptedPreferences, diagnostics: [], error: null });
       const reader = await this.openReader(bytes, element, readerOptions);
       if (openSignal.aborted) {
         reader.dispose();
@@ -289,13 +321,14 @@ export class ReactEpubReaderStore {
         return;
       }
       this.reader = reader;
+      this.reopenPreferences = null;
       if (this.openAbortController === openController) this.openAbortController = null;
       this.unsubscribeReader = reader.subscribe(() => {
         if (this.reader !== reader) return;
-        this.publish({ status: statusFromReader(reader.snapshot), reader: reader.snapshot, diagnostics: reader.snapshot.diagnostics, error: reader.snapshot.error });
+        this.publish({ status: statusFromReader(reader.snapshot), reader: reader.snapshot, preferences: reader.snapshot.preferences, diagnostics: reader.snapshot.diagnostics, error: reader.snapshot.error });
         this.scheduleReadingSessionSave(reader.snapshot, session.saveDelayMs, session.persistPreferences);
       });
-      this.publish({ status: 'ready', reader: reader.snapshot, diagnostics: reader.snapshot.diagnostics, error: null });
+      this.publish({ status: 'ready', reader: reader.snapshot, preferences: reader.snapshot.preferences, diagnostics: reader.snapshot.diagnostics, error: null });
       this.scheduleReadingSessionSave(reader.snapshot, session.saveDelayMs, session.persistPreferences);
       this.invokeHostCallback(this.options.onReady, reader.snapshot);
     } catch (error) {
@@ -306,7 +339,13 @@ export class ReactEpubReaderStore {
         this.publish({ status: 'idle', reader: null, diagnostics: [], error: null });
         return;
       }
-      this.publish({ status: 'error', reader: null, diagnostics: error instanceof BrowserEpubReaderOpenError ? error.diagnostics : [], error });
+      this.publish({
+        status: 'error',
+        reader: null,
+        preferences: this.reopenPreferences ?? this.snapshotValue.preferences,
+        diagnostics: error instanceof BrowserEpubReaderOpenError ? error.diagnostics : [],
+        error,
+      });
       this.notifyError(error);
     }
   }
@@ -479,6 +518,17 @@ const SERVER_SNAPSHOT: ReactEpubReaderSnapshot = Object.freeze({ status: 'idle',
 async function sourceBytes(source: EpubSource): Promise<Uint8Array | ArrayBuffer> {
   if (source instanceof Uint8Array || source instanceof ArrayBuffer) return source;
   return source.arrayBuffer();
+}
+
+function mergePreferences(base: ReaderPreferences, patch: ReaderPreferencesPatch): ReaderPreferences {
+  return normalizeReaderPreferences({
+    ...base,
+    ...patch,
+    compatibility: {
+      ...base.compatibility,
+      ...patch.compatibility,
+    },
+  });
 }
 
 function throwIfAborted(signal: AbortSignal): void {

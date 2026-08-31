@@ -93,7 +93,7 @@ export interface BrowserEpubReaderOptions extends PublicationLinkRouterOptions {
   readonly onOpenProgress?: (progress: BrowserEpubReaderOpenProgress) => void;
   /** `compatible` is the practical-reader default; `strict` rejects recoverable OCF violations. */
   readonly compatibilityMode?: OcfCompatibilityMode;
-  readonly preferences?: Partial<ReaderPreferences>;
+  readonly preferences?: import('../publication').ReaderPreferencesPatch;
   readonly initialLocator?: Locator;
   readonly initialSpineIndex?: number;
   readonly plannerPolicy?: Partial<Omit<RenditionPlannerPolicy, 'syntheticSpreads'>> & {

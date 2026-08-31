@@ -143,16 +143,23 @@ export class BrowserReaderInputRouter {
         const targetDocument = targetElement?.ownerDocument;
         const documentScrollingElement = targetDocument?.scrollingElement ?? null;
         const scrollOwner = findVerticalScrollOwner(targetElement, documentScrollingElement)
-          ?? (surfaceElement ? findVerticalScrollOwner(surfaceElement) : null);
+          ?? (surfaceElement && state.contentKind === 'fixed-layout' ? findVerticalScrollOwner(surfaceElement) : null);
         if (scrollOwner && consumeVerticalWheel(scrollOwner, wheel)) {
           if (wheel.cancelable) wheel.preventDefault();
           return;
         }
-        if (scrollOwner && state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) {
+        if (state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) {
+          // Keep the complete scroll chain inside the reader. A nested overflow
+          // region gets first refusal above; once it reaches an edge, continue
+          // on the publication document's scrolling element. Claiming the
+          // event even at the document boundary prevents the host page behind
+          // the reader from moving.
+          if (surfaceElement && documentScrollingElement && hasVerticalScrollMetrics(documentScrollingElement)) {
+            consumeVerticalWheel(documentScrollingElement, wheel);
+          }
           if (wheel.cancelable) wheel.preventDefault();
           return;
         }
-        if (state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) return;
 
         // Paginated and boundary-navigating fixed-layout surfaces own the
         // gesture even when this particular event is below the threshold or is

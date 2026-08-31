@@ -1,5 +1,5 @@
-import type { ChangeEvent } from 'react';
-import { DEFAULT_READER_PREFERENCES } from '../core';
+import { useState, type ChangeEvent } from 'react';
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type ReaderCompatibilityPreferences } from '../core';
 import { useOptionalEpubReaderContext } from './context';
 import type { EpubReaderHandle } from './model';
 
@@ -29,12 +29,33 @@ const MARGIN_PRESETS = [
 ] as const;
 
 export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
+  const [advanced, setAdvanced] = useState(false);
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
   if (!reader) throw new Error('<EpubSettingsPanel> requires a reader prop or EpubReaderProvider.');
   const snapshot = reader.state.reader;
-  if (!snapshot) return <section className="epub-reader-panel" aria-label="Reading settings" />;
-  const preferences = snapshot.preferences;
+  const preferences = snapshot?.preferences ?? reader.state.preferences;
+  if (advanced && preferences) {
+    return (
+      <AdvancedReaderSettings
+        reader={reader}
+        preferences={preferences.compatibility}
+        onBack={() => setAdvanced(false)}
+      />
+    );
+  }
+  if (!snapshot || !preferences) {
+    return (
+      <section className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
+        {preferences ? (
+          <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => setAdvanced(true)}>
+            <span><strong>Advanced settings</strong><small>Recover from a compatibility setting that prevented the book from opening.</small></span>
+            <span aria-hidden="true">›</span>
+          </button>
+        ) : null}
+      </section>
+    );
+  }
   const capabilities = snapshot.renderer.plan?.capabilities;
   // Which sections exist is a property of the publication, not of the page on
   // screen. A mixed-layout book owns both the comic controls and the typography
@@ -50,7 +71,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
     && (layout === 'mixed' || capabilities?.textCustomization.lineHeight !== false);
 
   return (
-    <section className="epub-reader-panel epub-settings-panel" aria-label="Reading settings">
+    <section className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
       {showComicSection ? (
         <div className="epub-settings-panel__section epub-settings-panel__comic">
           <div className="epub-settings-panel__head">
@@ -110,15 +131,11 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
       {showTextSections ? <>
       <div className="epub-settings-panel__section">
         <div className="epub-settings-panel__head">
-          <h3>Appearance</h3>
-          <button type="button" onClick={() => void reader.setPreferences(DEFAULT_READER_PREFERENCES)}>Reset</button>
+          <div><span>Display</span><h3>Color theme</h3></div>
+          <button type="button" onClick={() => void reader.setPreferences({
+            theme: DEFAULT_READER_PREFERENCES.theme,
+          })}>Reset</button>
         </div>
-        <label>
-          Theme
-          <select value={preferences.theme} onChange={(event: ChangeEvent<HTMLSelectElement>) => void reader.setPreferences({ theme: event.currentTarget.value })}>
-            {THEMES.map(theme => <option key={theme.value} value={theme.value}>{theme.label}</option>)}
-          </select>
-        </label>
         <div className="epub-settings-panel__theme-grid" role="list" aria-label="Theme presets">
           {THEMES.map(theme => (
             <button
@@ -138,8 +155,16 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
 
       <div className="epub-settings-panel__section">
         <div className="epub-settings-panel__head">
-          <h3>Typography</h3>
-          <span>{reflowableTypography ? (verticalWriting ? 'Vertical text' : 'Horizontal text') : 'Fixed layout'}</span>
+          <div><span>Reading</span><h3>Typography</h3></div>
+          <div className="epub-settings-panel__head-actions">
+            <span>{reflowableTypography ? (verticalWriting ? 'Vertical' : 'Horizontal') : 'Fixed'}</span>
+            <button type="button" onClick={() => void reader.setPreferences({
+              fontFamily: DEFAULT_READER_PREFERENCES.fontFamily,
+              fontSizePercent: DEFAULT_READER_PREFERENCES.fontSizePercent,
+              lineHeight: DEFAULT_READER_PREFERENCES.lineHeight,
+              pageMarginPercent: DEFAULT_READER_PREFERENCES.pageMarginPercent,
+            })}>Reset</button>
+          </div>
         </div>
         {reflowableTypography ? (
           <TextLayoutPreview
@@ -153,8 +178,8 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
         ) : (
           <p className="epub-settings-panel__unavailable">Typography is controlled by this fixed-layout publication.</p>
         )}
-        <label>
-          Font family
+        <label className="epub-settings-panel__select-row">
+          <span><strong>Font family</strong><small>Overrides the publisher font when supported.</small></span>
           <select
             value={preferences.fontFamily ?? ''}
             disabled={!reflowableTypography}
@@ -163,7 +188,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
             {FONT_FAMILIES.map(option => <option key={option.label} value={option.value}>{option.label}</option>)}
           </select>
         </label>
-        <label>
+        <label className="epub-settings-panel__range-field">
           <div className="epub-reader-panel__row">
             <span>Font size</span>
             <output>{preferences.fontSizePercent}%</output>
@@ -178,7 +203,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
             onChange={(event: ChangeEvent<HTMLInputElement>) => void reader.setPreferences({ fontSizePercent: Number(event.currentTarget.value) })}
           />
         </label>
-        <label>
+        <label className="epub-settings-panel__range-field">
           <div className="epub-reader-panel__row">
             <span>Line height</span>
             <output>{preferences.lineHeight == null ? 'publisher' : preferences.lineHeight.toFixed(2)}</output>
@@ -193,7 +218,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
             onChange={(event: ChangeEvent<HTMLInputElement>) => void reader.setPreferences({ lineHeight: Number(event.currentTarget.value) })}
           />
         </label>
-        <button type="button" disabled={!lineHeightEnabled} aria-label="Use publisher line height" title="Use publisher line height" onClick={() => void reader.setPreferences({ lineHeight: null })}>Reset line height</button>
+        <button className="epub-settings-panel__quiet-action" type="button" disabled={!lineHeightEnabled || preferences.lineHeight == null} onClick={() => void reader.setPreferences({ lineHeight: null })}>Use publisher line height</button>
         <fieldset className="epub-settings-panel__margin" disabled={!reflowableTypography}>
           <legend>{verticalWriting ? 'Top and bottom margins' : 'Page side margins'}</legend>
           <div className="epub-settings-panel__margin-presets">
@@ -208,7 +233,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
               </button>
             ))}
           </div>
-          <label>
+          <label className="epub-settings-panel__range-field">
             <div className="epub-reader-panel__row">
               <span>Custom margin</span>
               <output>{preferences.pageMarginPercent}%</output>
@@ -227,25 +252,27 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
       </> : null}
 
       <div className="epub-settings-panel__section">
-        <h3>Layout</h3>
-        {showTextSections ? <label>
-          Flow
+        <div className="epub-settings-panel__head">
+          <div><span>Pages</span><h3>Layout</h3></div>
+        </div>
+        {showTextSections ? <label className="epub-settings-panel__select-row">
+          <span><strong>Flow</strong><small>Choose paging or continuous scrolling.</small></span>
           <select value={preferences.flow} onChange={(event: ChangeEvent<HTMLSelectElement>) => void reader.setPreferences({ flow: event.currentTarget.value as typeof preferences.flow })}>
             <option value="auto">Auto</option>
             <option value="paginated">Paginated</option>
             <option value="scrolled">Scrolled</option>
           </select>
         </label> : null}
-        <label>
-          Spread
+        <label className="epub-settings-panel__select-row">
+          <span><strong>Spread</strong><small>Show one or two pages when space allows.</small></span>
           <select value={preferences.spread} onChange={(event: ChangeEvent<HTMLSelectElement>) => void reader.setPreferences({ spread: event.currentTarget.value as typeof preferences.spread })}>
             <option value="auto">Auto</option>
             <option value="single">Single page</option>
             <option value="double">Double page</option>
           </select>
         </label>
-        <label>
-          Page progression
+        <label className="epub-settings-panel__select-row">
+          <span><strong>Page direction</strong><small>Override the direction declared by the book.</small></span>
           <select value={preferences.pageProgression} onChange={(event: ChangeEvent<HTMLSelectElement>) => void reader.setPreferences({ pageProgression: event.currentTarget.value as typeof preferences.pageProgression })}>
             <option value="auto">Auto</option>
             <option value="ltr">Left to right</option>
@@ -256,7 +283,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
 
       <div className="epub-settings-panel__section epub-settings-panel__interaction">
         <div className="epub-settings-panel__head">
-          <h3>Touch navigation</h3>
+          <div><span>Controls</span><h3>Touch navigation</h3></div>
           <span>Mobile</span>
         </div>
         <TouchNavigationPreview mode={preferences.touchNavigation} zonePercent={preferences.pageTurnZonePercent} progression={preferences.pageProgression} />
@@ -290,15 +317,170 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
         </fieldset>
       </div>
 
-      <div className="epub-settings-panel__section">
-        <div className="epub-settings-panel__head">
-          <h3>Reading session</h3>
-          <span>Local</span>
-        </div>
-        <p>Your last position and reading preferences are stored only in this browser.</p>
-        <button type="button" onClick={() => reader.clearReadingSession()}>Forget saved position</button>
+      <div className="epub-settings-panel__section epub-settings-panel__section--link">
+        <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => setAdvanced(true)}>
+          <span><strong>Advanced settings</strong><small>Compatibility, local data and troubleshooting</small></span>
+          <span aria-hidden="true">›</span>
+        </button>
       </div>
     </section>
+  );
+}
+
+const COMPATIBILITY_GROUPS = [
+  {
+    title: 'Document parsing',
+    items: [
+      {
+        key: 'recoverContainerStructure',
+        label: 'Recover container structure',
+        description: 'Recoverable OCF/ZIP deviations → readable EPUB container.',
+      },
+      {
+        key: 'selectPreferredRootfile',
+        label: 'Select preferred package',
+        description: 'Several rootfiles → the first standard OPF package.',
+      },
+      {
+        key: 'recoverMalformedXhtml',
+        label: 'Recover malformed XHTML',
+        description: 'Non-well-formed XHTML → browser HTML parsing.',
+      },
+    ],
+  },
+  {
+    title: 'Navigation',
+    items: [
+      {
+        key: 'useLegacyNavigationFallback',
+        label: 'Use legacy navigation',
+        description: 'Missing EPUB 3 navigation → EPUB 2 NCX and Guide.',
+      },
+    ],
+  },
+  {
+    title: 'Layout',
+    items: [
+      {
+        key: 'normalizeLegacyCss',
+        label: 'Normalize legacy CSS',
+        description: 'Legacy -epub/-webkit declarations → standard CSS.',
+      },
+      {
+        key: 'fitSingleImagePages',
+        label: 'Fit single-image pages',
+        description: 'Image-only reflowable documents → one contained page.',
+      },
+    ],
+  },
+  {
+    title: 'Resources',
+    items: [
+      {
+        key: 'deobfuscateIdpfFonts',
+        label: 'Decode IDPF fonts',
+        description: 'IDPF-obfuscated fonts → browser-loadable fonts.',
+      },
+    ],
+  },
+] as const satisfies readonly {
+  readonly title: string;
+  readonly items: readonly {
+    readonly key: keyof ReaderCompatibilityPreferences;
+    readonly label: string;
+    readonly description: string;
+  }[];
+}[];
+
+function AdvancedReaderSettings({
+  reader,
+  preferences,
+  onBack,
+}: {
+  readonly reader: EpubReaderHandle;
+  readonly preferences: ReaderCompatibilityPreferences;
+  readonly onBack: () => void;
+}) {
+  const [clearState, setClearState] = useState<'idle' | 'confirm' | 'cleared'>('idle');
+  const setCompatibility = (key: keyof ReaderCompatibilityPreferences, enabled: boolean) => void reader.setPreferences({
+    compatibility: { [key]: enabled },
+  });
+
+  return (
+    <section className="epub-reader-panel epub-settings-panel epub-settings-panel--advanced" aria-label="Advanced reader settings">
+      <div className="epub-settings-panel__advanced-head">
+        <button className="epub-settings-panel__back" type="button" onClick={onBack} aria-label="Back to reader settings">‹</button>
+        <div><h3>Advanced settings</h3><span>Compatibility and maintenance</span></div>
+      </div>
+      <div className="epub-settings-panel__advanced-intro">
+        <div><span>Compatibility</span><strong>Publication recovery</strong></div>
+        <button type="button" onClick={() => void reader.setPreferences({ compatibility: DEFAULT_READER_COMPATIBILITY_PREFERENCES })}>Restore defaults</button>
+        <p>These options are intended for diagnosing unusual EPUB files. Most changes take effect after reopening the book.</p>
+      </div>
+      {COMPATIBILITY_GROUPS.map(group => (
+        <div key={group.title} className="epub-settings-panel__section epub-settings-panel__compatibility-group">
+          <h3>{group.title}</h3>
+          {group.items.map(item => (
+            <label key={item.key} className="epub-settings-panel__compatibility-option">
+              <span><strong>{item.label}</strong><small>{item.description}</small></span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={preferences[item.key]}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setCompatibility(item.key, event.currentTarget.checked)}
+              />
+            </label>
+          ))}
+        </div>
+      ))}
+      <div className="epub-settings-panel__section epub-settings-panel__compatibility-group">
+        <h3>Core safeguards</h3>
+        <p>These rules preserve a valid internal publication model and cannot be disabled.</p>
+        <CompatibilitySafeguard label="Rendition declarations" description="Missing or conflicting values → specification defaults or the first valid declaration." />
+        <CompatibilitySafeguard label="Publication resource paths" description="base/xml:base, CSS URLs, srcset and SVG references → isolated reader URLs." />
+        <CompatibilitySafeguard label="Remote navigation" description="Remote TOC, page-list and landmark targets → readable labels without unsafe internal navigation." />
+      </div>
+      <div className="epub-settings-panel__section epub-settings-panel__maintenance">
+        <div className="epub-settings-panel__head">
+          <div><span>Maintenance</span><h3>Local reading data</h3></div>
+          <span>Current book</span>
+        </div>
+        <p>Position, preferences and saved marks are cached locally for this publication. Reopening also rebuilds temporary rendering and resource caches.</p>
+        {clearState === 'confirm' ? (
+          <div className="epub-settings-panel__clear-confirm" role="group" aria-label="Confirm clearing saved reading data">
+            <span>This cannot be undone after the book is closed.</span>
+            <div>
+              <button type="button" onClick={() => setClearState('idle')}>Cancel</button>
+              <button className="is-danger" type="button" onClick={() => {
+                reader.clearReadingSession();
+                setClearState('cleared');
+              }}>Clear data</button>
+            </div>
+          </div>
+        ) : (
+          <button className="epub-settings-panel__maintenance-action" type="button" onClick={() => setClearState('confirm')}>
+            <span><strong>Clear saved reading data</strong><small>Removes the locally cached session for this book.</small></span>
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
+        {clearState === 'cleared' ? <p className="epub-settings-panel__maintenance-status" role="status">Saved reading data cleared.</p> : null}
+      </div>
+      <div className="epub-settings-panel__apply-bar">
+        <span>Apply compatibility changes and reset temporary caches.</span>
+        <button className="epub-settings-panel__compatibility-apply" type="button" onClick={() => void reader.retry()}>
+          Reopen and reset cache
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CompatibilitySafeguard({ label, description }: { readonly label: string; readonly description: string }) {
+  return (
+    <div className="epub-settings-panel__compatibility-option is-required">
+      <span><strong>{label}</strong><small>{description}</small></span>
+      <span>Required</span>
+    </div>
   );
 }
 

@@ -45,6 +45,7 @@
   --epub-focus: 0 0 0 3px rgba(49, 95, 112, 0.28);
   --epub-font-ui: "Segoe UI Variable", "Noto Sans SC", "Noto Sans JP", "Microsoft YaHei UI", "Yu Gothic UI", system-ui, sans-serif;
   color: var(--epub-color-text);
+  color-scheme: light;
   font-family: var(--epub-font-ui);
   font-size: 14px;
   font-synthesis: none;

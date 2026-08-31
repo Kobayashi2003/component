@@ -1,8 +1,9 @@
-import type {
-  Locator,
-  Publication,
-  PublicationDiagnostic,
-  ReaderPreferences,
+import {
+  DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+  type Locator,
+  type Publication,
+  type PublicationDiagnostic,
+  type ReaderPreferences,
 } from './model';
 
 export function validatePublicationModel(
@@ -61,6 +62,7 @@ export function normalizeProgression(value: number): number {
 export function normalizeReaderPreferences(
   value: ReaderPreferences,
 ): ReaderPreferences {
+  const compatibility = value.compatibility ?? DEFAULT_READER_COMPATIBILITY_PREFERENCES;
   return {
     ...value,
     fontSizePercent: clamp(value.fontSizePercent, 50, 300),
@@ -75,6 +77,15 @@ export function normalizeReaderPreferences(
       ? value.touchNavigation
       : 'both',
     pageTurnZonePercent: clamp(value.pageTurnZonePercent, 10, 40),
+    compatibility: {
+      recoverContainerStructure: compatibility.recoverContainerStructure !== false,
+      selectPreferredRootfile: compatibility.selectPreferredRootfile !== false,
+      recoverMalformedXhtml: compatibility.recoverMalformedXhtml !== false,
+      useLegacyNavigationFallback: compatibility.useLegacyNavigationFallback !== false,
+      normalizeLegacyCss: compatibility.normalizeLegacyCss !== false,
+      fitSingleImagePages: compatibility.fitSingleImagePages !== false,
+      deobfuscateIdpfFonts: compatibility.deobfuscateIdpfFonts !== false,
+    },
   };
 }
 

@@ -25,6 +25,7 @@ export class PublicationResourceSession {
   constructor(
     readonly resolver: ResourceResolver,
     objectUrlFactory: ObjectUrlFactory,
+    private readonly options: PublicationResourceSessionOptions = {},
   ) {
     this.urls = new ObjectUrlStore(objectUrlFactory);
   }
@@ -128,7 +129,9 @@ export class PublicationResourceSession {
       return url;
     });
 
-    const normalized = normalizeLegacyInlineCss(rewritten.css);
+    const normalized = this.options.normalizeLegacyCss === false
+      ? { css: rewritten.css, normalizedProperties: [] }
+      : normalizeLegacyInlineCss(rewritten.css);
     if (normalized.normalizedProperties.length > 0) diagnostics.push(legacyCssDiagnostic(basePath, normalized.normalizedProperties));
     return { css: normalized.css, diagnostics };
   }
@@ -241,7 +244,9 @@ export class PublicationResourceSession {
       return url;
     });
 
-    const normalized = normalizeLegacyEpubCss(rewritten.css);
+    const normalized = this.options.normalizeLegacyCss === false
+      ? { css: rewritten.css, normalizedProperties: [] }
+      : normalizeLegacyEpubCss(rewritten.css);
     if (normalized.normalizedProperties.length > 0) diagnostics.push(legacyCssDiagnostic(path, normalized.normalizedProperties));
     const bytes = new TextEncoder().encode(normalized.css);
     const url = this.urls.getOrCreate(`css:${path}`, bytes, 'text/css;charset=utf-8');
@@ -251,6 +256,10 @@ export class PublicationResourceSession {
   private assertAlive(): void {
     if (this.disposed) throw new Error('PublicationResourceSession has been disposed.');
   }
+}
+
+export interface PublicationResourceSessionOptions {
+  readonly normalizeLegacyCss?: boolean;
 }
 
 interface CssMaterialization {

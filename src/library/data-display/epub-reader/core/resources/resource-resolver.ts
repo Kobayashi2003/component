@@ -42,6 +42,7 @@ export class ResourceResolver {
       remotePolicy: options.remotePolicy ?? 'block',
       unmanifestedPolicy: options.unmanifestedPolicy ?? 'warn',
       maxResourceBytes: options.maxResourceBytes ?? DEFAULT_MAX_RESOURCE_BYTES,
+      deobfuscateIdpfFonts: options.deobfuscateIdpfFonts ?? true,
     };
     this.manifestByPath = new Map(
       publication.manifest
@@ -219,6 +220,16 @@ export class ResourceResolver {
       const encryption = this.encryptionByPath.get(request.path);
       if (encryption) {
         if (encryption.algorithm === IDPF_FONT_OBFUSCATION) {
+          if (!this.options.deobfuscateIdpfFonts) {
+            diagnostics.push({
+              code: 'RESOURCE_FONT_DEOBFUSCATION_DISABLED',
+              severity: 'warning',
+              phase: 'compatibility',
+              message: `IDPF font recovery is disabled for ${request.path}.`,
+              path: request.path,
+            });
+            return { resource: null, diagnostics };
+          }
           try {
             bytes = await deobfuscateIdpfFont(bytes, this.publication);
           } catch (cause) {

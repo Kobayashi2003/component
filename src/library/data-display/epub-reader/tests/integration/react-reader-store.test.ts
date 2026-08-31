@@ -111,8 +111,11 @@ async function main(): Promise<void> {
   // ResizeObserver/ref churn from turning one failure into an open loop.
   {
     let attempts = 0;
-    const failing = new ReactEpubReaderStore(async () => {
+    const attemptedMalformedRecovery: boolean[] = [];
+    const failing = new ReactEpubReaderStore(async (_source, _element, options) => {
       attempts += 1;
+      attemptedMalformedRecovery.push(options?.preferences?.compatibility?.recoverMalformedXhtml ?? true);
+      options?.onOpenProgress?.({ phase: 'preflight', label: 'Parsing invalid chapter', completed: 4, total: 5 });
       throw new Error('expected open failure');
     });
     const failedContainer = {
@@ -121,14 +124,20 @@ async function main(): Promise<void> {
       clientHeight: 600,
       getBoundingClientRect: () => ({ width: 800, height: 600 }),
     } as unknown as HTMLDivElement;
-    failing.setSource(new Uint8Array([9]));
+    failing.setSource(new Uint8Array([9]), {
+      preferences: { compatibility: { recoverMalformedXhtml: false } },
+    });
     failing.attachViewport(failedContainer);
     await Promise.resolve();
     await Promise.resolve();
     assert(String(failing.snapshot.status) === 'error', 'open failure must publish a stable error state');
     assert(attempts === 1, 'one source/container pair must make one automatic open attempt');
+    assert(failing.snapshot.preferences?.compatibility.recoverMalformedXhtml === false, 'failed compatibility preferences must remain editable');
+    await failing.setPreferences({ compatibility: DEFAULT_READER_PREFERENCES.compatibility });
+    assert(String(failing.snapshot.preferences?.compatibility.recoverMalformedXhtml) === 'true', 'restore defaults must work without an active core reader');
     await failing.retry();
     assert(Number(attempts) === 2, 'explicit retry must make exactly one new open attempt');
+    assert(attemptedMalformedRecovery.join(',') === 'false,true', 'retry must use compatibility preferences repaired from the error state');
     assert(String(failing.snapshot.status) === 'error', 'failed retry must return to error state');
     failing.dispose();
   }

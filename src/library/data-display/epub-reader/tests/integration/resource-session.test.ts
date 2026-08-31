@@ -88,6 +88,14 @@ async function main() {
   assert(font.resource, 'obfuscated font should be readable');
   assert(bytesEqual(font.resource.bytes, rawFont), 'IDPF-obfuscated font must be transparently deobfuscated');
 
+  const publisherFontResolver = (await ResourceResolver.create(archive, loaded.publication, {
+    remotePolicy: 'block',
+    deobfuscateIdpfFonts: false,
+  })).resolver;
+  const publisherFont = await publisherFontResolver.read('EPUB/styles/main.css', '../fonts/book.woff2');
+  assert(!publisherFont.resource, 'disabled IDPF font recovery must not expose obfuscated bytes as a browser font');
+  assert(publisherFont.diagnostics.some(diagnostic => diagnostic.code === 'RESOURCE_FONT_DEOBFUSCATION_DISABLED'), 'disabled IDPF font recovery must remain observable');
+
   const unmanifested = await resolver.read('EPUB/text/ch.xhtml', '../unmanifested.png');
   assert(unmanifested.resource, 'warn policy should allow an unmanifested container resource');
   assert(
@@ -127,6 +135,12 @@ async function main() {
 
   const data = await session.materialize('EPUB/text/ch.xhtml', 'data:image/svg+xml,%3Csvg/%3E');
   assert(data.resource?.url?.startsWith('data:'), 'data URL materialization should be a passthrough');
+
+  const publisherCssSession = new PublicationResourceSession(resolver, new FakeObjectUrlFactory(), { normalizeLegacyCss: false });
+  const publisherCss = await publisherCssSession.rewriteInlineCss('EPUB/text/ch.xhtml', '-epub-writing-mode: vertical-rl');
+  assert(publisherCss.css.trim() === '-epub-writing-mode: vertical-rl', 'disabled legacy CSS recovery must preserve only the authored declaration');
+  assert(!publisherCss.diagnostics.some(diagnostic => diagnostic.code === 'RESOURCE_LEGACY_EPUB_CSS_NORMALIZED'), 'disabled legacy CSS recovery must not report an unapplied repair');
+  publisherCssSession.dispose();
 
   const generated = session.createGeneratedTextUrl('resource-session-generated', '<html/>');
   const generatedAgain = session.createGeneratedTextUrl('resource-session-generated', '<html/>');

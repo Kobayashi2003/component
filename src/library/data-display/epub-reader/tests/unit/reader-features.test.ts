@@ -239,8 +239,9 @@ async function main() {
   // claimed, including sub-threshold deltas and events suppressed by the
   // cooldown; otherwise the browser applies the ignored event as native
   // scrolling and leaves a vertical page between fragmentainer boundaries.
-  // Real nested overflow regions still scroll first, while a genuinely
-  // scrolled rendition keeps native wheel behaviour.
+  // Real nested overflow regions still scroll first. A genuinely scrolled
+  // rendition owns the gesture through its outer boundary so the host page
+  // behind the reader never moves.
   {
     const listeners = new Map<string, ((event: unknown) => void)[]>();
     const attributes = new Set<string>();
@@ -320,7 +321,7 @@ async function main() {
       value: { scrollingElement: host, defaultView: { getComputedStyle: () => ({ overflowY: 'auto' }) } },
     });
     fire(30);
-    assert(dispatched.length === 1 && preventedCount() === 4, 'a scrolled rendition must retain native wheel behaviour on its document scrolling element');
+    assert(dispatched.length === 1 && preventedCount() === 5, 'a scrolled rendition must claim wheel input instead of leaking it to the host page');
 
     // Fixed-layout cover/width fitting scrolls a host-realm container outside
     // the content iframe. Wheel events originate in the iframe document, so the
@@ -370,8 +371,8 @@ async function main() {
     Object.defineProperty(contentRoot, 'ownerDocument', { value: contentDocument });
     router.syncDocuments([{ spineIndex: 0, href: 'page.xhtml', document: contentDocument, surfaceElement: surface }]);
     const contentWheel = contentListeners.get('wheel')?.[0];
-    assert(contentWheel, 'the router must listen for wheel input inside a fixed-layout document');
-    contentWheel!({
+    assert(contentWheel, 'the router must listen for wheel input inside a content document');
+    const fireContentWheel = () => contentWheel!({
       deltaY: 30,
       deltaMode: 0,
       target: contentRoot,
@@ -380,8 +381,19 @@ async function main() {
       metaKey: false,
       preventDefault: () => { prevented.push(30); },
     });
+    presentation = 'scrolled';
+    contentKind = 'reflowable';
+    wheelBoundaryNavigation = false;
+    fireContentWheel();
+    assert(contentRoot.scrollTop === 30, 'a scrolled rendition must continue from nested content onto its document scrolling element');
+    assert(preventedCount() === 6, 'scrolled document movement must remain contained by the reader');
+
+    presentation = 'paginated';
+    contentKind = 'fixed-layout';
+    wheelBoundaryNavigation = true;
+    fireContentWheel();
     assert(outer.scrollTop === 70, 'a fixed-layout host container must scroll before wheel input turns the page at its boundary');
-    assert(dispatched.length === 1 && preventedCount() === 5, 'fixed-layout canvas scrolling must consume the gesture without a page turn');
+    assert(dispatched.length === 1 && preventedCount() === 7, 'fixed-layout canvas scrolling must consume the gesture without a page turn');
     router.dispose();
   }
 

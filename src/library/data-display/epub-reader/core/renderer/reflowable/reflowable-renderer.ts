@@ -109,7 +109,11 @@ export class ReflowableRenderer implements RendererInstance {
       item,
       this.environment.resources,
       platform,
-      { disableScripts: true, annotateLinks: true },
+      {
+        disableScripts: true,
+        annotateLinks: true,
+        recoverMalformedXhtml: plan.preferences.compatibility.recoverMalformedXhtml,
+      },
     );
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);

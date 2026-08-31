@@ -214,7 +214,8 @@ ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
  */
 function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
   const page = plan.contentPage;
-  return page?.kind === 'single-image-page'
+  return plan.preferences.compatibility.fitSingleImagePages
+    && page?.kind === 'single-image-page'
     && page.pageLike
     && page.replacedElementCount === 1
     && page.semanticTextLength === 0

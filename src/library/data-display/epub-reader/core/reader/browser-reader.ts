@@ -146,6 +146,8 @@ export class BrowserEpubReader {
       publication,
       resources,
       container.ownerDocument,
+      undefined,
+      () => this.preferences.compatibility.recoverMalformedXhtml,
     );
     this.searchController = new ReaderSearchController(
       new PublicationSearch(publication, searchProvider),
@@ -314,14 +316,30 @@ export class BrowserEpubReader {
   ): Promise<BrowserEpubReader> {
     assertUsableContainer(container);
     throwIfAborted(options.signal);
+    const preferences = normalizeReaderPreferences({
+      ...DEFAULT_READER_PREFERENCES,
+      ...options.preferences,
+      compatibility: {
+        ...DEFAULT_READER_PREFERENCES.compatibility,
+        ...options.preferences?.compatibility,
+      },
+    });
     reportOpenProgress(options, 'archive', 'Opening EPUB container', 1);
-    const opened = await OcfZipArchive.open(source, options.archiveLimits, options.compatibilityMode ?? 'compatible');
+    const opened = await OcfZipArchive.open(
+      source,
+      options.archiveLimits,
+      options.compatibilityMode ?? (preferences.compatibility.recoverContainerStructure ? 'compatible' : 'strict'),
+    );
     throwIfAborted(options.signal);
     if (!opened.archive) {
       throw new BrowserEpubReaderOpenError('The EPUB container could not be opened.', opened.diagnostics);
     }
     reportOpenProgress(options, 'package', 'Reading publication metadata', 2);
-    const loaded = await loadPublicationFromArchive(opened.archive, opened.diagnostics, { controlDocumentLimits: options.controlDocumentLimits });
+    const loaded = await loadPublicationFromArchive(opened.archive, opened.diagnostics, {
+      controlDocumentLimits: options.controlDocumentLimits,
+      selectPreferredRootfile: preferences.compatibility.selectPreferredRootfile,
+      useLegacyNavigationFallback: preferences.compatibility.useLegacyNavigationFallback,
+    });
     throwIfAborted(options.signal);
     if (!loaded.publication) {
       throw new BrowserEpubReaderOpenError('The EPUB package could not be parsed.', loaded.diagnostics);
@@ -330,11 +348,15 @@ export class BrowserEpubReader {
     const preflight = await preflightPublicationContent(opened.archive, loaded.publication, options.signal);
     throwIfAborted(options.signal);
     reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
-    const resource = await ResourceResolver.create(opened.archive, loaded.publication, options.resourcePolicy);
+    const resource = await ResourceResolver.create(opened.archive, loaded.publication, {
+      ...options.resourcePolicy,
+      deobfuscateIdpfFonts: preferences.compatibility.deobfuscateIdpfFonts,
+    });
     throwIfAborted(options.signal);
-    const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory());
+    const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory(), {
+      normalizeLegacyCss: preferences.compatibility.normalizeLegacyCss,
+    });
     const diagnostics = [...loaded.diagnostics, ...preflight.diagnostics, ...resource.diagnostics];
-    const preferences = normalizeReaderPreferences({ ...DEFAULT_READER_PREFERENCES, ...options.preferences });
     const viewport = measureViewport(container);
     const reader = new BrowserEpubReader(
       loaded.publication,
@@ -413,9 +435,16 @@ export class BrowserEpubReader {
     });
   }
 
-  async setPreferences(patch: Partial<ReaderPreferences>): Promise<void> {
+  async setPreferences(patch: import('../publication').ReaderPreferencesPatch): Promise<void> {
     this.assertAlive();
-    const next = normalizeReaderPreferences({ ...this.preferences, ...patch });
+    const next = normalizeReaderPreferences({
+      ...this.preferences,
+      ...patch,
+      compatibility: {
+        ...this.preferences.compatibility,
+        ...patch.compatibility,
+      },
+    });
     if (samePreferences(this.preferences, next)) return;
     const previous = this.preferences;
     this.preferences = next;
@@ -788,6 +817,7 @@ function samePreferences(a: ReaderPreferences, b: ReaderPreferences): boolean {
     && a.fixedLayoutGutter === b.fixedLayoutGutter
     && a.touchNavigation === b.touchNavigation
     && a.pageTurnZonePercent === b.pageTurnZonePercent
+    && sameCompatibilityPreferences(a, b)
     && a.theme === b.theme;
 }
 
@@ -801,7 +831,18 @@ function renderPreferencesChanged(a: ReaderPreferences, b: ReaderPreferences): b
     || a.pageMarginPercent !== b.pageMarginPercent
     || a.fixedLayoutFit !== b.fixedLayoutFit
     || a.fixedLayoutGutter !== b.fixedLayoutGutter
+    || a.compatibility.fitSingleImagePages !== b.compatibility.fitSingleImagePages
     || a.theme !== b.theme;
+}
+
+function sameCompatibilityPreferences(a: ReaderPreferences, b: ReaderPreferences): boolean {
+  return a.compatibility.recoverContainerStructure === b.compatibility.recoverContainerStructure
+    && a.compatibility.selectPreferredRootfile === b.compatibility.selectPreferredRootfile
+    && a.compatibility.recoverMalformedXhtml === b.compatibility.recoverMalformedXhtml
+    && a.compatibility.useLegacyNavigationFallback === b.compatibility.useLegacyNavigationFallback
+    && a.compatibility.normalizeLegacyCss === b.compatibility.normalizeLegacyCss
+    && a.compatibility.fitSingleImagePages === b.compatibility.fitSingleImagePages
+    && a.compatibility.deobfuscateIdpfFonts === b.compatibility.deobfuscateIdpfFonts;
 }
 
 function spreadChanged(a: ReaderPreferences, b: ReaderPreferences): boolean {
