@@ -1,26 +1,26 @@
-export * from './archive';
-export * from './publication';
-export * from './xml';
+export * from './epub/archive';
+export * from './epub/publication';
+export * from './epub/xml';
 
-export * from './resources';
-export * from './content';
-export * from './rendition';
-export * from './renderer';
+export * from './epub/resources';
+export * from './epub/content';
+export * from './presentation/rendition';
+export * from './presentation/renderer';
 
-export * from './locator';
-export * from './navigation';
+export * from './interaction/locator';
+export * from './interaction/navigation';
 
-export * from './search';
-export * from './annotations';
-export * from './selection';
-export * from './decorations';
-export * from './media';
-export * from './input';
-export * from './appearance';
-export * from './accessibility';
+export * from './features/search';
+export * from './features/annotations';
+export * from './interaction/selection';
+export * from './features/decorations';
+export * from './features/media';
+export * from './interaction/input';
+export * from './presentation/appearance';
+export * from './features/accessibility';
 
-export * from './reader';
-export * from './compatibility';
-export * from './conformance';
+export * from './runtime/reader';
+export * from './epub/compatibility';
+export * from './validation/conformance';
 
-export * from './text';
+export * from './epub/text';

@@ -2,13 +2,13 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Publication,
   type SpineItem,
-} from '../../core/publication';
+} from '../../core/epub/publication';
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
   detectTrueSpreadPair,
   planRendition,
   type RenditionPlannerPolicy,
-} from '../../core/rendition';
+} from '../../core/presentation/rendition';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

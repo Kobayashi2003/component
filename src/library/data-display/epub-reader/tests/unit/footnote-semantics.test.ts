@@ -1,4 +1,4 @@
-import { isFootnoteReference } from '../../core/navigation/footnote';
+import { isFootnoteReference } from '../../core/interaction/navigation/footnote';
 
 function equal(actual: unknown, expected: unknown): void {
   if (actual !== expected) throw new Error(`Expected ${String(expected)}, received ${String(actual)}.`);

@@ -1,0 +1,77 @@
+import type { Locator } from '../../epub/publication';
+
+export interface ReaderNavigationHistorySnapshot {
+  readonly canGoBack: boolean;
+  readonly canGoForward: boolean;
+  readonly backCount: number;
+  readonly forwardCount: number;
+}
+
+/** Stores branch navigation without mixing ordinary sequential page turns into history. */
+export class ReaderNavigationHistory {
+  private readonly backStack: Locator[] = [];
+  private readonly forwardStack: Locator[] = [];
+
+  constructor(private readonly limit = 64) {
+    if (!Number.isInteger(limit) || limit < 1) throw new RangeError('Navigation history limit must be a positive integer.');
+  }
+
+  get snapshot(): ReaderNavigationHistorySnapshot {
+    return Object.freeze({
+      canGoBack: this.backStack.length > 0,
+      canGoForward: this.forwardStack.length > 0,
+      backCount: this.backStack.length,
+      forwardCount: this.forwardStack.length,
+    });
+  }
+
+  record(origin: Locator | null, destination: Locator | null): void {
+    if (!origin || !destination || sameLocator(origin, destination)) return;
+    const latest = this.backStack.at(-1);
+    if (!latest || !sameLocator(latest, origin)) this.backStack.push(copyLocator(origin));
+    if (this.backStack.length > this.limit) this.backStack.splice(0, this.backStack.length - this.limit);
+    this.forwardStack.length = 0;
+  }
+
+  peekBack(): Locator | null {
+    return copyOptional(this.backStack.at(-1));
+  }
+
+  peekForward(): Locator | null {
+    return copyOptional(this.forwardStack.at(-1));
+  }
+
+  commitBack(current: Locator | null): void {
+    if (this.backStack.length === 0) return;
+    this.backStack.pop();
+    if (current) this.forwardStack.push(copyLocator(current));
+  }
+
+  commitForward(current: Locator | null): void {
+    if (this.forwardStack.length === 0) return;
+    this.forwardStack.pop();
+    if (current) this.backStack.push(copyLocator(current));
+  }
+
+  clear(): void {
+    this.backStack.length = 0;
+    this.forwardStack.length = 0;
+  }
+}
+
+function sameLocator(left: Locator, right: Locator): boolean {
+  if (left.spineIndex !== right.spineIndex || left.href !== right.href) return false;
+  const a = left.locations;
+  const b = right.locations;
+  if (a.cfi || b.cfi) return a.cfi === b.cfi;
+  if (a.fragment || b.fragment) return a.fragment === b.fragment;
+  return Math.abs((a.progression ?? 0) - (b.progression ?? 0)) < 0.001;
+}
+
+function copyOptional(locator: Locator | undefined): Locator | null {
+  return locator ? copyLocator(locator) : null;
+}
+
+function copyLocator(locator: Locator): Locator {
+  return { ...locator, locations: { ...locator.locations } };
+}

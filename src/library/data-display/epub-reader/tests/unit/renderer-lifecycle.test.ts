@@ -2,12 +2,12 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Locator,
   type PublicationHref,
-} from '../../core/publication';
-import type { RenditionPlan, RendererKind } from '../../core/rendition';
-import { waitForLayoutStability } from '../../core/renderer/layout-stability';
-import { LayoutTransactionCoordinator } from '../../core/renderer/layout-transaction';
-import { LifecycleScope } from '../../core/renderer/lifecycle';
-import { RendererHost } from '../../core/renderer/renderer-host';
+} from '../../core/epub/publication';
+import type { RenditionPlan, RendererKind } from '../../core/presentation/rendition';
+import { waitForLayoutStability } from '../../core/presentation/renderer/layout-stability';
+import { LayoutTransactionCoordinator } from '../../core/presentation/renderer/layout-transaction';
+import { LifecycleScope } from '../../core/presentation/renderer/lifecycle';
+import { RendererHost } from '../../core/presentation/renderer/renderer-host';
 import type {
   LayoutMeasurement,
   LayoutStabilityReport,
@@ -15,7 +15,7 @@ import type {
   LayoutTransactionContext,
   RendererFactory,
   RendererInstance,
-} from '../../core/renderer/model';
+} from '../../core/presentation/renderer/model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Renderer lifecycle test failed: ${message}`);
@@ -213,7 +213,7 @@ async function main(): Promise<void> {
     restoreCount = 0;
     committedFontSize = 100;
     visible = true;
-    private readonly layoutListeners = new Set<(layout: import('../../core/renderer/model').RendererLayoutSnapshot) => void>();
+    private readonly layoutListeners = new Set<(layout: import('../../core/presentation/renderer/model').RendererLayoutSnapshot) => void>();
 
     constructor(
       readonly kind: RendererKind,
@@ -248,9 +248,9 @@ async function main(): Promise<void> {
     }
 
     async navigate(
-      direction: import('../../core/renderer/model').ReadingDirection,
+      direction: import('../../core/presentation/renderer/model').ReadingDirection,
       tx: LayoutTransactionContext,
-    ): Promise<import('../../core/renderer/model').RendererNavigationResult> {
+    ): Promise<import('../../core/presentation/renderer/model').RendererNavigationResult> {
       tx.throwIfSuperseded();
       return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
     }
@@ -265,12 +265,12 @@ async function main(): Promise<void> {
       return { pageCount: Math.round(this.committedFontSize / 10), currentPage: 1 };
     }
 
-    onLayoutChange(listener: (layout: import('../../core/renderer/model').RendererLayoutSnapshot) => void): () => void {
+    onLayoutChange(listener: (layout: import('../../core/presentation/renderer/model').RendererLayoutSnapshot) => void): () => void {
       this.layoutListeners.add(listener);
       return () => this.layoutListeners.delete(listener);
     }
 
-    emitLayout(layout: import('../../core/renderer/model').RendererLayoutSnapshot): void {
+    emitLayout(layout: import('../../core/presentation/renderer/model').RendererLayoutSnapshot): void {
       for (const listener of this.layoutListeners) listener(layout);
     }
 

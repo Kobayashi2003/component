@@ -1,9 +1,9 @@
-import { MemoryPublicationArchive } from '../../core/archive/publication-archive';
-import { loadPublicationFromArchive } from '../../core/publication/loader';
-import { resolvePublicationReference } from '../../core/publication/path';
-import type { ObjectUrlFactory } from '../../core/resources/model';
-import { PublicationResourceSession } from '../../core/resources/resource-session';
-import { ResourceResolver } from '../../core/resources/resource-resolver';
+import { MemoryPublicationArchive } from '../../core/epub/archive/publication-archive';
+import { loadPublicationFromArchive } from '../../core/epub/publication/loader';
+import { resolvePublicationReference } from '../../core/epub/publication/path';
+import type { ObjectUrlFactory } from '../../core/epub/resources/model';
+import { PublicationResourceSession } from '../../core/epub/resources/resource-session';
+import { ResourceResolver } from '../../core/epub/resources/resource-resolver';
 
 const IDENTIFIER = 'urn:uuid:resource-session-fixture';
 

@@ -15,7 +15,7 @@ try {
   runTypeScript(['-p', join(root, 'tsconfig.core.json'), '--noEmit', 'false', '--module', 'commonjs', '--moduleResolution', 'node', '--outDir', out], { stdio: 'inherit' });
   writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'commonjs' }));
   const require = createRequire(import.meta.url);
-  const { runEpubCorpusCase } = require(join(out, 'core', 'conformance', 'corpus.js'));
+  const { runEpubCorpusCase } = require(join(out, 'core', 'validation', 'conformance', 'corpus.js'));
 
   let failed = 0;
   const observations = [];

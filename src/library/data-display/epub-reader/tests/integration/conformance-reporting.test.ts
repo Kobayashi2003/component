@@ -1,8 +1,8 @@
-import { OcfZipArchive, __zipTestUtils } from '../../core/archive';
-import { createCompatibilityReport } from '../../core/compatibility';
-import { loadEpub } from '../../core/publication';
-import { runEpubCorpusCase } from '../../core/conformance/corpus';
-import { W3cConformanceRecorder, summarizeW3cResults } from '../../core/conformance/report';
+import { OcfZipArchive, __zipTestUtils } from '../../core/epub/archive';
+import { createCompatibilityReport } from '../../core/epub/compatibility';
+import { loadEpub } from '../../core/epub/publication';
+import { runEpubCorpusCase } from '../../core/validation/conformance/corpus';
+import { W3cConformanceRecorder, summarizeW3cResults } from '../../core/validation/conformance/report';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

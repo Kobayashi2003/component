@@ -1,26 +1,26 @@
-import { parseSrcset } from '../../core/content';
+import { parseSrcset } from '../../core/epub/content';
 import {
   DEFAULT_READER_PREFERENCES,
   resolvePublicationDocumentBase,
   resolvePublicationDocumentReference,
   type Publication,
   type SpineItem,
-} from '../../core/publication';
-import { planRendition } from '../../core/rendition';
+} from '../../core/epub/publication';
+import { planRendition } from '../../core/presentation/rendition';
 import {
   calculatePaginatedGeometry,
   pageOffsetForProgression,
   scrollProgression,
-} from '../../core/renderer/reflowable/geometry';
-import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/renderer/reflowable/model';
-import { reflowableScrollAxis } from '../../core/renderer/reflowable/dom';
+} from '../../core/presentation/renderer/reflowable/geometry';
+import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/presentation/renderer/reflowable/model';
+import { reflowableScrollAxis } from '../../core/presentation/renderer/reflowable/dom';
 import {
   buildReaderPreferenceCss,
   buildReflowableLayoutCss,
   reflowablePageGap,
   reflowablePageInset,
   reflowablePageWidth,
-} from '../../core/renderer/reflowable/styles';
+} from '../../core/presentation/renderer/reflowable/styles';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

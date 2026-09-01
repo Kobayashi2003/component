@@ -1,14 +1,14 @@
-import { ReaderThemeRegistry } from '../../core/appearance';
-import { describeReaderPosition } from '../../core/accessibility';
-import { MemoryReaderMarkStore } from '../../core/annotations/store';
-import { ReaderMarkController } from '../../core/annotations/controller';
-import { PublicationSearch, ReaderSearchController } from '../../core/search';
-import type { SearchDocumentProvider } from '../../core/search';
-import type { Locator, LocatorRange, Publication } from '../../core/publication';
-import { commandForClickZone, commandForKey, commandForPageClick, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/input';
-import { buildReaderPreferenceCss } from '../../core/renderer/reflowable';
-import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/input/browser-input-router';
-import type { RenditionPlan } from '../../core/rendition';
+import { ReaderThemeRegistry } from '../../core/presentation/appearance';
+import { describeReaderPosition } from '../../core/features/accessibility';
+import { MemoryReaderMarkStore } from '../../core/features/annotations/store';
+import { ReaderMarkController } from '../../core/features/annotations/controller';
+import { PublicationSearch, ReaderSearchController } from '../../core/features/search';
+import type { SearchDocumentProvider } from '../../core/features/search';
+import type { Locator, LocatorRange, Publication } from '../../core/epub/publication';
+import { commandForClickZone, commandForKey, commandForPageClick, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/interaction/input';
+import { buildReaderPreferenceCss } from '../../core/presentation/renderer/reflowable';
+import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/interaction/input/browser-input-router';
+import type { RenditionPlan } from '../../core/presentation/rendition';
 import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
 
 function assert(condition: unknown, message: string): asserts condition {

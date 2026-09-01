@@ -8,7 +8,7 @@ import {
   validatePublicationModel,
   type Publication,
   type SpineItem,
-} from '../../core/publication';
+} from '../../core/epub/publication';
 
 const publication: Publication = {
   version: '3.3',

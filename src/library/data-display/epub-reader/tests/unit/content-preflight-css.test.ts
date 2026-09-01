@@ -1,6 +1,6 @@
-import { MemoryPublicationArchive } from '../../core/archive';
-import { preflightPublicationContent } from '../../core/content/preflight';
-import type { Publication, PublicationPath, WritingMode } from '../../core/publication';
+import { MemoryPublicationArchive } from '../../core/epub/archive';
+import { preflightPublicationContent } from '../../core/epub/content/preflight';
+import type { Publication, PublicationPath, WritingMode } from '../../core/epub/publication';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

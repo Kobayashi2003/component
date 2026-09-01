@@ -1,12 +1,12 @@
-import { MemoryPublicationArchive } from '../../core/archive';
-import { createCompatibilityReport } from '../../core/compatibility';
-import { normalizeLegacyEpubCss } from '../../core/resources';
-import { planRendition } from '../../core/rendition';
-import { parseXml } from '../../core/xml';
-import { semanticXmlText, collectRubySamples } from '../../core/text';
-import type { Publication, PublicationPath } from '../../core/publication';
-import { preflightPublicationContent } from '../../core/content/preflight';
-import { parseXhtmlContentDocument, type BrowserXmlPlatform } from '../../core/content';
+import { MemoryPublicationArchive } from '../../core/epub/archive';
+import { createCompatibilityReport } from '../../core/epub/compatibility';
+import { normalizeLegacyEpubCss } from '../../core/epub/resources';
+import { planRendition } from '../../core/presentation/rendition';
+import { parseXml } from '../../core/epub/xml';
+import { semanticXmlText, collectRubySamples } from '../../core/epub/text';
+import type { Publication, PublicationPath } from '../../core/epub/publication';
+import { preflightPublicationContent } from '../../core/epub/content/preflight';
+import { parseXhtmlContentDocument, type BrowserXmlPlatform } from '../../core/epub/content';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

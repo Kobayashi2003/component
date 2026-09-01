@@ -17,8 +17,8 @@ try {
   runTypeScript(['-p', join(root, 'tsconfig.core.json'), '--noEmit', 'false', '--module', 'commonjs', '--moduleResolution', 'node', '--outDir', out], { stdio: 'inherit' });
   writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'commonjs' }));
   const require = createRequire(import.meta.url);
-  const { loadEpub } = require(join(out, 'core', 'publication', 'loader.js'));
-  const { createCompatibilityReport } = require(join(out, 'core', 'compatibility', 'report.js'));
+  const { loadEpub } = require(join(out, 'core', 'epub', 'publication', 'loader.js'));
+  const { createCompatibilityReport } = require(join(out, 'core', 'epub', 'compatibility', 'report.js'));
   const observations = [];
   for (const file of files) {
     const loaded = await loadEpub(readFileSync(join(suite, file)));

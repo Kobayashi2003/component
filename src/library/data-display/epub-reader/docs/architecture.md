@@ -26,21 +26,23 @@ EPUB source
 
 ### Reader orchestration
 
-`core/reader/` composes the engine. `BrowserEpubReader` coordinates the active renderer, navigation history, locators, search, marks, selection, media activation, input routing, diagnostics, and preferences. This layer is the public browser-facing boundary for the core.
+`core/runtime/reader/` composes the engine. `BrowserEpubReader` coordinates the active renderer, navigation history, locators, search, marks, selection, media activation, input routing, diagnostics, and preferences. This layer is the public browser-facing boundary for the core.
 
-### Publication and rendition domain
+### EPUB format processing
 
-`core/publication/` converts container and package documents into a normalized publication model. `core/content/` preflights spine content and records compatibility repairs. `core/rendition/` turns publication metadata, content hints, preferences, and viewport metrics into an explicit rendering plan.
+`core/epub/` owns format-specific work. Its `archive/` and `publication/` modules read the OCF container and convert package/navigation documents into a normalized publication model. `content/`, `resources/`, `text/`, and `xml/` preflight and materialize spine documents while keeping temporary URLs and compatibility repairs explicit.
 
-### Rendering and resources
+### Presentation and reading interaction
 
-`core/archive/` reads the OCF ZIP container. `core/resources/` resolves publication references and owns temporary object URLs. `core/renderer/` executes reflowable, vertical-writing, fixed-layout, and spread plans inside isolated, script-disabled documents. Renderers report layout state but do not own product UI.
+`core/presentation/rendition/` turns publication metadata, content hints, preferences, and viewport metrics into an explicit rendering plan. `core/presentation/renderer/` executes reflowable, vertical-writing, fixed-layout, and spread plans inside isolated, script-disabled documents. Renderers report layout state but do not own product UI.
+
+`core/interaction/` owns locators, navigation, input routing, and selection. Presentation and interaction are collaborating peers: renderers resolve and capture locators, while navigation drives renderer contracts. Neither is modeled as a false one-way abstraction over the other.
 
 Pagination is CSS fragmentation in both writing modes: the reader gives the content document a multicol fragmentainer the size of one page and reads the resulting geometry back, rather than computing page boundaries arithmetically. This matters because an arithmetic boundary at `index * pageSize` bears no relation to where line boxes actually fall and will bisect whichever line sits on it, whereas a fragmentation break lands between line boxes by construction. The two modes differ only in which physical axis the column boxes advance along — X for `horizontal-tb`, Y for vertical writing, since multicol places columns along the container's inline axis — so vertical pagination scrolls Y and horizontal pagination scrolls X.
 
-### Reading services
+### Reading features and validation
 
-Navigation, locator, search, annotation, input, appearance, accessibility, and compatibility modules are independent services under `core/`. They operate on the normalized publication model and renderer contracts, which keeps format policy separate from React and DOM presentation.
+`core/features/` contains optional reading capabilities such as search, annotations, decorations, media inspection, and accessibility descriptions. `core/validation/` contains reusable corpus and conformance reporting code. The stable public surface remains `core/index.ts`, so internal grouping does not leak into React or host integrations.
 
 ## State and lifecycle
 

@@ -2,23 +2,23 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Locator,
   type Publication,
-} from '../../core/publication';
+} from '../../core/epub/publication';
 import {
   escapeCfiAssertion,
   parseEpubCfi,
   resolveCfiSpineItem,
   serializeCfiPath,
-} from '../../core/locator';
-import { planRendition, type RenditionPlan } from '../../core/rendition';
+} from '../../core/interaction/locator';
+import { planRendition, type RenditionPlan } from '../../core/presentation/rendition';
 import type {
   RendererHostState,
   RendererNavigationResult,
-} from '../../core/renderer';
-import { navigationForSide } from '../../core/navigation/direction';
-import type { NavigationRendererHost } from '../../core/navigation/model';
-import { ReaderNavigator } from '../../core/navigation/navigator';
-import { ReaderNavigationHistory } from '../../core/navigation/history';
-import { locatorFromCfi, locatorFromHref } from '../../core/navigation/targets';
+} from '../../core/presentation/renderer';
+import { navigationForSide } from '../../core/interaction/navigation/direction';
+import type { NavigationRendererHost } from '../../core/interaction/navigation/model';
+import { ReaderNavigator } from '../../core/interaction/navigation/navigator';
+import { ReaderNavigationHistory } from '../../core/interaction/navigation/history';
+import { locatorFromCfi, locatorFromHref } from '../../core/interaction/navigation/targets';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

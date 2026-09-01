@@ -1,8 +1,8 @@
-import { MemoryPublicationArchive } from '../../core/archive/publication-archive';
-import { __zipTestUtils } from '../../core/archive/ocf-zip';
-import { loadEpub, loadPublicationFromArchive } from '../../core/publication/loader';
-import { hasMixedLayout, resolveSpineRendition } from '../../core/publication/resolve-rendition';
-import { resolvePublicationReference } from '../../core/publication/path';
+import { MemoryPublicationArchive } from '../../core/epub/archive/publication-archive';
+import { __zipTestUtils } from '../../core/epub/archive/ocf-zip';
+import { loadEpub, loadPublicationFromArchive } from '../../core/epub/publication/loader';
+import { hasMixedLayout, resolveSpineRendition } from '../../core/epub/publication/resolve-rendition';
+import { resolvePublicationReference } from '../../core/epub/publication/path';
 
 const containerXml = `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">

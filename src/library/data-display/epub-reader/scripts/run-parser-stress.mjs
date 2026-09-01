@@ -19,7 +19,7 @@ try {
   runTypeScript(['-p', join(root, 'tsconfig.core.json'), '--noEmit', 'false', '--module', 'commonjs', '--moduleResolution', 'node', '--outDir', out], { stdio: 'inherit' });
   writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'commonjs' }));
   const require = createRequire(import.meta.url);
-  const { loadEpub } = require(join(out, 'core', 'publication', 'loader.js'));
+  const { loadEpub } = require(join(out, 'core', 'epub', 'publication', 'loader.js'));
 
   if (global.gc) global.gc();
   const before = process.memoryUsage().heapUsed;

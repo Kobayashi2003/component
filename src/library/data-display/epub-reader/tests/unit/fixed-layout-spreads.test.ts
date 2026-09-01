@@ -2,14 +2,14 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Publication,
   type SpineItem,
-} from '../../core/publication';
-import { parseSvgViewBox, parseViewportMetaContent } from '../../core/content';
-import { planRendition } from '../../core/rendition';
-import { calculateFixedLayoutPlacement } from '../../core/renderer/fixed-layout/geometry';
-import { resolveSpreadSlotAssignment } from '../../core/renderer/spread/slots';
-import { resolveSpreadGap } from '../../core/renderer/spread/spread-renderer';
-import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/renderer/reflowable/model';
-import { reflowablePageGap, reflowablePageWidth } from '../../core/renderer/reflowable/styles';
+} from '../../core/epub/publication';
+import { parseSvgViewBox, parseViewportMetaContent } from '../../core/epub/content';
+import { planRendition } from '../../core/presentation/rendition';
+import { calculateFixedLayoutPlacement } from '../../core/presentation/renderer/fixed-layout/geometry';
+import { resolveSpreadSlotAssignment } from '../../core/presentation/renderer/spread/slots';
+import { resolveSpreadGap } from '../../core/presentation/renderer/spread/spread-renderer';
+import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/presentation/renderer/reflowable/model';
+import { reflowablePageGap, reflowablePageWidth } from '../../core/presentation/renderer/reflowable/styles';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
