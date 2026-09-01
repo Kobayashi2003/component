@@ -9,6 +9,8 @@ import { commandForClickZone, commandForKey, commandForPageClick, commandForSwip
 import { buildReaderPreferenceCss } from '../../core/presentation/renderer/reflowable';
 import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/interaction/input/browser-input-router';
 import type { RenditionPlan } from '../../core/presentation/rendition';
+import { PublicationDiagnosticCollector } from '../../core/runtime/reader/diagnostic-collector';
+import { addBookmarkAndNotify } from '../../core/runtime/reader/bookmark-intent';
 import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/chrome/controls-model';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -34,7 +36,7 @@ const publication: Publication = {
 };
 
 const texts = [
-  'Alpha beta alpha. Alphabet should not count as whole word alpha.',
+  'Alpha beta alpha. Alphabet should not count as whole word alpha. 𐐀alpha',
   'Non linear alpha secret.',
   'Gamma ALPHA delta alpha.',
 ];
@@ -121,11 +123,29 @@ async function main() {
 
   const search = new PublicationSearch(publication, provider);
   const normal = await search.search('alpha');
-  assert(normal.hits.length === 6, 'search should find case-insensitive matches in linear spine items and skip non-linear items');
+  assert(normal.hits.length === 7, 'search should find case-insensitive matches in linear spine items and skip non-linear items');
   assert(normal.hits.every(hit => hit.spineIndex !== 1), 'ordinary search should skip linear="no" by default');
 
   const whole = await search.search('alpha', { wholeWord: true, caseSensitive: false });
-  assert(whole.hits.length === 5, 'whole-word search should exclude Alphabet while retaining standalone alpha/ALPHA');
+  assert(whole.hits.length === 5, 'whole-word search should exclude Alphabet and astral-letter prefixes while retaining standalone alpha/ALPHA');
+
+  const repeatedDiagnostic = { code: 'RENDER_REPEAT', severity: 'warning', phase: 'content', message: 'Repeated warning.', path: 'EPUB/c0.xhtml', spineIndex: 0 } as const;
+  const diagnostics = new PublicationDiagnosticCollector([repeatedDiagnostic]);
+  assert(diagnostics.append([repeatedDiagnostic]).length === 0, 'revisiting a section must not append an identical diagnostic again');
+  assert(diagnostics.append([{ ...repeatedDiagnostic, spineIndex: 2 }]).length === 1, 'the same diagnostic on another spine item must remain observable');
+  assert(diagnostics.all.length === 2, 'diagnostic collection must retain only distinct publication occurrences');
+
+  let bookmarkIntents = 0;
+  const missingBookmark = await addBookmarkAndNotify(async () => null, undefined, () => { bookmarkIntents += 1; });
+  assert(missingBookmark === null && bookmarkIntents === 0, 'failed locator capture must not announce that a bookmark was saved');
+  const savedBookmark = await addBookmarkAndNotify(async () => ({
+    id: 'bookmark-feedback',
+    kind: 'bookmark',
+    locator: { href: 'EPUB/c0.xhtml', spineIndex: 0, locations: { progression: 0.25 } },
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  }), undefined, () => { bookmarkIntents += 1; });
+  assert(savedBookmark?.id === 'bookmark-feedback' && Number(bookmarkIntents) === 1, 'bookmark success feedback must follow a completed bookmark write');
 
   const includingNonLinear = await search.search('secret', { includeNonLinear: true });
   assert(includingNonLinear.hits.length === 1 && includingNonLinear.hits[0]?.spineIndex === 1, 'search policy should be able to include non-linear resources explicitly');

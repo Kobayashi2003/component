@@ -14,5 +14,6 @@ export * from './panels/EpubMarksPanel';
 export * from './panels/EpubCompatibilityPanel';
 export * from './reader/EpubReader';
 export * from './chrome/EpubReaderFullscreen';
+export * from './chrome/use-epub-reader-fullscreen';
 export * from './reader/EpubReaderBackground';
 export * from './source/EpubFilePicker';

@@ -1,5 +1,10 @@
 @import './styles/tokens.css';
 @import './styles/showcase.css';
 @import './styles/reader-shell.css';
-@import './styles/panels.css';
+@import './styles/ui/overlays.css';
+@import './styles/ui/panel-base.css';
+@import './styles/ui/reader-tools.css';
+@import './styles/ui/settings.css';
+@import './styles/ui/keyboard-help.css';
+@import './styles/ui/responsive.css';
 @import './styles/comic.css';

@@ -4,7 +4,7 @@ import type { ReaderNavigator } from './navigator';
 import { isFootnoteReference, type FootnoteLinkActivation } from './footnote';
 
 export interface PublicationLinkRouterOptions {
-  /** Host application decides whether/how external URLs open. Native iframe navigation stays blocked. */
+  /** Host decides whether/how HTTP(S), mailto and tel URLs open. Executable/unsupported schemes stay blocked. */
   readonly onExternalLink?: (href: string) => void;
   readonly onUnresolvedPublicationLink?: (href: string) => void;
   /** Return true when the host displayed the referenced note without navigation. */
@@ -49,8 +49,10 @@ export class PublicationLinkRouter {
       if (!href) return;
       event.preventDefault();
 
-      if (hasExternalScheme(href)) {
-        this.options.onExternalLink?.(href);
+      const scheme = externalScheme(href);
+      if (scheme) {
+        if (SAFE_EXTERNAL_SCHEMES.has(scheme)) this.options.onExternalLink?.(href);
+        else this.options.onUnresolvedPublicationLink?.(href);
         return;
       }
       void this.activateInternal(anchor, href);
@@ -99,6 +101,8 @@ function stripFragment(href: string): string {
   return index < 0 ? href : href.slice(0, index);
 }
 
-function hasExternalScheme(href: string): boolean {
-  return /^[a-z][a-z0-9+.-]*:/iu.test(href);
+const SAFE_EXTERNAL_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
+
+function externalScheme(href: string): string | null {
+  return /^([a-z][a-z0-9+.-]*):/iu.exec(href)?.[1]?.toLowerCase() ?? null;
 }

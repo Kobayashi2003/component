@@ -21,26 +21,26 @@ export function useReaderChrome(locked: boolean, hideDelay = 2400): ReaderChrome
   const show = useCallback(() => {
     dispatch({ type: 'show' });
     setActivity(value => value + 1);
-  }, []);
-  const hide = useCallback(() => dispatch({ type: 'hide' }), []);
+  }, [dispatch]);
+  const hide = useCallback(() => dispatch({ type: 'hide' }), [dispatch]);
   const toggle = useCallback(() => {
     dispatch({ type: 'toggle' });
     setActivity(value => value + 1);
-  }, []);
+  }, [dispatch]);
   const setPinned = useCallback((pinned: boolean) => {
     dispatch({ type: 'set-pinned', pinned });
     setActivity(value => value + 1);
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (locked) {
-      dispatch({ type: 'show' });
-      return;
+      const frame = requestAnimationFrame(() => dispatch({ type: 'show' }));
+      return () => cancelAnimationFrame(frame);
     }
     if (state.mode === 'pinned' || state.visibility === 'hidden') return;
     const timer = setTimeout(() => dispatch({ type: 'hide' }), hideDelay);
     return () => clearTimeout(timer);
-  }, [activity, hideDelay, locked, state.mode, state.visibility]);
+  }, [activity, dispatch, hideDelay, locked, state.mode, state.visibility]);
 
   return useMemo(() => ({
     visible: locked || state.mode === 'pinned' || state.visibility === 'shown',

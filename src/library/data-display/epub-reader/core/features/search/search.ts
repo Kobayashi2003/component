@@ -102,9 +102,25 @@ function findMatches(text: string, query: string, options: SearchOptions, limit:
 }
 
 function isWholeWord(text: string, start: number, end: number): boolean {
-  const left = start > 0 ? text[start - 1]! : '';
-  const right = end < text.length ? text[end]! : '';
+  const left = codePointBefore(text, start);
+  const right = codePointAt(text, end);
   return !isWordCharacter(left) && !isWordCharacter(right);
+}
+
+function codePointBefore(text: string, index: number): string {
+  if (index <= 0) return '';
+  const last = text.charCodeAt(index - 1);
+  if (last >= 0xdc00 && last <= 0xdfff && index >= 2) {
+    const first = text.charCodeAt(index - 2);
+    if (first >= 0xd800 && first <= 0xdbff) return text.slice(index - 2, index);
+  }
+  return text[index - 1] ?? '';
+}
+
+function codePointAt(text: string, index: number): string {
+  if (index >= text.length) return '';
+  const value = text.codePointAt(index);
+  return value == null ? '' : String.fromCodePoint(value);
 }
 
 function isWordCharacter(char: string): boolean {

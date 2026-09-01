@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { EpubContents } from '../panels/EpubContents';
 import { EpubCompatibilityPanel } from '../panels/EpubCompatibilityPanel';
 import { EpubMarksPanel } from '../panels/EpubMarksPanel';
 import { EpubKeyboardHelp } from '../overlays/EpubKeyboardHelp';
 import { EpubReaderControls } from '../chrome/EpubReaderControls';
 import { EpubReaderFeedback } from '../chrome/EpubReaderFeedback';
-import { EpubReaderFullscreenButton, useEpubReaderFullscreen } from '../chrome/EpubReaderFullscreen';
+import { EpubReaderFullscreenButton } from '../chrome/EpubReaderFullscreen';
+import { useEpubReaderFullscreen } from '../chrome/use-epub-reader-fullscreen';
 import { EpubReaderStatus } from '../chrome/EpubReaderStatus';
 import { EpubReaderProvider } from './context';
 import { EpubSearchPanel } from '../panels/EpubSearchPanel';
@@ -21,18 +22,11 @@ import { feedbackForIntent, type ReaderFeedbackSpec } from '../chrome/feedback-m
 import { useCompactReaderLayout } from '../chrome/responsive';
 import { useDelayedFlag, useHeldValue } from '../chrome/loading-delay';
 import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId, type ReaderSurface } from '../chrome/reader-surfaces';
-import { CloseIcon, FullscreenIcon, HistoryIcon, MoreIcon, PinIcon, ReaderToolIcon } from '../chrome/reader-icons';
+import { CloseIcon, PinIcon, ReaderToolIcon } from '../chrome/reader-icons';
 import { useReaderChrome, type ReaderChromeControls } from '../chrome/use-reader-chrome';
 import { shouldLockReaderChrome } from '../chrome/reader-chrome-model';
-
-const PANELS = [
-  { id: 'contents', label: 'Contents', shortLabel: 'Contents', description: 'Navigate the publication' },
-  { id: 'search', label: 'Search', shortLabel: 'Search', description: 'Find text in this book' },
-  { id: 'marks', label: 'Bookmarks and annotations', shortLabel: 'Marks', description: 'Saved places and selections' },
-  { id: 'settings', label: 'Reader settings', shortLabel: 'Settings', description: 'Display, layout and controls' },
-  { id: 'compatibility', label: 'Book information', shortLabel: 'Book info', description: 'Compatibility and repairs' },
-  { id: 'help', label: 'Keyboard shortcuts', shortLabel: 'Help', description: 'Reader keyboard commands' },
-] as const satisfies readonly { id: ReaderPanelId; label: string; shortLabel: string; description: string }[];
+import { CompactReaderToolsMenu, HistoryButton, PanelButton } from '../chrome/ReaderToolbar';
+import { READER_PANELS } from '../chrome/reader-toolbar-model';
 
 /** Reader shell independent of how the host obtains the EPUB source. */
 export interface EpubReaderProps {
@@ -184,7 +178,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       readerOptions?.onIntent?.(intent);
     },
   });
-  const activePanel = PANELS.find(item => item.id === panel);
+  const activePanel = READER_PANELS.find(item => item.id === panel);
   const snapshot = reader.state.reader;
   const compatibility = snapshot?.compatibility.status;
   const title = snapshot?.publication.metadata.title?.trim() || 'Opening publication…';
@@ -455,14 +449,14 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
           <div className="epub-reader-shell__toolbar-start" role="toolbar" aria-label="Publication navigation">
             <HistoryButton direction="back" enabled={snapshot?.navigationHistory.canGoBack ?? false} onActivate={() => void reader.history.back()} />
             <HistoryButton direction="forward" enabled={snapshot?.navigationHistory.canGoForward ?? false} onActivate={() => void reader.history.forward()} />
-            <PanelButton item={PANELS[0]} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} />
+            <PanelButton item={READER_PANELS[0]} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} />
           </div>
           <div className="epub-reader-shell__book-context" aria-live="polite" aria-atomic="true">
             <strong title={title}>{title}</strong>
             <span title={chapter}>{chapter}</span>
           </div>
           <div className="epub-reader-shell__toolbar-end" role="toolbar" aria-label="Reading tools">
-            {PANELS.slice(1, 4).map(item => (
+            {READER_PANELS.slice(1, 4).map(item => (
               <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} />
             ))}
             {compactLayout ? (
@@ -477,7 +471,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
             ) : (
               <>
                 <span className="epub-reader-shell__toolbar-divider" aria-hidden="true" />
-                {PANELS.slice(4).map(item => (
+                {READER_PANELS.slice(4).map(item => (
                   <PanelButton key={item.id} item={item} panel={panel} panelId={panelId} buttonRefs={buttonRefs} onToggle={togglePanel} secondary />
                 ))}
                 <EpubReaderFullscreenButton controller={fullscreen} />
@@ -640,205 +634,4 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       </div>
     </EpubReaderProvider>
   );
-}
-
-function HistoryButton({ direction, enabled, onActivate }: { readonly direction: 'back' | 'forward'; readonly enabled: boolean; readonly onActivate: () => void }) {
-  const back = direction === 'back';
-  const label = back ? 'Back to previous reading location' : 'Forward to next reading location';
-  return (
-    <button
-      className={`epub-reader-shell__tool is-secondary epub-reader-shell__history is-${direction}`}
-      type="button"
-      disabled={!enabled}
-      aria-label={label}
-      aria-keyshortcuts={back ? 'Alt+ArrowLeft' : 'Alt+ArrowRight'}
-      title={`${label} (${back ? 'Alt+Left' : 'Alt+Right'})`}
-      onClick={onActivate}
-    >
-      <HistoryIcon direction={direction} />
-      <span>{back ? 'Back' : 'Forward'}</span>
-    </button>
-  );
-}
-
-interface PanelButtonProps {
-  readonly key?: string;
-  readonly item: (typeof PANELS)[number];
-  readonly panel: ReaderPanelId | null;
-  readonly panelId: string;
-  readonly buttonRefs: import('react').MutableRefObject<Map<ReaderPanelId, HTMLButtonElement>>;
-  readonly onToggle: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
-  readonly secondary?: boolean;
-}
-
-function PanelButton({ item, panel, panelId, buttonRefs, onToggle, secondary = false }: PanelButtonProps) {
-  return (
-    <button
-      className={`epub-reader-shell__tool${secondary ? ' is-secondary' : ''}`}
-      type="button"
-      ref={(element: HTMLButtonElement | null) => {
-        if (element) buttonRefs.current.set(item.id, element);
-        else buttonRefs.current.delete(item.id);
-      }}
-      aria-pressed={panel === item.id}
-      aria-expanded={panel === item.id}
-      aria-controls={panel === item.id ? panelId : undefined}
-      aria-keyshortcuts={item.id === 'search' ? 'Control+F Meta+F' : item.id === 'help' ? '?' : undefined}
-      aria-label={item.label}
-      title={item.label}
-      onClick={(event: import('react').MouseEvent<HTMLButtonElement>) => onToggle(item.id, event.currentTarget)}
-    >
-      <ReaderToolIcon id={item.id} />
-      <span>{item.shortLabel}</span>
-    </button>
-  );
-}
-
-interface CompactReaderToolsMenuProps {
-  readonly id: string;
-  readonly panel: ReaderPanelId | null;
-  readonly panelId: string;
-  readonly fullscreen: ReturnType<typeof useEpubReaderFullscreen>;
-  readonly readerChrome: ReaderChromeControls;
-  readonly onTogglePanel: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
-}
-
-function CompactReaderToolsMenu({
-  id,
-  panel,
-  panelId,
-  fullscreen,
-  readerChrome,
-  onTogglePanel,
-}: CompactReaderToolsMenuProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const owner = rootRef.current?.ownerDocument;
-    const closeFromPointer = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    owner?.addEventListener('pointerdown', closeFromPointer, true);
-    const frame = requestAnimationFrame(() => {
-      menuButtons(menuRef.current)[0]?.focus({ preventScroll: true });
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      owner?.removeEventListener('pointerdown', closeFromPointer, true);
-    };
-  }, [open]);
-
-  const close = (restoreFocus = false) => {
-    setOpen(false);
-    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
-  };
-  const activatePanel = (next: ReaderPanelId) => {
-    const origin = triggerRef.current;
-    close();
-    if (origin) onTogglePanel(next, origin);
-  };
-  const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const buttons = menuButtons(menuRef.current);
-    const current = buttons.indexOf(event.target as HTMLButtonElement);
-    let next = -1;
-    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % buttons.length;
-    else if (event.key === 'ArrowUp') next = current < 0 ? buttons.length - 1 : (current - 1 + buttons.length) % buttons.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = buttons.length - 1;
-    else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-      return;
-    } else return;
-    if (next >= 0) {
-      event.preventDefault();
-      buttons[next]?.focus();
-    }
-  };
-
-  return (
-    <div
-      ref={rootRef}
-      className="epub-reader-shell__compact-tools"
-      onBlur={(event: FocusEvent<HTMLDivElement>) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
-      }}
-    >
-      <button
-        ref={triggerRef}
-        className="epub-reader-shell__tool is-secondary"
-        type="button"
-        aria-label="More reader tools"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        title="More reader tools"
-        onClick={() => setOpen(current => !current)}
-      >
-        <MoreIcon />
-        <span>More</span>
-      </button>
-      {open ? (
-        <div
-          id={id}
-          ref={menuRef}
-          className="epub-reader-shell__tools-menu"
-          role="menu"
-          aria-label="More reader tools"
-          onKeyDown={handleMenuKeyDown}
-        >
-          {PANELS.slice(4).map(item => (
-            <button
-              key={item.id}
-              className="epub-reader-shell__tool"
-              type="button"
-              role="menuitem"
-              aria-pressed={panel === item.id}
-              aria-controls={panel === item.id ? panelId : undefined}
-              onClick={() => activatePanel(item.id)}
-            >
-              <ReaderToolIcon id={item.id} />
-              <span>{item.shortLabel}</span>
-            </button>
-          ))}
-          <button
-            className="epub-reader-shell__tool"
-            type="button"
-            role="menuitem"
-            disabled={!fullscreen.supported}
-            aria-pressed={fullscreen.active}
-            onClick={() => {
-              close();
-              void fullscreen.toggle();
-            }}
-          >
-            <FullscreenIcon active={fullscreen.active} />
-            <span>{fullscreen.active ? 'Exit full screen' : 'Full screen'}</span>
-          </button>
-          <button
-            className="epub-reader-shell__tool"
-            type="button"
-            role="menuitem"
-            aria-pressed={readerChrome.pinned}
-            onClick={() => {
-              readerChrome.setPinned(!readerChrome.pinned);
-              close(true);
-            }}
-          >
-            <PinIcon active={readerChrome.pinned} />
-            <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function menuButtons(menu: HTMLDivElement | null): HTMLButtonElement[] {
-  return menu ? Array.from(menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')) : [];
 }

@@ -234,6 +234,13 @@ async function main(): Promise<void> {
       === readingSessionKey(new Uint8Array([1, 2]), new Uint8Array([1, 2])),
     'reading-session fingerprints must be deterministic',
   );
+  const firstPublication = new Uint8Array(98_304).fill(7);
+  const secondPublication = firstPublication.slice();
+  secondPublication[49_152] = 8;
+  assert(
+    readingSessionKey(firstPublication, firstPublication) !== readingSessionKey(secondPublication, secondPublication),
+    'reading-session fingerprints must include bytes outside the first and last 32 KiB',
+  );
 
   const pending = new Map<number, ReturnType<typeof deferred<FakeReader>>>();
   const opened: FakeReader[] = [];

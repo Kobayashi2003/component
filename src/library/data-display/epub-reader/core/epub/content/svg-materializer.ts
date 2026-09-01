@@ -2,6 +2,7 @@ import type {
   PublicationDiagnostic,
   SpineItem,
 } from '../publication';
+import { resolvePublicationReference } from '../publication';
 import { decodePublicationText, PublicationResourceSession } from '../resources';
 import type { BrowserXmlPlatform, MaterializedContentDocument } from './model';
 import { inspectSvgIntrinsicViewport } from './intrinsic-viewport';
@@ -70,9 +71,20 @@ export async function materializeSvgSpineItem(
     }
 
     if (element.localName === 'a') {
-      const href = element.getAttribute('href') ?? element.getAttributeNS(XLINK_NS, 'href');
-      if (href && !href.trim().startsWith('#')) {
-        element.setAttribute('data-epub-href', href);
+      const href = (element.getAttribute('href') ?? element.getAttributeNS(XLINK_NS, 'href'))?.trim();
+      if (href && !href.startsWith('#')) {
+        try {
+          element.setAttribute('data-epub-href', resolveSvgNavigationHref(item.path, href));
+        } catch (cause) {
+          diagnostics.push({
+            code: 'CONTENT_LINK_REFERENCE_INVALID',
+            severity: 'warning',
+            phase: 'content',
+            message: `Hyperlink could not be resolved: ${href}.`,
+            path: item.path,
+            cause,
+          });
+        }
         element.removeAttribute('href');
         element.removeAttributeNS(XLINK_NS, 'href');
       }
@@ -84,6 +96,10 @@ export async function materializeSvgSpineItem(
   const serialized = ensureXmlDeclaration(platform.serializeXml(document));
   const url = session.createGeneratedTextUrl(`svg:${item.path}`, serialized, 'image/svg+xml;charset=utf-8');
   return { sourcePath: item.path, markup: serialized, url, mediaType: 'image/svg+xml', hints, diagnostics };
+}
+
+export function resolveSvgNavigationHref(documentPath: string, authoredHref: string): string {
+  return resolvePublicationReference(documentPath, authoredHref).href;
 }
 
 async function rewriteHref(

@@ -6,7 +6,7 @@ import { parseXml } from '../../core/epub/xml';
 import { semanticXmlText, collectRubySamples } from '../../core/epub/text';
 import type { Publication, PublicationPath } from '../../core/epub/publication';
 import { preflightPublicationContent } from '../../core/epub/content/preflight';
-import { parseXhtmlContentDocument, type BrowserXmlPlatform } from '../../core/epub/content';
+import { parseXhtmlContentDocument, resolveSvgNavigationHref, type BrowserXmlPlatform } from '../../core/epub/content';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -99,6 +99,11 @@ async function main() {
     strictParsingFailed = true;
   }
   assert(strictParsingFailed, 'disabling malformed XHTML recovery must reject the invalid content document');
+
+  assert(
+    resolveSvgNavigationHref('EPUB/images/plate.svg', '../text/chapter.xhtml#note') === 'EPUB/text/chapter.xhtml#note',
+    'SVG navigation links must resolve relative to the SVG document before routing',
+  );
 
   console.log('Content compatibility integration test: PASS');
 }

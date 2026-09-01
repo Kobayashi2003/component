@@ -46,6 +46,10 @@ Pagination is CSS fragmentation in both writing modes: the reader gives the cont
 
 `core/features/` contains optional reading capabilities such as search, annotations, decorations, media inspection, and accessibility descriptions. `core/validation/` contains reusable corpus and conformance reporting code. The stable public surface remains `core/index.ts`, so internal grouping does not leak into React or host integrations.
 
+### Styling
+
+`styles.css` is the ordered stylesheet entry point. Shared tokens, the showcase, reader shell, and immersive mode stay independent, while `styles/ui/` separates transient overlays, panel foundations, reader tools, settings, keyboard help, and responsive overrides. Import order is intentional because it preserves the reader UI cascade.
+
 ## State and lifecycle
 
 The reader publishes immutable snapshots containing lifecycle status, publication data, renderer state, locator, preferences, diagnostics, search state, marks, and selection. Commands are serialized through the reader and renderer transaction boundaries. Resource URLs, observers, event routers, and renderer documents are released when the reader is replaced or disposed.

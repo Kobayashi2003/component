@@ -40,6 +40,8 @@ import type {
   BrowserEpubReaderSnapshot,
   ReaderPublicationPresentation,
 } from './model';
+import { PublicationDiagnosticCollector } from './diagnostic-collector';
+import { addBookmarkAndNotify } from './bookmark-intent';
 
 type SnapshotListener = () => void;
 
@@ -86,7 +88,7 @@ export class BrowserEpubReader {
   private readonly selectionPollTimer: number | null;
   private readonly themeRegistry: ReaderThemeRegistry;
   private readonly uiIntent: BrowserEpubReaderOptions['onIntent'];
-  private diagnostics: PublicationDiagnostic[];
+  private readonly diagnostics: PublicationDiagnosticCollector;
   private preferences: ReaderPreferences;
   private viewport: ViewportMetrics;
   private locator: Locator | null = null;
@@ -115,7 +117,7 @@ export class BrowserEpubReader {
     // `this.hints` per spine item, but the publication-level answer must not
     // move underneath the UI once reading has started.
     this.presentation = resolvePublicationPresentation(publication, initialHints);
-    this.diagnostics = [...diagnostics];
+    this.diagnostics = new PublicationDiagnosticCollector(diagnostics);
     this.preferences = preferences;
     this.viewport = viewport;
     this.plannerPolicy = mergePlannerPolicy(options.plannerPolicy);
@@ -286,11 +288,11 @@ export class BrowserEpubReader {
     });
 
     this.marks = Object.freeze<BrowserEpubReaderMarksApi>({
-      addBookmark: label => {
-        const bookmark = this.markController.addBookmark(label);
-        options.onIntent?.({ type: 'bookmark-added' });
-        return bookmark;
-      },
+      addBookmark: label => addBookmarkAndNotify(
+        nextLabel => this.markController.addBookmark(nextLabel),
+        label,
+        options.onIntent,
+      ),
       addHighlight: (range, highlight, color, label, tags) => this.markController.addHighlight(range, highlight, color, label, tags),
       addAnnotation: (range, body, highlight, color, label, tags) => this.markController.addAnnotation(range, body, highlight, color, label, tags),
       remove: id => this.markStore.remove(id),
@@ -640,8 +642,9 @@ export class BrowserEpubReader {
 
   private appendDiagnostics(next: readonly PublicationDiagnostic[], options: BrowserEpubReaderOptions): void {
     if (next.length === 0) return;
-    this.diagnostics = [...this.diagnostics, ...next];
-    options.onDiagnostics?.(next);
+    const unique = this.diagnostics.append(next);
+    if (unique.length === 0) return;
+    options.onDiagnostics?.(unique);
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
   }
 
@@ -664,8 +667,8 @@ export class BrowserEpubReader {
       status,
       publication: this.publication,
       presentation: this.presentation,
-      diagnostics: Object.freeze([...this.diagnostics]),
-      compatibility: createCompatibilityReport(this.diagnostics),
+      diagnostics: Object.freeze([...this.diagnostics.all]),
+      compatibility: createCompatibilityReport(this.diagnostics.all),
       preferences: this.preferences,
       viewport: this.viewport,
       renderer,

@@ -18,6 +18,7 @@ import { navigationForSide } from '../../core/interaction/navigation/direction';
 import type { NavigationRendererHost } from '../../core/interaction/navigation/model';
 import { ReaderNavigator } from '../../core/interaction/navigation/navigator';
 import { ReaderNavigationHistory } from '../../core/interaction/navigation/history';
+import { PublicationLinkRouter } from '../../core/interaction/navigation/link-router';
 import { locatorFromCfi, locatorFromHref } from '../../core/interaction/navigation/targets';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -266,6 +267,33 @@ async function main() {
   ]);
   assert(host.maxConcurrentPresentations === 1, 'relayout must not overlap publication navigation');
   assert(host.state.plan?.spineIndex === 2, 'relayout after navigation must preserve the destination spine');
+
+  const external: string[] = [];
+  const blocked: string[] = [];
+  let clickListener: ((event: Event) => void) | null = null;
+  const linkDocument = {
+    addEventListener(type: string, listener: (event: Event) => void) { if (type === 'click') clickListener = listener; },
+    removeEventListener() {},
+  } as unknown as Document;
+  const linkRouter = new PublicationLinkRouter(publication, navigator, {
+    onExternalLink: href => external.push(href),
+    onUnresolvedPublicationLink: href => blocked.push(href),
+  });
+  linkRouter.syncDocuments([{ spineIndex: 0, href: publication.spine[0]!.href, document: linkDocument, surfaceElement: {} as HTMLElement }]);
+  const click = (href: string) => {
+    const anchor = {
+      nodeType: 1,
+      textContent: '',
+      closest: () => anchor,
+      getAttribute: (name: string) => name === 'data-epub-href' ? href : null,
+    } as unknown as Element;
+    clickListener?.({ target: anchor, preventDefault() {} } as unknown as Event);
+  };
+  click('https://example.com/book');
+  click('javascript:alert(1)');
+  assert(external.length === 1 && external[0] === 'https://example.com/book', 'HTTP links should reach the explicit host callback');
+  assert(blocked.length === 1 && blocked[0] === 'javascript:alert(1)', 'executable and unsupported schemes must never reach the external-link callback');
+  linkRouter.dispose();
 
   console.log('Navigation and locator unit test: PASS');
 }

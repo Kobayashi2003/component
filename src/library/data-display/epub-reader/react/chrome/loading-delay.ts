@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Grace period before a transient busy state is allowed to appear on screen.
@@ -42,11 +42,7 @@ export function useDelayedFlag(active: boolean, delayMs = LOADING_VISIBILITY_DEL
  * the previous one would report a place the reader has already left.
  */
 export function useHeldValue(value: string, holding: boolean): string {
-  const settled = useRef(value);
-
-  useEffect(() => {
-    if (!holding) settled.current = value;
-  }, [holding, value]);
-
-  return holding ? settled.current : value;
+  const [settled, setSettled] = useState(value);
+  if (!holding && settled !== value) setSettled(value);
+  return holding ? settled : value;
 }

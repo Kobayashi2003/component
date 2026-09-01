@@ -18,6 +18,8 @@ const [file, setFile] = useState<File | null>(null)
 ) : null}
 ```
 
+Only `http`, `https`, `mailto`, and `tel` links reach `onExternalLink`; executable and unsupported schemes remain blocked by the reader. Hosts should still apply any product-specific URL policy before opening a link.
+
 ## Layers
 
 - `core/` parses and normalizes EPUBs, plans renditions, renders isolated documents, and coordinates navigation and reading services.
