@@ -1,6 +1,6 @@
-import type { AppliedCompatibilityRepair } from '../core';
-import { useOptionalEpubReaderContext } from './context';
-import type { EpubReaderHandle } from './model';
+import type { AppliedCompatibilityRepair } from '../../core';
+import { useOptionalEpubReaderContext } from '../reader/context';
+import type { EpubReaderHandle } from '../state/model';
 
 interface DiagnosticGroup {
   readonly code: string;

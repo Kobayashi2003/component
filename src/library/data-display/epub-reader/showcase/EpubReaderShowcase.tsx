@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { EpubFilePicker } from '../react/EpubFilePicker';
-import { EpubReader } from '../react/EpubReader';
-import { EpubReaderBackground } from '../react/EpubReaderBackground';
+import { EpubFilePicker } from '../react/source/EpubFilePicker';
+import { EpubReader } from '../react/reader/EpubReader';
+import { EpubReaderBackground } from '../react/reader/EpubReaderBackground';
 import type { ReaderTheme } from '../core';
 
 /**

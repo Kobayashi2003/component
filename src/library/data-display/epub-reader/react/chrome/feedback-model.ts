@@ -1,4 +1,4 @@
-import type { ReaderUiIntent } from '../core';
+import type { ReaderUiIntent } from '../../core';
 
 export type ReaderFeedbackTone = 'success' | 'boundary';
 

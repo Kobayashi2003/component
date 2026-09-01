@@ -1,6 +1,6 @@
 import { DEFAULT_READER_PREFERENCES, type BrowserEpubReader, type BrowserEpubReaderSnapshot, type Locator, type ReaderMark } from '../../core';
-import { BrowserReadingSessionStorage, readingSessionKey, type ReadingSessionRecord, type ReadingSessionStorage } from '../../react/reading-session';
-import { ReactEpubReaderStore, type ReactEpubReaderOpener } from '../../react/store';
+import { BrowserReadingSessionStorage, readingSessionKey, type ReadingSessionRecord, type ReadingSessionStorage } from '../../react/state/reading-session';
+import { ReactEpubReaderStore, type ReactEpubReaderOpener } from '../../react/state/store';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`React reader store test failed: ${message}`);

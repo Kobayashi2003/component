@@ -1,4 +1,4 @@
-import type { Locator, ReaderMark, ReaderPreferences } from '../core';
+import type { Locator, ReaderMark, ReaderPreferences } from '../../core';
 import type { EpubSource } from './model';
 
 export interface ReadingSessionRecord {

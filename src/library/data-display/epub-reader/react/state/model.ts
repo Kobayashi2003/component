@@ -7,7 +7,7 @@ import type {
   NavigationTarget,
   SearchHit,
   SearchOptions,
-} from '../core';
+} from '../../core';
 import type { ReadingSessionOptions } from './reading-session';
 
 export type EpubSource = Uint8Array | ArrayBuffer | Blob;
@@ -18,10 +18,10 @@ export interface ReactEpubReaderSnapshot {
   readonly status: ReactEpubReaderStatus;
   readonly reader: BrowserEpubReaderSnapshot | null;
   /** Last active or attempted preferences, retained so a failed compatibility experiment can be undone. */
-  readonly preferences?: import('../core').ReaderPreferences;
-  readonly diagnostics: readonly import('../core').PublicationDiagnostic[];
+  readonly preferences?: import('../../core').ReaderPreferences;
+  readonly diagnostics: readonly import('../../core').PublicationDiagnostic[];
   readonly error: unknown | null;
-  readonly openProgress?: import('../core').BrowserEpubReaderOpenProgress;
+  readonly openProgress?: import('../../core').BrowserEpubReaderOpenProgress;
 }
 
 export interface UseEpubReaderOptions extends BrowserEpubReaderOptions {
@@ -37,24 +37,24 @@ export interface EpubReaderHandle {
   readonly viewportRef: RefCallback<HTMLDivElement>;
   retry(): Promise<void>;
   /** Resolves to null when the command failed; the failure is reported through onError. */
-  next(): Promise<import('../core').ReaderNavigationResult | null>;
-  previous(): Promise<import('../core').ReaderNavigationResult | null>;
+  next(): Promise<import('../../core').ReaderNavigationResult | null>;
+  previous(): Promise<import('../../core').ReaderNavigationResult | null>;
   goTo(target: NavigationTarget): Promise<Locator | null>;
   goToLocator(locator: Locator): Promise<Locator | null>;
   history: {
     back(): Promise<Locator | null>;
     forward(): Promise<Locator | null>;
   };
-  setPreferences(patch: import('../core').ReaderPreferencesPatch): Promise<void>;
+  setPreferences(patch: import('../../core').ReaderPreferencesPatch): Promise<void>;
   captureLocator(): Promise<Locator | null>;
-  registerTheme(theme: import('../core').ReaderThemeDefinition): void;
-  captureSelection(): import('../core').ReaderSelection | null;
+  registerTheme(theme: import('../../core').ReaderThemeDefinition): void;
+  captureSelection(): import('../../core').ReaderSelection | null;
   clearSelection(): void;
   clearReadingSession(): void;
   addHighlightFromSelection(
-    highlight?: import('../core').AnnotationHighlightStyle,
-    color?: import('../core').AnnotationColor,
-  ): Promise<import('../core').Highlight | null>;
+    highlight?: import('../../core').AnnotationHighlightStyle,
+    color?: import('../../core').AnnotationColor,
+  ): Promise<import('../../core').Highlight | null>;
   search: {
     run(query: string, options?: Partial<SearchOptions>): Promise<readonly SearchHit[]>;
     clear(): void;
@@ -63,24 +63,24 @@ export interface EpubReaderHandle {
     previous(): Promise<SearchHit | null>;
   };
   marks: {
-    addBookmark(label?: string): ReturnType<import('../core').ReaderMarkController['addBookmark']>;
+    addBookmark(label?: string): ReturnType<import('../../core').ReaderMarkController['addBookmark']>;
     addHighlight(
       range: LocatorRange,
-      highlight?: import('../core').AnnotationHighlightStyle,
-      color?: import('../core').AnnotationColor,
+      highlight?: import('../../core').AnnotationHighlightStyle,
+      color?: import('../../core').AnnotationColor,
       label?: string,
       tags?: readonly string[],
-    ): import('../core').Highlight;
+    ): import('../../core').Highlight;
     addAnnotation(
       range: LocatorRange,
       body: string,
-      highlight?: import('../core').AnnotationHighlightStyle,
-      color?: import('../core').AnnotationColor,
+      highlight?: import('../../core').AnnotationHighlightStyle,
+      color?: import('../../core').AnnotationColor,
       label?: string,
       tags?: readonly string[],
-    ): import('../core').Annotation;
+    ): import('../../core').Annotation;
     remove(id: string): boolean;
-    update(id: string, patch: import('../core').ReaderMarkPatch): import('../core').ReaderMark | null;
+    update(id: string, patch: import('../../core').ReaderMarkPatch): import('../../core').ReaderMark | null;
     clear(): void;
     goTo(id: string): Promise<boolean | null>;
   };

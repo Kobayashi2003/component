@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
-import type { AnnotationColor, ReaderSelectionActivation } from '../core';
+import type { AnnotationColor, ReaderSelectionActivation } from '../../core';
 import { QUICK_ANNOTATION_COLORS as COLORS } from './annotation-colors';
-import type { EpubReaderHandle } from './model';
+import type { EpubReaderHandle } from '../state/model';
 
 interface EpubSelectionToolbarProps {
   readonly activation: ReaderSelectionActivation;

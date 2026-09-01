@@ -9,7 +9,7 @@ import { commandForClickZone, commandForKey, commandForPageClick, commandForSwip
 import { buildReaderPreferenceCss } from '../../core/presentation/renderer/reflowable';
 import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/interaction/input/browser-input-router';
 import type { RenditionPlan } from '../../core/presentation/rendition';
-import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/controls-model';
+import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/chrome/controls-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

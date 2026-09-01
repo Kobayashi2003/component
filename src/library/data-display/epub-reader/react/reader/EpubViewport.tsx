@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/refs -- EpubReaderHandle exposes a stable callback ref, not a mutable ref value. */
 import type { CSSProperties } from 'react';
 import { useOptionalEpubReaderContext } from './context';
-import type { EpubViewportProps } from './model';
+import type { EpubViewportProps } from '../state/model';
 
 const DEFAULT_STYLE: CSSProperties = {
   position: 'relative',

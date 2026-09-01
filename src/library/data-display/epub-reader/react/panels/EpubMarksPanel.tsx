@@ -1,8 +1,8 @@
-import { useOptionalEpubReaderContext } from './context';
-import type { Annotation, Highlight } from '../core';
-import type { EpubReaderHandle } from './model';
+import { useOptionalEpubReaderContext } from '../reader/context';
+import type { Annotation, Highlight } from '../../core';
+import type { EpubReaderHandle } from '../state/model';
 import { groupMarksByChapter } from './panel-model';
-import { ReaderToolIcon } from './reader-icons';
+import { ReaderToolIcon } from '../chrome/reader-icons';
 import type { MouseEvent } from 'react';
 
 interface EpubMarksPanelProps {

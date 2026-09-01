@@ -1,6 +1,6 @@
-import { useOptionalEpubReaderContext } from './context';
+import { useOptionalEpubReaderContext } from '../reader/context';
 import { useDelayedFlag } from './loading-delay';
-import type { EpubReaderHandle } from './model';
+import type { EpubReaderHandle } from '../state/model';
 
 export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();

@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { useOptionalEpubReaderContext } from './context';
-import type { EpubReaderHandle } from './model';
+import { useOptionalEpubReaderContext } from '../reader/context';
+import type { EpubReaderHandle } from '../state/model';
 import { chapterContext } from './panel-model';
 
 export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {

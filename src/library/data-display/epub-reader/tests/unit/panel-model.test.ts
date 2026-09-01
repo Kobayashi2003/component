@@ -1,5 +1,5 @@
 import type { ReaderMark, TocItem } from '../../core';
-import { chapterContext, groupMarksByChapter, tocItemCount } from '../../react/panel-model';
+import { chapterContext, groupMarksByChapter, tocItemCount } from '../../react/panels/panel-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Panel model test failed: ${message}`);

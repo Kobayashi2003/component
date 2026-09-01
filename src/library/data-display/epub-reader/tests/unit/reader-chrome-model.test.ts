@@ -1,4 +1,4 @@
-import { INITIAL_READER_CHROME_STATE, reduceReaderChrome, shouldLockReaderChrome } from '../../react/reader-chrome-model';
+import { INITIAL_READER_CHROME_STATE, reduceReaderChrome, shouldLockReaderChrome } from '../../react/chrome/reader-chrome-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Reader chrome model test failed: ${message}`);

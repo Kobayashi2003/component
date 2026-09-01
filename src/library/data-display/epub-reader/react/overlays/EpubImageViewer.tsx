@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
-import type { ReaderImageActivation } from '../core';
+import type { ReaderImageActivation } from '../../core';
 
 interface EpubImageViewerProps {
   readonly activation: ReaderImageActivation;

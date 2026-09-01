@@ -1,4 +1,4 @@
-import type { AnnotationColor } from '../core';
+import type { AnnotationColor } from '../../core';
 
 /**
  * Every colour the engine can store, in the order the interface offers them.

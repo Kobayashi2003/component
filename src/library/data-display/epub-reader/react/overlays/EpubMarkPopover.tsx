@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
-import type { AnnotationHighlightStyle, ReaderMarkActivation } from '../core';
+import type { AnnotationHighlightStyle, ReaderMarkActivation } from '../../core';
 import { ANNOTATION_COLORS as COLORS } from './annotation-colors';
-import type { EpubReaderHandle } from './model';
+import type { EpubReaderHandle } from '../state/model';
 
 const STYLES: readonly { readonly value: AnnotationHighlightStyle; readonly label: string }[] = [
   { value: 'solid', label: 'Highlight' },

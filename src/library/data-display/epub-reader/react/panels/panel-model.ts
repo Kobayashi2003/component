@@ -1,4 +1,4 @@
-import type { ReaderMark, TocItem } from '../core';
+import type { ReaderMark, TocItem } from '../../core';
 
 export interface ChapterContext {
   readonly label: string;

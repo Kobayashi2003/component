@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { ReaderTheme } from '../core';
+import type { ReaderTheme } from '../../core';
 
 export interface EpubReaderBackgroundProps {
   readonly file: File | null;

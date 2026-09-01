@@ -1,8 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type ReaderCompatibilityPreferences } from '../core';
-import { useOptionalEpubReaderContext } from './context';
-import type { EpubReaderHandle } from './model';
-import { ChevronIcon } from './reader-icons';
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type ReaderCompatibilityPreferences } from '../../core';
+import { useOptionalEpubReaderContext } from '../reader/context';
+import type { EpubReaderHandle } from '../state/model';
+import { ChevronIcon } from '../chrome/reader-icons';
 
 const FONT_FAMILIES = [
   { value: '', label: 'Publisher default' },

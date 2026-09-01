@@ -4,8 +4,8 @@ import type {
   ReaderImageActivation,
   ReaderMarkActivation,
   ReaderSelectionActivation,
-} from '../core';
-import type { EpubSource } from './model';
+} from '../../core';
+import type { EpubSource } from '../state/model';
 
 export type ReaderPanelId = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help';
 

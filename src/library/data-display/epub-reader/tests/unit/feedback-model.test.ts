@@ -1,4 +1,4 @@
-import { feedbackForIntent } from '../../react/feedback-model';
+import { feedbackForIntent } from '../../react/chrome/feedback-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Reader feedback model test failed: ${message}`);

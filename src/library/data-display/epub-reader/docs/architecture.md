@@ -22,7 +22,9 @@ EPUB source
 
 ### React adapter and interface
 
-`react/` contains the external store, hooks, context, panels, and reader shell. `ReactEpubReaderStore` owns asynchronous open/replace/dispose races and viewport observation. The UI subscribes to immutable snapshots and invokes reader commands; it does not manipulate publication documents directly.
+`react/` is organized by product responsibility. `state/` adapts the core to React through the external store, public models, hooks, and reading-session persistence. `reader/` composes the reader shell and viewport. `chrome/` owns persistent controls and UI state, `panels/` owns navigable tool panels, `overlays/` owns transient interactions, and `source/` contains the host-facing local file picker. The stable public surface remains `react/index.ts`.
+
+`ReactEpubReaderStore` owns asynchronous open/replace/dispose races and viewport observation. The UI subscribes to immutable snapshots and invokes reader commands; it does not manipulate publication documents directly.
 
 ### Reader orchestration
 

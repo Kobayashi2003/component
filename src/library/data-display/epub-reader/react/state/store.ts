@@ -1,4 +1,4 @@
-import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, MemoryReaderMarkStore, normalizeReaderPreferences, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type SearchOptions } from '../core';
+import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, MemoryReaderMarkStore, normalizeReaderPreferences, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type SearchOptions } from '../../core';
 import type { EpubSource, ReactEpubReaderSnapshot, UseEpubReaderOptions } from './model';
 import {
   BrowserReadingSessionStorage,
@@ -182,7 +182,7 @@ export class ReactEpubReaderStore {
     this.publish({ ...this.snapshotValue, preferences: next });
   }
   captureLocator() { return this.requireReader().captureLocator(); }
-  registerTheme(theme: import('../core').ReaderThemeDefinition): void { this.requireReader().registerTheme(theme); }
+  registerTheme(theme: import('../../core').ReaderThemeDefinition): void { this.requireReader().registerTheme(theme); }
   captureSelection() { return this.requireReader().captureSelection(); }
   clearSelection(): void { this.requireReader().clearSelection(); }
   clearReadingSession(): void {
@@ -193,7 +193,7 @@ export class ReactEpubReaderStore {
     this.readingSessionSaveTimer = null;
     this.readingSessionCleared = true;
   }
-  addHighlightFromSelection(highlight?: import('../core').AnnotationHighlightStyle, color?: import('../core').AnnotationColor) {
+  addHighlightFromSelection(highlight?: import('../../core').AnnotationHighlightStyle, color?: import('../../core').AnnotationColor) {
     return this.run(reader => reader.addHighlightFromSelection(highlight, color));
   }
   /** A failed search reports no hits rather than a null the panel must handle. */
@@ -209,22 +209,22 @@ export class ReactEpubReaderStore {
   // had nowhere to go.
   addBookmark(label?: string) { return this.run(reader => reader.marks.addBookmark(label)); }
   addHighlight(
-    range: import('../core').LocatorRange,
-    highlight?: import('../core').AnnotationHighlightStyle,
-    color?: import('../core').AnnotationColor,
+    range: import('../../core').LocatorRange,
+    highlight?: import('../../core').AnnotationHighlightStyle,
+    color?: import('../../core').AnnotationColor,
     label?: string,
     tags?: readonly string[],
   ) { return this.requireReader().marks.addHighlight(range, highlight, color, label, tags); }
   addAnnotation(
-    range: import('../core').LocatorRange,
+    range: import('../../core').LocatorRange,
     body: string,
-    highlight?: import('../core').AnnotationHighlightStyle,
-    color?: import('../core').AnnotationColor,
+    highlight?: import('../../core').AnnotationHighlightStyle,
+    color?: import('../../core').AnnotationColor,
     label?: string,
     tags?: readonly string[],
   ) { return this.requireReader().marks.addAnnotation(range, body, highlight, color, label, tags); }
   removeMark(id: string): boolean { return this.requireReader().marks.remove(id); }
-  updateMark(id: string, patch: import('../core').ReaderMarkPatch) { return this.requireReader().marks.update(id, patch); }
+  updateMark(id: string, patch: import('../../core').ReaderMarkPatch) { return this.requireReader().marks.update(id, patch); }
   clearMarks(): void { this.requireReader().marks.clear(); }
   goToMark(id: string): Promise<boolean | null> { return this.run(reader => reader.marks.goTo(id)); }
 
@@ -484,7 +484,7 @@ export class ReactEpubReaderStore {
   }
 }
 
-function createRestoredMarkStore(marks: readonly import('../core').ReaderMark[]): MemoryReaderMarkStore {
+function createRestoredMarkStore(marks: readonly import('../../core').ReaderMark[]): MemoryReaderMarkStore {
   const store = new MemoryReaderMarkStore();
   for (const mark of marks) store.put(mark);
   return store;

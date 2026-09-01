@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { TocItem } from '../core';
-import { useOptionalEpubReaderContext } from './context';
-import type { EpubReaderHandle } from './model';
+import type { TocItem } from '../../core';
+import { useOptionalEpubReaderContext } from '../reader/context';
+import type { EpubReaderHandle } from '../state/model';
 import { tocItemCount, tocItemForHref } from './panel-model';
 
 const EMPTY_TOC: readonly TocItem[] = [];

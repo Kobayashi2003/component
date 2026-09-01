@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- Context provider and its hooks form one public module. */
 import { createContext, useContext, type ReactNode } from 'react';
-import type { EpubReaderHandle } from './model';
+import type { EpubReaderHandle } from '../state/model';
 
 const EpubReaderContext = createContext<EpubReaderHandle | null>(null);
 
