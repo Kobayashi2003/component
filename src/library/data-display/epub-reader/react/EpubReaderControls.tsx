@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import type { EpubReaderHandle } from './model';
 import { useOptionalEpubReaderContext } from './context';
 import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from './controls-model';
+import { ChevronIcon } from './reader-icons';
 
 export function EpubReaderControls({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
@@ -91,7 +92,7 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
   return (
     <div className={`epub-reader-controls is-${progression}`} data-page-progression={progression} role="group" aria-label="Reading navigation">
       <button className="epub-reader-controls__nav epub-reader-controls__nav--previous" type="button" aria-keyshortcuts="PageUp Shift+Space" onClick={() => void reader.previous()} disabled={!interactive}>
-        {rtl ? <><span>Previous</span><NavIcon direction="right" /></> : <><NavIcon direction="left" /><span>Previous</span></>}
+        {rtl ? <><span>Previous</span><ChevronIcon direction="right" /></> : <><ChevronIcon direction="left" /><span>Previous</span></>}
       </button>
       <div className="epub-reader-controls__position">
         <div className="epub-reader-controls__status" aria-live="off">
@@ -118,16 +119,8 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
         />
       </div>
       <button className="epub-reader-controls__nav epub-reader-controls__nav--next" type="button" aria-keyshortcuts="PageDown Space" onClick={() => void reader.next()} disabled={!interactive}>
-        {rtl ? <><NavIcon direction="left" /><span>Next</span></> : <><span>Next</span><NavIcon direction="right" /></>}
+        {rtl ? <><ChevronIcon direction="left" /><span>Next</span></> : <><span>Next</span><ChevronIcon direction="right" /></>}
       </button>
     </div>
-  );
-}
-
-function NavIcon({ direction }: { readonly direction: 'left' | 'right' }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={direction === 'left' ? 'm14.5 6-6 6 6 6' : 'm9.5 6 6 6-6 6'} />
-    </svg>
   );
 }

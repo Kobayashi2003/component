@@ -1,7 +1,8 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type ReaderCompatibilityPreferences } from '../core';
 import { useOptionalEpubReaderContext } from './context';
 import type { EpubReaderHandle } from './model';
+import { ChevronIcon } from './reader-icons';
 
 const FONT_FAMILIES = [
   { value: '', label: 'Publisher default' },
@@ -30,25 +31,32 @@ const MARGIN_PRESETS = [
 
 export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const [advanced, setAdvanced] = useState(false);
+  const rootRef = useRef<HTMLElement | null>(null);
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
   if (!reader) throw new Error('<EpubSettingsPanel> requires a reader prop or EpubReaderProvider.');
   const snapshot = reader.state.reader;
   const preferences = snapshot?.preferences ?? reader.state.preferences;
+  const navigateToAdvanced = (next: boolean) => {
+    const scroller = rootRef.current?.closest<HTMLElement>('.epub-reader-shell__panel-content');
+    if (scroller) scroller.scrollTop = 0;
+    setAdvanced(next);
+  };
   if (advanced && preferences) {
     return (
       <AdvancedReaderSettings
+        rootRef={rootRef}
         reader={reader}
         preferences={preferences.compatibility}
-        onBack={() => setAdvanced(false)}
+        onBack={() => navigateToAdvanced(false)}
       />
     );
   }
   if (!snapshot || !preferences) {
     return (
-      <section className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
+      <section ref={rootRef} className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
         {preferences ? (
-          <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => setAdvanced(true)}>
+          <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => navigateToAdvanced(true)}>
             <span><strong>Advanced settings</strong><small>Recover from a compatibility setting that prevented the book from opening.</small></span>
             <span aria-hidden="true">›</span>
           </button>
@@ -71,7 +79,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
     && (layout === 'mixed' || capabilities?.textCustomization.lineHeight !== false);
 
   return (
-    <section className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
+    <section ref={rootRef} className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
       {showComicSection ? (
         <div className="epub-settings-panel__section epub-settings-panel__comic">
           <div className="epub-settings-panel__head">
@@ -136,12 +144,11 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
             theme: DEFAULT_READER_PREFERENCES.theme,
           })}>Reset</button>
         </div>
-        <div className="epub-settings-panel__theme-grid" role="list" aria-label="Theme presets">
+        <div className="epub-settings-panel__theme-grid" role="group" aria-label="Theme presets">
           {THEMES.map(theme => (
             <button
               key={theme.value}
               type="button"
-              role="listitem"
               className="epub-theme-chip"
               aria-pressed={preferences.theme === theme.value}
               onClick={() => void reader.setPreferences({ theme: theme.value })}
@@ -318,7 +325,7 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
       </div>
 
       <div className="epub-settings-panel__section epub-settings-panel__section--link">
-        <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => setAdvanced(true)}>
+        <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => navigateToAdvanced(true)}>
           <span><strong>Advanced settings</strong><small>Compatibility, local data and troubleshooting</small></span>
           <span aria-hidden="true">›</span>
         </button>
@@ -393,10 +400,12 @@ const COMPATIBILITY_GROUPS = [
 }[];
 
 function AdvancedReaderSettings({
+  rootRef,
   reader,
   preferences,
   onBack,
 }: {
+  readonly rootRef: { current: HTMLElement | null };
   readonly reader: EpubReaderHandle;
   readonly preferences: ReaderCompatibilityPreferences;
   readonly onBack: () => void;
@@ -407,9 +416,9 @@ function AdvancedReaderSettings({
   });
 
   return (
-    <section className="epub-reader-panel epub-settings-panel epub-settings-panel--advanced" aria-label="Advanced reader settings">
+    <section ref={rootRef} className="epub-reader-panel epub-settings-panel epub-settings-panel--advanced" aria-label="Advanced reader settings">
       <div className="epub-settings-panel__advanced-head">
-        <button className="epub-settings-panel__back" type="button" onClick={onBack} aria-label="Back to reader settings">‹</button>
+        <button className="epub-settings-panel__back" type="button" onClick={onBack} aria-label="Back to reader settings"><ChevronIcon direction="left" /></button>
         <div><h3>Advanced settings</h3><span>Compatibility and maintenance</span></div>
       </div>
       <div className="epub-settings-panel__advanced-intro">

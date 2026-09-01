@@ -19,6 +19,11 @@ export function CloseIcon() {
   return <svg className="epub-reader-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>;
 }
 
+export function ChevronIcon({ direction }: { readonly direction: 'left' | 'right' }) {
+  const path = direction === 'left' ? 'm15 6-6 6 6 6' : 'm9 6 6 6-6 6';
+  return <svg className="epub-reader-tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>;
+}
+
 export function FullscreenIcon({ active }: { readonly active: boolean }) {
   const path = active
     ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5'
@@ -30,15 +35,6 @@ export function HistoryIcon({ direction }: { readonly direction: 'back' | 'forwa
   return (
     <svg className="epub-reader-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d={direction === 'back' ? 'M9 7 4 12l5 5M5 12h8a6 6 0 0 1 6 6' : 'm15 7 5 5-5 5M19 12h-8a6 6 0 0 0-6 6'} />
-    </svg>
-  );
-}
-
-export function ChromeIcon({ hidden }: { readonly hidden: boolean }) {
-  return (
-    <svg className="epub-reader-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5" width="16" height="14" rx="2" />
-      <path d={hidden ? 'M8 3v4M16 3v4M8 21v-4M16 21v-4' : 'M8 7V3M16 7V3M8 17v4M16 17v4'} />
     </svg>
   );
 }

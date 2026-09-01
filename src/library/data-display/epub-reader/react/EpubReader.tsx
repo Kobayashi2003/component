@@ -20,8 +20,8 @@ import { useEpubReader } from './use-epub-reader';
 import { feedbackForIntent, type ReaderFeedbackSpec } from './feedback-model';
 import { useCompactReaderLayout } from './responsive';
 import { useDelayedFlag, useHeldValue } from './loading-delay';
-import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId } from './reader-surfaces';
-import { ChromeIcon, CloseIcon, FullscreenIcon, HistoryIcon, MoreIcon, PinIcon, ReaderToolIcon } from './reader-icons';
+import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId, type ReaderSurface } from './reader-surfaces';
+import { CloseIcon, FullscreenIcon, HistoryIcon, MoreIcon, PinIcon, ReaderToolIcon } from './reader-icons';
 import { useReaderChrome, type ReaderChromeControls } from './use-reader-chrome';
 import { shouldLockReaderChrome } from './reader-chrome-model';
 
@@ -52,7 +52,9 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
   const [chromeHoverLocked, setChromeHoverLocked] = useState(false);
   const [chromeFocusLocked, setChromeFocusLocked] = useState(false);
   const [feedback, setFeedback] = useState<(ReaderFeedbackSpec & { readonly id: number }) | null>(null);
+  const [surfaceClosing, setSurfaceClosing] = useState(false);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const surfaceCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackIdRef = useRef(0);
   const panelRef = useRef<HTMLElement | null>(null);
   const footnoteRef = useRef<HTMLElement | null>(null);
@@ -87,10 +89,32 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       });
     });
   }, [viewportId]);
-  const closeSurface = useCallback((withFocus = true) => {
-    const target = surfaceReturnFocus(surfaces.surface);
-    surfaces.close();
-    if (withFocus) restoreFocus(target);
+  const cancelSurfaceClose = useCallback(() => {
+    if (surfaceCloseTimerRef.current != null) clearTimeout(surfaceCloseTimerRef.current);
+    surfaceCloseTimerRef.current = null;
+    setSurfaceClosing(false);
+  }, []);
+  const showSurface = useCallback((next: ReaderSurface) => {
+    cancelSurfaceClose();
+    surfaces.show(next);
+  }, [cancelSurfaceClose, surfaces]);
+  const closeSurface = useCallback((withFocus = true, focusTarget?: HTMLElement | null) => {
+    if (surfaceCloseTimerRef.current != null) return;
+    const target = focusTarget ?? surfaceReturnFocus(surfaces.surface);
+    const finish = () => {
+      surfaceCloseTimerRef.current = null;
+      surfaces.close();
+      setSurfaceClosing(false);
+      if (withFocus) restoreFocus(target);
+    };
+    if (surfaces.surface.kind !== 'panel' && surfaces.surface.kind !== 'footnote') {
+      finish();
+      return;
+    }
+    setSurfaceClosing(true);
+    const reducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    surfaceCloseTimerRef.current = setTimeout(finish, reducedMotion ? 0 : 180);
   }, [restoreFocus, surfaces]);
   /** The element to come back to after a surface opened by a keyboard command. */
   const activeElement = useCallback(
@@ -118,23 +142,23 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       // was there. Nothing has to remember to close the other four.
       if (intent.type === 'open-search') {
         chromeActionsRef.current?.show();
-        surfaces.show({ kind: 'panel', panel: 'search', returnFocus: activeElement() });
+        showSurface({ kind: 'panel', panel: 'search', returnFocus: activeElement() });
       }
       else if (intent.type === 'open-help') {
         chromeActionsRef.current?.show();
-        surfaces.show({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
+        showSurface({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
       }
       else if (intent.type === 'toggle-chrome') {
         if (!surfaces.open) chromeActionsRef.current?.toggle();
       }
       else if (intent.type === 'open-footnote') {
         chromeActionsRef.current?.show();
-        surfaces.show({ kind: 'footnote', source, footnote: intent.footnote, returnFocus: intent.trigger });
+        showSurface({ kind: 'footnote', source, footnote: intent.footnote, returnFocus: intent.trigger });
       }
       else if (intent.type === 'selection-changed') {
         if (intent.activation) {
           chromeActionsRef.current?.show();
-          surfaces.show({ kind: 'selection', activation: intent.activation });
+          showSurface({ kind: 'selection', activation: intent.activation });
         } else if (selectionTool) {
           // Only retract the toolbar; a selection cleared while some other
           // surface is open must not close that one too.
@@ -143,11 +167,11 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       }
       else if (intent.type === 'open-mark') {
         chromeActionsRef.current?.show();
-        surfaces.show({ kind: 'mark', activation: intent.activation });
+        showSurface({ kind: 'mark', activation: intent.activation });
       }
       else if (intent.type === 'open-image') {
         chromeActionsRef.current?.show();
-        surfaces.show({ kind: 'image', activation: intent.activation });
+        showSurface({ kind: 'image', activation: intent.activation });
       }
       else if (intent.type === 'escape') {
         // The engine already dropped any selection before raising this.
@@ -226,6 +250,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
 
   useEffect(() => () => {
     if (feedbackTimerRef.current != null) clearTimeout(feedbackTimerRef.current);
+    if (surfaceCloseTimerRef.current != null) clearTimeout(surfaceCloseTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -382,7 +407,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
 
   const togglePanel = (next: ReaderPanelId, origin: HTMLButtonElement) => {
     if (panel === next) closeSurface();
-    else surfaces.show({ kind: 'panel', panel: next, returnFocus: origin });
+    else showSurface({ kind: 'panel', panel: next, returnFocus: origin });
   };
 
   const handleShellKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -399,7 +424,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
     } else if (event.key === '?' && !event.altKey && !event.ctrlKey && !event.metaKey && !editable) {
       event.preventDefault();
       event.stopPropagation();
-      surfaces.show({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
+      showSurface({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
     }
   };
 
@@ -447,7 +472,6 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
                 panelId={panelId}
                 fullscreen={fullscreen}
                 readerChrome={readerChrome}
-                hideDisabled={surfaces.open || readerChrome.pinned}
                 onTogglePanel={togglePanel}
               />
             ) : (
@@ -468,18 +492,6 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
                   <PinIcon active={readerChrome.pinned} />
                   <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
                 </button>
-                <button
-                  className="epub-reader-shell__tool is-secondary epub-reader-shell__chrome-hide"
-                  type="button"
-                  aria-label="Hide reader controls"
-                  aria-keyshortcuts="C"
-                  title="Hide reader controls (C)"
-                  disabled={surfaces.open || readerChrome.pinned}
-                  onClick={readerChrome.hide}
-                >
-                  <ChromeIcon hidden={false} />
-                  <span>Hide controls</span>
-                </button>
               </>
             )}
             {compatibility ? (
@@ -490,13 +502,13 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
           </div>
         </header>
         <div className={`epub-reader-shell__body${panel ? ' has-panel' : ''}${compactLayout && (panel || footnote) ? ' has-compact-modal' : ''}`}>
-          {compactLayout && (panel || footnote) ? (
+          {panel || footnote ? (
             <button
-              className="epub-reader-shell__modal-scrim"
+              className={`epub-reader-shell__dismiss-layer${compactLayout ? ' is-modal' : ''}${surfaceClosing ? ' is-closing' : ''}`}
               type="button"
               aria-hidden="true"
               tabIndex={-1}
-              onClick={() => closeSurface()}
+              onClick={() => closeSurface(true, document.getElementById(viewportId))}
             />
           ) : null}
           {panel ? (
@@ -504,7 +516,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
               id={panelId}
               key="reader-panel"
               ref={panelRef}
-              className="epub-reader-shell__panel"
+              className={`epub-reader-shell__panel${surfaceClosing ? ' is-closing' : ''}`}
               role={compactLayout ? 'dialog' : undefined}
               aria-modal={compactLayout ? 'true' : undefined}
               aria-labelledby={panelTitleId}
@@ -535,7 +547,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
                             onEditMark={(mark, trigger) => {
                               const shellBounds = shellRef.current?.getBoundingClientRect();
                               const triggerBounds = trigger.getBoundingClientRect();
-                              surfaces.show({
+                              showSurface({
                                 kind: 'mark',
                                 activation: {
                                   mark,
@@ -565,7 +577,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
           {footnote ? (
             <aside
               ref={footnoteRef}
-              className="epub-reader-footnote"
+              className={`epub-reader-footnote${surfaceClosing ? ' is-closing' : ''}`}
               role="dialog"
               aria-modal={compactLayout ? 'true' : 'false'}
               aria-labelledby={`${instanceId}-footnote-title`}
@@ -688,7 +700,6 @@ interface CompactReaderToolsMenuProps {
   readonly panelId: string;
   readonly fullscreen: ReturnType<typeof useEpubReaderFullscreen>;
   readonly readerChrome: ReaderChromeControls;
-  readonly hideDisabled: boolean;
   readonly onTogglePanel: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
 }
 
@@ -698,7 +709,6 @@ function CompactReaderToolsMenu({
   panelId,
   fullscreen,
   readerChrome,
-  hideDisabled,
   onTogglePanel,
 }: CompactReaderToolsMenuProps) {
   const [open, setOpen] = useState(false);
@@ -822,19 +832,6 @@ function CompactReaderToolsMenu({
           >
             <PinIcon active={readerChrome.pinned} />
             <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
-          </button>
-          <button
-            className="epub-reader-shell__tool"
-            type="button"
-            role="menuitem"
-            disabled={hideDisabled}
-            onClick={() => {
-              close();
-              readerChrome.hide();
-            }}
-          >
-            <ChromeIcon hidden={false} />
-            <span>Hide controls</span>
           </button>
         </div>
       ) : null}

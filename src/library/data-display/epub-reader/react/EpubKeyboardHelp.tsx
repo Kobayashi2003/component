@@ -11,8 +11,8 @@ const SHORTCUT_GROUPS = [
   {
     label: 'Reader tools',
     items: [
-      { keys: ['Ctrl/⌘ F'], action: 'Search this book' },
-      { keys: ['Ctrl/⌘ Wheel'], action: 'Adjust text size' },
+      { keys: ['Ctrl / ⌘ F'], action: 'Search this book' },
+      { keys: ['Ctrl / ⌘ Wheel'], action: 'Adjust text size' },
       { keys: ['C'], action: 'Show or hide controls' },
       { keys: ['?'], action: 'Keyboard help' },
       { keys: ['Esc'], action: 'Close the active tool' },

@@ -332,6 +332,7 @@
   /* Keep the action labels on the same visual axis as the seek track. */
   align-self: center;
   transform: translateY(8px);
+  line-height: 1;
 }
 
 .epub-reader-controls__nav:hover:not(:disabled) {
@@ -352,6 +353,7 @@
 .epub-reader-controls.is-rtl .epub-reader-controls__nav--next { justify-content: flex-start; }
 
 .epub-reader-controls__nav svg {
+  display: block;
   width: 18px;
   height: 18px;
   fill: none;
