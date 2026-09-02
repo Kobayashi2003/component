@@ -4,6 +4,7 @@
 
 - `unit/` covers isolated publication models, rendition policy, renderer geometry and lifecycle, locators, navigation, reader services, and React-facing view models.
 - `integration/` covers archive-to-publication loading, resource sessions, React store lifecycle, content compatibility, and conformance reporting.
+- `conformance/browser/interaction.html` runs the real React showcase in headless Chromium and exercises file selection, pagination, panels, keyboard focus, search, and reading-session persistence.
 
 Test filenames describe the behavior under test and use the `*.test.ts` suffix. Tests must not depend on development-stage numbers.
 
@@ -24,6 +25,8 @@ npm run test:unit
 npm run test:integration
 npm run corpus:test
 npm run browser:probe
+npm run browser:interactions
+npm run browser:check
 npm run visual:check
 npm run realworld:bind -- /path/to/book-or-directory
 npm run realworld:test

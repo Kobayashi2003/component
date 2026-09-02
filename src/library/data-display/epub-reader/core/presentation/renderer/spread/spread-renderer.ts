@@ -1,5 +1,6 @@
 import { resolveSpineRendition, type ContentPresentationHints, type Locator, type Publication, type PublicationDiagnostic } from '../../../epub/publication';
 import type { PublicationResourceSession } from '../../../epub/resources';
+import type { PublicationContentDocumentCache } from '../../../epub/content';
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
   planRendition,
@@ -31,6 +32,7 @@ export interface ReadingRendererEnvironment {
   readonly container: HTMLElement;
   readonly publication: Publication;
   readonly resources: PublicationResourceSession;
+  readonly contentDocumentCache?: PublicationContentDocumentCache;
   readonly plannerPolicy?: RenditionPlannerPolicy;
   readonly reflowablePolicy?: ReflowableRendererPolicy;
   readonly fixedLayoutPolicy?: FixedLayoutRendererPolicy;
@@ -400,6 +402,7 @@ function createSingleRenderer(
       container,
       publication: environment.publication,
       resources: environment.resources,
+      contentDocumentCache: environment.contentDocumentCache,
       policy: environment.fixedLayoutPolicy,
       xmlPlatform: environment.xmlPlatform,
       onDiagnostics: environment.onDiagnostics,
@@ -410,6 +413,7 @@ function createSingleRenderer(
     container,
     publication: environment.publication,
     resources: environment.resources,
+    contentDocumentCache: environment.contentDocumentCache,
     policy: environment.reflowablePolicy,
     themeResolver: environment.themeResolver,
     xmlPlatform: environment.xmlPlatform,

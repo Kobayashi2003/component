@@ -268,7 +268,7 @@ async function main() {
   assert(host.maxConcurrentPresentations === 1, 'relayout must not overlap publication navigation');
   assert(host.state.plan?.spineIndex === 2, 'relayout after navigation must preserve the destination spine');
 
-  const external: string[] = [];
+  const external: import('../../core/interaction/navigation').ExternalLinkTarget[] = [];
   const blocked: string[] = [];
   let clickListener: ((event: Event) => void) | null = null;
   const linkDocument = {
@@ -291,7 +291,7 @@ async function main() {
   };
   click('https://example.com/book');
   click('javascript:alert(1)');
-  assert(external.length === 1 && external[0] === 'https://example.com/book', 'HTTP links should reach the explicit host callback');
+  assert(external.length === 1 && external[0]?.href === 'https://example.com/book' && external[0].kind === 'website', 'HTTP links should reach the explicit host callback as approved targets');
   assert(blocked.length === 1 && blocked[0] === 'javascript:alert(1)', 'executable and unsupported schemes must never reach the external-link callback');
   linkRouter.dispose();
 

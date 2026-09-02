@@ -17,8 +17,9 @@ import type { ReaderTheme } from '../../core';
 import { EpubSelectionToolbar } from '../overlays/EpubSelectionToolbar';
 import { EpubMarkPopover } from '../overlays/EpubMarkPopover';
 import { EpubImageViewer } from '../overlays/EpubImageViewer';
+import { EpubExternalLinkDialog } from '../overlays/EpubExternalLinkDialog';
 import { useEpubReader } from '../state/use-epub-reader';
-import { feedbackForIntent, type ReaderFeedbackSpec } from '../chrome/feedback-model';
+import { feedbackForReaderEvent, type ReaderFeedbackSpec } from '../chrome/feedback-model';
 import { useCompactReaderLayout } from '../chrome/responsive';
 import { useDelayedFlag, useHeldValue } from '../chrome/loading-delay';
 import { surfaceReturnFocus, useReaderSurfaces, type ReaderPanelId, type ReaderSurface } from '../chrome/reader-surfaces';
@@ -38,11 +39,11 @@ export interface EpubReaderProps {
 export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const compactLayout = useCompactReaderLayout(shellRef);
-  // Panels, footnotes, the selection toolbar, mark popovers and the image
-  // viewer are one thing: the surface currently over the page. Holding them as
+  // Panels, footnotes, selection tools, mark popovers, image viewing and link
+  // confirmation are one thing: the surface currently over the page. Holding them as
   // a single value is what makes them mutually exclusive — see reader-surfaces.
   const surfaces = useReaderSurfaces(source);
-  const { panel, footnote, selection: selectionTool, mark: activeMark, image: activeImage } = surfaces;
+  const { panel, footnote, selection: selectionTool, mark: activeMark, image: activeImage, externalLink } = surfaces;
   const [chromeHoverLocked, setChromeHoverLocked] = useState(false);
   const [chromeFocusLocked, setChromeFocusLocked] = useState(false);
   const [feedback, setFeedback] = useState<(ReaderFeedbackSpec & { readonly id: number }) | null>(null);
@@ -123,59 +124,64 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       showFeedback({ message: 'That did not work. Try again.', tone: 'boundary' });
       readerOptions?.onError?.(error);
     },
-    onExternalLink: href => {
-      if (readerOptions?.onExternalLink) readerOptions.onExternalLink(href);
-      else showFeedback({ message: 'External link opening is not enabled.', tone: 'boundary' });
+    onExternalLink: target => {
+      if (readerOptions?.onExternalLink) readerOptions.onExternalLink(target);
+      else {
+        chromeActionsRef.current?.show();
+        showSurface({ kind: 'external-link', source, target, returnFocus: activeElement() });
+      }
     },
     onUnresolvedPublicationLink: href => {
       showFeedback({ message: 'This book link could not be opened.', tone: 'boundary' });
       readerOptions?.onUnresolvedPublicationLink?.(href);
     },
-    onIntent: intent => {
-      // Every branch that opens something calls `show`, which replaces whatever
-      // was there. Nothing has to remember to close the other four.
-      if (intent.type === 'open-search') {
+    onCommand: command => {
+      if (command.type === 'open-search') {
         chromeActionsRef.current?.show();
         showSurface({ kind: 'panel', panel: 'search', returnFocus: activeElement() });
       }
-      else if (intent.type === 'open-help') {
+      else if (command.type === 'open-help') {
         chromeActionsRef.current?.show();
         showSurface({ kind: 'panel', panel: 'help', returnFocus: activeElement() });
       }
-      else if (intent.type === 'toggle-chrome') {
+      else if (command.type === 'toggle-chrome') {
         if (!surfaces.open) chromeActionsRef.current?.toggle();
       }
-      else if (intent.type === 'open-footnote') {
-        chromeActionsRef.current?.show();
-        showSurface({ kind: 'footnote', source, footnote: intent.footnote, returnFocus: intent.trigger });
+      else if (command.type === 'escape') {
+        closeSurface();
       }
-      else if (intent.type === 'selection-changed') {
-        if (intent.activation) {
+      readerOptions?.onCommand?.(command);
+    },
+    onEvent: event => {
+      // Every branch that opens something calls `show`, which replaces whatever
+      // was there. Nothing has to remember to close the other four.
+      if (event.type === 'footnote-activated') {
+        chromeActionsRef.current?.show();
+        showSurface({ kind: 'footnote', source, footnote: event.footnote, returnFocus: event.trigger });
+      }
+      else if (event.type === 'selection-changed') {
+        if (event.activation) {
           chromeActionsRef.current?.show();
-          showSurface({ kind: 'selection', activation: intent.activation });
+          showSurface({ kind: 'selection', activation: event.activation });
         } else if (selectionTool) {
           // Only retract the toolbar; a selection cleared while some other
           // surface is open must not close that one too.
           surfaces.close();
         }
       }
-      else if (intent.type === 'open-mark') {
+      else if (event.type === 'mark-activated') {
         chromeActionsRef.current?.show();
-        showSurface({ kind: 'mark', activation: intent.activation });
+        showSurface({ kind: 'mark', activation: event.activation });
       }
-      else if (intent.type === 'open-image') {
+      else if (event.type === 'image-activated') {
         chromeActionsRef.current?.show();
-        showSurface({ kind: 'image', activation: intent.activation });
-      }
-      else if (intent.type === 'escape') {
-        // The engine already dropped any selection before raising this.
-        closeSurface();
+        showSurface({ kind: 'image', activation: event.activation });
       }
       else {
-        const nextFeedback = feedbackForIntent(intent);
+        const nextFeedback = feedbackForReaderEvent(event);
         if (nextFeedback) showFeedback(nextFeedback);
       }
-      readerOptions?.onIntent?.(intent);
+      readerOptions?.onEvent?.(event);
     },
   });
   const activePanel = READER_PANELS.find(item => item.id === panel);
@@ -229,6 +235,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
     onError: () => showFeedback({ message: 'Full screen is not available.', tone: 'boundary' }),
   });
   const chromeHidden = !readerChrome.visible;
+  const modalOverlayOpen = Boolean(activeImage || externalLink);
 
   useEffect(() => {
     chromeActionsRef.current = readerChrome;
@@ -358,7 +365,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
   }, [compactLayout, footnote, panel]);
 
   useEffect(() => {
-    if (!activeImage) return;
+    if (!modalOverlayOpen) return;
     const shell = shellRef.current;
     if (!shell) return;
     const isolated = [shell.querySelector<HTMLElement>('.epub-reader-shell__body')]
@@ -373,7 +380,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
         element.removeAttribute('aria-hidden');
       }
     };
-  }, [activeImage]);
+  }, [modalOverlayOpen]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -382,7 +389,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar'),
       shell.querySelector<HTMLElement>('.epub-reader-controls'),
     ].filter((element): element is HTMLElement => Boolean(element));
-    const inert = chromeHidden || (compactLayout && Boolean(panel || footnote)) || Boolean(activeImage);
+    const inert = chromeHidden || (compactLayout && Boolean(panel || footnote)) || modalOverlayOpen;
     if (inert && bars.some(element => element.contains(document.activeElement))) {
       document.getElementById(viewportId)?.focus({ preventScroll: true });
     }
@@ -397,7 +404,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
         element.removeAttribute('aria-hidden');
       }
     };
-  }, [activeImage, chromeHidden, compactLayout, footnote, panel, viewportId]);
+  }, [chromeHidden, compactLayout, footnote, modalOverlayOpen, panel, viewportId]);
 
   const togglePanel = (next: ReaderPanelId, origin: HTMLButtonElement) => {
     if (panel === next) closeSurface();
@@ -439,6 +446,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
         data-selection-tools-open={selectionTool ? 'true' : undefined}
         data-mark-open={activeMark ? 'true' : undefined}
         data-image-open={activeImage ? 'true' : undefined}
+        data-external-link-open={externalLink ? 'true' : undefined}
         onKeyDownCapture={handleShellKeyDown}
       >
         <a className="epub-reader-skip-link" href={`#${viewportId}`}>Skip to reading content</a>
@@ -629,6 +637,9 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
             activation={activeImage}
             onClose={(withFocus = false) => closeSurface(withFocus)}
           />
+        ) : null}
+        {externalLink ? (
+          <EpubExternalLinkDialog target={externalLink} onClose={(withFocus = true) => closeSurface(withFocus)} />
         ) : null}
         {feedback ? <EpubReaderFeedback feedback={feedback} feedbackId={feedback.id} /> : null}
       </div>

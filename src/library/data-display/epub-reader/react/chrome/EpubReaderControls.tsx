@@ -1,7 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import type { EpubReaderHandle } from '../state/model';
 import { useOptionalEpubReaderContext } from '../reader/context';
-import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from './controls-model';
+import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../core';
 import { ChevronIcon } from './reader-icons';
 
 export function EpubReaderControls({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {

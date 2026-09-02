@@ -1,11 +1,11 @@
 import type { BrowserXmlPlatform } from '../../epub/content';
 import { BrowserDomXmlPlatform, parseXhtmlContentDocument } from '../../epub/content';
-import { createCompositeLocator } from '../../interaction/locator';
+import { createDomPath, createEpubCfi, parseEpubCfi } from '../../interaction/locator';
 import type { Publication } from '../../epub/publication';
 import type { PublicationResourceSession } from '../../epub/resources';
 import { decodePublicationText } from '../../epub/resources';
 import { buildSemanticTextProjection, type SemanticTextSegment } from '../../epub/text';
-import type { SearchDocument, SearchDocumentProvider } from './model';
+import type { SearchDocument, SearchDocumentProvider, SearchTextSegment } from './model';
 
 export class BrowserPublicationSearchProvider implements SearchDocumentProvider {
   constructor(
@@ -43,24 +43,14 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
     if (!root) return null;
     const projection = buildSemanticTextProjection(parsed, root);
     const text = projection.text;
+    const segments = projection.segments.map(segment => lightweightSegment(parsed, item, segment));
 
     return {
       spineIndex,
       href: item.href,
       text,
       diagnostics: parsedContent.diagnostics,
-      locatorRange: (start, end) => {
-        const startPoint = pointAt(projection.segments, Math.max(0, Math.min(text.length, start)), false);
-        const endPoint = pointAt(projection.segments, Math.max(0, Math.min(text.length, end)), true);
-        if (!startPoint || !endPoint) {
-          const base = { href: item.href, spineIndex, locations: { progression: text.length ? start / text.length : 0 } };
-          return { start: base, end: { ...base, locations: { progression: text.length ? end / text.length : 0 } } };
-        }
-        return {
-          start: createCompositeLocator(parsed, this.publication, spineIndex, item.href, text.length ? start / text.length : 0, startPoint),
-          end: createCompositeLocator(parsed, this.publication, spineIndex, item.href, text.length ? end / text.length : 0, endPoint),
-        };
-      },
+      segments,
     };
   }
 }
@@ -70,16 +60,38 @@ function throwIfAborted(signal: AbortSignal): void {
   throw signal.reason instanceof Error ? signal.reason : new DOMException('Search aborted.', 'AbortError');
 }
 
-function pointAt(segments: readonly SemanticTextSegment[], offset: number, endBias: boolean) {
-  if (segments.length === 0) return null;
-  let segment = segments.find(candidate => offset >= candidate.start && offset <= candidate.end);
-  if (!segment) {
-    if (endBias) segment = [...segments].reverse().find(candidate => candidate.end <= offset);
-    else segment = segments.find(candidate => candidate.start >= offset);
+function lightweightSegment(
+  document: Document,
+  item: Publication['spine'][number],
+  segment: SemanticTextSegment,
+): SearchTextSegment {
+  const point = { node: segment.node, offset: 0 };
+  let cfi: SearchTextSegment['cfi'];
+  try {
+    const parsed = parseEpubCfi(createEpubCfi(item, document, point));
+    cfi = { packagePath: parsed.packagePath, contentPath: parsed.contentPath };
+  } catch {
+    // Text quote, DOM path and progression remain independent restore channels.
   }
-  segment ??= endBias ? segments[segments.length - 1]! : segments[0]!;
-  const local = Math.max(0, Math.min(segment.sourceBoundaries.length - 1, offset - segment.start));
-  return { node: segment.node, offset: segment.sourceBoundaries[local] ?? 0 };
+  const dom = createDomPath(document, point);
+  const fragment = nearestElementId(segment.node);
+  return {
+    start: segment.start,
+    end: segment.end,
+    sourceBoundaries: [...segment.sourceBoundaries],
+    ...(cfi ? { cfi } : {}),
+    ...(fragment ? { fragment } : {}),
+    ...(dom ? { dom } : {}),
+  };
+}
+
+function nearestElementId(node: Node): string | undefined {
+  let element = node.nodeType === 1 ? node as Element : node.parentElement;
+  while (element) {
+    if (element.id) return element.id;
+    element = element.parentElement;
+  }
+  return undefined;
 }
 
 function removeExecutableScripts(document: Document): void {

@@ -2,6 +2,7 @@ import {
   BrowserDomXmlPlatform,
   materializeXhtmlSpineItem,
   type BrowserXmlPlatform,
+  type PublicationContentDocumentCache,
 } from '../../../epub/content';
 import type { ContentPresentationHints, Locator, Publication } from '../../../epub/publication';
 import { createCompositeLocator, resolveCompositeLocator } from '../../../interaction/locator';
@@ -42,6 +43,7 @@ export interface ReflowableRendererEnvironment {
   readonly container: HTMLElement;
   readonly publication: Publication;
   readonly resources: PublicationResourceSession;
+  readonly contentDocumentCache?: PublicationContentDocumentCache;
   readonly policy?: ReflowableRendererPolicy;
   readonly createSurface?: () => ContentSurface;
   readonly xmlPlatform?: BrowserXmlPlatform;
@@ -105,16 +107,21 @@ export class ReflowableRenderer implements RendererInstance {
 
     const ownerDocument = this.environment.container.ownerDocument;
     const platform = this.environment.xmlPlatform ?? new BrowserDomXmlPlatform(ownerDocument);
-    const materialized = await materializeXhtmlSpineItem(
-      item,
-      this.environment.resources,
-      platform,
-      {
-        disableScripts: true,
-        annotateLinks: true,
-        recoverMalformedXhtml: plan.preferences.compatibility.recoverMalformedXhtml,
-      },
-    );
+    const materialized = this.environment.contentDocumentCache
+      ? await this.environment.contentDocumentCache.materialize(
+        item,
+        plan.preferences.compatibility.recoverMalformedXhtml,
+      )
+      : await materializeXhtmlSpineItem(
+        item,
+        this.environment.resources,
+        platform,
+        {
+          disableScripts: true,
+          annotateLinks: true,
+          recoverMalformedXhtml: plan.preferences.compatibility.recoverMalformedXhtml,
+        },
+      );
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);
     if (plan.overflow.value === 'scrolled-continuous') {

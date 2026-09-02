@@ -19,6 +19,95 @@ export interface PublicationContentPreflightResult {
   readonly diagnostics: readonly PublicationDiagnostic[];
 }
 
+interface PublicationContentPreflightItemResult {
+  readonly item: Publication['spine'][number];
+  readonly hint?: ContentPresentationHints;
+  readonly diagnostics: readonly PublicationDiagnostic[];
+}
+
+/**
+ * Deduplicated, publication-scoped content inspection. Callers can inspect a
+ * small render-critical window first and reuse the same per-item work while a
+ * later background pass completes the publication profile.
+ */
+export class PublicationContentPreflightSession {
+  private readonly controller = new AbortController();
+  private readonly itemResults = new Map<number, Promise<PublicationContentPreflightItemResult>>();
+  private readonly stylesheetCache = new Map<PublicationPath, Promise<string>>();
+  private detachParentSignalCallback: (() => void) | null;
+  private disposed = false;
+
+  constructor(
+    private readonly archive: PublicationArchive,
+    private readonly publication: Publication,
+    parentSignal?: AbortSignal,
+  ) {
+    const abortFromParent = () => this.controller.abort(parentSignal?.reason);
+    if (parentSignal?.aborted) {
+      abortFromParent();
+      this.detachParentSignalCallback = null;
+    } else if (parentSignal) {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+      this.detachParentSignalCallback = () => parentSignal.removeEventListener('abort', abortFromParent);
+    } else {
+      this.detachParentSignalCallback = null;
+    }
+  }
+
+  async inspect(spineIndexes: readonly number[] = this.publication.spine.map(item => item.index)): Promise<PublicationContentPreflightResult> {
+    this.assertAlive();
+    throwIfAborted(this.controller.signal);
+    const indexes = [...new Set(spineIndexes)].sort((a, b) => a - b);
+    const items = indexes.map(index => {
+      const item = this.publication.spine[index];
+      if (!item) throw new RangeError(`Spine index ${index} is outside the publication.`);
+      return item;
+    });
+    const results = await mapWithConcurrency(items, 4, item => this.resultFor(item));
+    const hints = new Map<number, ContentPresentationHints>();
+    const diagnostics: PublicationDiagnostic[] = [];
+    for (const result of results) {
+      if (result.hint) hints.set(result.item.index, result.hint);
+      diagnostics.push(...result.diagnostics);
+    }
+    return { hints, diagnostics };
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.detachParentSignal();
+    this.controller.abort(new DOMException('Publication preflight session disposed.', 'AbortError'));
+    this.itemResults.clear();
+    this.stylesheetCache.clear();
+  }
+
+  /** Opening cancellation stops owning the session after the reader is ready. */
+  detachParentSignal(): void {
+    this.detachParentSignalCallback?.();
+    this.detachParentSignalCallback = null;
+  }
+
+  private resultFor(item: Publication['spine'][number]): Promise<PublicationContentPreflightItemResult> {
+    let pending = this.itemResults.get(item.index);
+    if (!pending) {
+      pending = inspectPublicationContentItem(
+        this.archive,
+        this.publication,
+        item,
+        this.stylesheetCache,
+        this.controller.signal,
+      );
+      this.itemResults.set(item.index, pending);
+    }
+    return pending;
+  }
+
+  private assertAlive(): void {
+    if (this.disposed) throw new Error('PublicationContentPreflightSession has been disposed.');
+  }
+}
+
 /**
  * Inspect content before the first renderer plan. This intentionally handles a
  * narrow but high-value CSS subset (html/body class/id + writing-mode/direction)
@@ -30,122 +119,123 @@ export async function preflightPublicationContent(
   publication: Publication,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<PublicationContentPreflightResult> {
-  const hints = new Map<number, ContentPresentationHints>();
-  const diagnostics: PublicationDiagnostic[] = [];
-  const stylesheetCache = new Map<PublicationPath, Promise<string>>();
-  const results = await mapWithConcurrency(publication.spine, 4, async item => {
-    throwIfAborted(signal);
-    const itemDiagnostics: PublicationDiagnostic[] = [];
-    if (!item.path || item.remote || !archive.has(item.path)) return { item, diagnostics: itemDiagnostics };
-    const media = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-    if (media !== 'application/xhtml+xml' && media !== 'text/html' && media !== 'image/svg+xml') return { item, diagnostics: itemDiagnostics };
+  const session = new PublicationContentPreflightSession(archive, publication, signal);
+  try {
+    return await session.inspect();
+  } finally {
+    session.dispose();
+  }
+}
 
-    try {
-      if (media === 'image/svg+xml') {
-        const source = await archive.readText(item.path);
-        throwIfAborted(signal);
-        const parsed = parseXml(source, item.path, 'content');
-        itemDiagnostics.push(...parsed.diagnostics);
-        if (!parsed.root) return { item, diagnostics: itemDiagnostics };
-        const viewport = svgViewport(parsed.root);
-        const hint: ContentPresentationHints = {
-          ...(viewport ? { viewport } : {}),
-          page: {
-            kind: 'single-svg-page',
-            pageLike: true,
-            semanticTextLength: semanticXmlText(parsed.root).length,
-            replacedElementCount: 1,
-            ...(viewport ? { intrinsicViewport: viewport } : {}),
-          },
-        };
-        return { item, hint, diagnostics: itemDiagnostics };
-      }
+async function inspectPublicationContentItem(
+  archive: PublicationArchive,
+  publication: Publication,
+  item: Publication['spine'][number],
+  stylesheetCache: Map<PublicationPath, Promise<string>>,
+  signal: AbortSignal,
+): Promise<PublicationContentPreflightItemResult> {
+  throwIfAborted(signal);
+  const itemDiagnostics: PublicationDiagnostic[] = [];
+  if (!item.path || item.remote || !archive.has(item.path)) return { item, diagnostics: itemDiagnostics };
+  const media = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
+  if (media !== 'application/xhtml+xml' && media !== 'text/html' && media !== 'image/svg+xml') return { item, diagnostics: itemDiagnostics };
 
+  try {
+    if (media === 'image/svg+xml') {
       const source = await archive.readText(item.path);
       throwIfAborted(signal);
       const parsed = parseXml(source, item.path, 'content');
-      // Preflight is advisory. Browser materialization has an HTML-parser
-      // compatibility fallback, so XML well-formedness failures here must not
-      // prematurely classify an otherwise recoverable book as degraded.
-      itemDiagnostics.push(...parsed.diagnostics.map(diagnostic => diagnostic.severity === 'error'
-        ? { ...diagnostic, severity: 'warning' as const }
-        : diagnostic));
+      itemDiagnostics.push(...parsed.diagnostics);
       if (!parsed.root) return { item, diagnostics: itemDiagnostics };
-      const html = parsed.root;
-      const body = findFirst(html, 'body') ?? html;
-      const css = await collectDocumentCss(archive, item.path, html, itemDiagnostics, stylesheetCache);
-      throwIfAborted(signal);
-      const presentation = inspectPresentation(html, body, css);
-      const page = await classifyPage(archive, item.path, body, resolveSpineRendition(publication, item).layout === 'reflowable', itemDiagnostics);
-      throwIfAborted(signal);
+      const viewport = svgViewport(parsed.root);
       const hint: ContentPresentationHints = {
-        ...(presentation.writingMode ? { writingMode: presentation.writingMode } : {}),
-        ...(presentation.direction ? { direction: presentation.direction } : {}),
-        ...(page.intrinsicViewport ? { viewport: page.intrinsicViewport } : {}),
-        page,
+        ...(viewport ? { viewport } : {}),
+        page: {
+          kind: 'single-svg-page',
+          pageLike: true,
+          semanticTextLength: semanticXmlText(parsed.root).length,
+          replacedElementCount: 1,
+          ...(viewport ? { intrinsicViewport: viewport } : {}),
+        },
       };
-
-      if (presentation.legacyWritingMode) {
-        itemDiagnostics.push({
-          code: 'CONTENT_PREFLIGHT_LEGACY_WRITING_MODE',
-          severity: 'info',
-          phase: 'compatibility',
-          path: item.path,
-          spineIndex: item.index,
-          message: `Resolved ${presentation.writingMode} from a legacy -epub/-webkit writing-mode declaration before rendering.`,
-          repair: {
-            strategy: 'interpret-legacy-epub-writing-mode',
-            description: 'Treat legacy EPUB/WebKit writing-mode declarations as their standard CSS writing-mode equivalent.',
-            confidence: 0.99,
-          },
-        });
-      }
-
-      if (page.pageLike && resolveSpineRendition(publication, item).layout === 'reflowable') {
-        itemDiagnostics.push({
-          code: page.likelySpanningSpread
-            ? 'CONTENT_REFLOWABLE_UNMARKED_SPANNING_IMAGE'
-            : 'CONTENT_REFLOWABLE_PAGE_LIKE_IMAGE',
-          severity: 'info',
-          phase: 'compatibility',
-          path: item.path,
-          spineIndex: item.index,
-          message: page.likelySpanningSpread
-            ? 'A reflowable spine item is structurally a single landscape image and is treated as an unmarked spread-sized page.'
-            : 'A reflowable spine item is structurally a single image page and may participate in cross-spine page composition.',
-          repair: {
-            strategy: page.likelySpanningSpread
-              ? 'classify-reflowable-image-as-spanning-page'
-              : 'classify-reflowable-image-as-page-like',
-            description: 'Preserve the authored reflowable declaration while using content structure to choose a page-like spread execution strategy.',
-            confidence: page.likelySpanningSpread ? 0.9 : 0.96,
-          },
-        });
-      }
       return { item, hint, diagnostics: itemDiagnostics };
-    } catch (cause) {
-      if (signal.aborted) throw cause;
+    }
+
+    const source = await archive.readText(item.path);
+    throwIfAborted(signal);
+    const parsed = parseXml(source, item.path, 'content');
+    // Preflight is advisory. Browser materialization has an HTML-parser
+    // compatibility fallback, so XML well-formedness failures here must not
+    // prematurely classify an otherwise recoverable book as degraded.
+    itemDiagnostics.push(...parsed.diagnostics.map(diagnostic => diagnostic.severity === 'error'
+      ? { ...diagnostic, severity: 'warning' as const }
+      : diagnostic));
+    if (!parsed.root) return { item, diagnostics: itemDiagnostics };
+    const html = parsed.root;
+    const body = findFirst(html, 'body') ?? html;
+    const css = await collectDocumentCss(archive, item.path, html, itemDiagnostics, stylesheetCache);
+    throwIfAborted(signal);
+    const presentation = inspectPresentation(html, body, css);
+    const page = await classifyPage(archive, item.path, body, resolveSpineRendition(publication, item).layout === 'reflowable', itemDiagnostics);
+    throwIfAborted(signal);
+    const hint: ContentPresentationHints = {
+      ...(presentation.writingMode ? { writingMode: presentation.writingMode } : {}),
+      ...(presentation.direction ? { direction: presentation.direction } : {}),
+      ...(page.intrinsicViewport ? { viewport: page.intrinsicViewport } : {}),
+      page,
+    };
+
+    if (presentation.legacyWritingMode) {
       itemDiagnostics.push({
-        code: 'CONTENT_PREFLIGHT_FAILED',
-        severity: 'warning',
-        phase: 'content',
+        code: 'CONTENT_PREFLIGHT_LEGACY_WRITING_MODE',
+        severity: 'info',
+        phase: 'compatibility',
         path: item.path,
         spineIndex: item.index,
-        message: `Content preflight failed for ${item.path}; renderer-side inspection will remain available.`,
-        cause,
+        message: `Resolved ${presentation.writingMode} from a legacy -epub/-webkit writing-mode declaration before rendering.`,
+        repair: {
+          strategy: 'interpret-legacy-epub-writing-mode',
+          description: 'Treat legacy EPUB/WebKit writing-mode declarations as their standard CSS writing-mode equivalent.',
+          confidence: 0.99,
+        },
       });
-      return { item, diagnostics: itemDiagnostics };
     }
-  });
 
-  // Workers run concurrently, but externally visible diagnostics and hints
-  // retain authored spine order for deterministic reports and tests.
-  for (const result of results) {
-    if (result.hint) hints.set(result.item.index, result.hint);
-    diagnostics.push(...result.diagnostics);
+    if (page.pageLike && resolveSpineRendition(publication, item).layout === 'reflowable') {
+      itemDiagnostics.push({
+        code: page.likelySpanningSpread
+          ? 'CONTENT_REFLOWABLE_UNMARKED_SPANNING_IMAGE'
+          : 'CONTENT_REFLOWABLE_PAGE_LIKE_IMAGE',
+        severity: 'info',
+        phase: 'compatibility',
+        path: item.path,
+        spineIndex: item.index,
+        message: page.likelySpanningSpread
+          ? 'A reflowable spine item is structurally a single landscape image and is treated as an unmarked spread-sized page.'
+          : 'A reflowable spine item is structurally a single image page and may participate in cross-spine page composition.',
+        repair: {
+          strategy: page.likelySpanningSpread
+            ? 'classify-reflowable-image-as-spanning-page'
+            : 'classify-reflowable-image-as-page-like',
+          description: 'Preserve the authored reflowable declaration while using content structure to choose a page-like spread execution strategy.',
+          confidence: page.likelySpanningSpread ? 0.9 : 0.96,
+        },
+      });
+    }
+    return { item, hint, diagnostics: itemDiagnostics };
+  } catch (cause) {
+    if (signal.aborted) throw cause;
+    itemDiagnostics.push({
+      code: 'CONTENT_PREFLIGHT_FAILED',
+      severity: 'warning',
+      phase: 'content',
+      path: item.path,
+      spineIndex: item.index,
+      message: `Content preflight failed for ${item.path}; renderer-side inspection will remain available.`,
+      cause,
+    });
+    return { item, diagnostics: itemDiagnostics };
   }
-
-  return { hints, diagnostics };
 }
 
 function throwIfAborted(signal: AbortSignal): void {

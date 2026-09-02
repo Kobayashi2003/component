@@ -3,7 +3,7 @@ import { MemoryReaderMarkStore, ReaderMarkController, type ReaderMark, type Read
 import { ReaderThemeRegistry } from '../../presentation/appearance';
 import { OcfZipArchive } from '../../epub/archive';
 import { createCompatibilityReport } from '../../epub/compatibility';
-import { BrowserDomXmlPlatform, preflightPublicationContent } from '../../epub/content';
+import { BrowserDomXmlPlatform, PublicationContentDocumentCache, PublicationContentPreflightSession, type PublicationContentPreflightResult } from '../../epub/content';
 import { ReaderDecorationController } from '../../features/decorations';
 import { BrowserReaderInputRouter, ReaderInputController } from '../../interaction/input';
 import { locatorAtResourceStart } from '../../interaction/locator';
@@ -41,7 +41,7 @@ import type {
   ReaderPublicationPresentation,
 } from './model';
 import { PublicationDiagnosticCollector } from './diagnostic-collector';
-import { addBookmarkAndNotify } from './bookmark-intent';
+import { addBookmarkAndNotify } from './bookmark-event';
 
 type SnapshotListener = () => void;
 
@@ -67,13 +67,15 @@ export class BrowserEpubReader {
   private readonly cleanups: (() => void)[] = [];
   private readonly hints: Map<number, ContentPresentationHints>;
   /**
-   * Resolved once from the publication and its content preflight. Renderer
-   * plans are per spine item; this deliberately is not, so product chrome has
-   * something that survives a page turn into a differently-rendered page.
+   * Package-level layout/chrome remain stable. Dominant writing mode starts
+   * from the critical preflight window and is refined once after the staged
+   * publication scan; it never tracks page-by-page renderer changes.
    */
-  private readonly presentation: ReaderPublicationPresentation;
+  private presentation: ReaderPublicationPresentation;
   private readonly plannerPolicy: RenditionPlannerPolicy;
   private readonly resources: PublicationResourceSession;
+  private readonly contentPreflight: PublicationContentPreflightSession;
+  private readonly contentDocumentCache: PublicationContentDocumentCache;
   private readonly host: RendererHost;
   private readonly navigator: ReaderNavigator;
   private readonly navigationHistory = new ReaderNavigationHistory();
@@ -86,8 +88,9 @@ export class BrowserEpubReader {
   private readonly selectionRouter: BrowserReaderSelectionRouter;
   private readonly mediaRouter: BrowserPublicationMediaRouter;
   private readonly selectionPollTimer: number | null;
+  private cancelBackgroundPreflight: (() => void) | null = null;
   private readonly themeRegistry: ReaderThemeRegistry;
-  private readonly uiIntent: BrowserEpubReaderOptions['onIntent'];
+  private readonly readerEvent: BrowserEpubReaderOptions['onEvent'];
   private readonly diagnostics: PublicationDiagnosticCollector;
   private preferences: ReaderPreferences;
   private viewport: ViewportMetrics;
@@ -105,13 +108,15 @@ export class BrowserEpubReader {
     readonly publication: import('../../epub/publication').Publication,
     private readonly container: HTMLElement,
     resources: PublicationResourceSession,
+    contentPreflight: PublicationContentPreflightSession,
     diagnostics: readonly PublicationDiagnostic[],
     initialHints: ReadonlyMap<number, ContentPresentationHints>,
     preferences: ReaderPreferences,
     viewport: ViewportMetrics,
-    options: BrowserEpubReaderOptions,
+    private readonly options: BrowserEpubReaderOptions,
   ) {
     this.resources = resources;
+    this.contentPreflight = contentPreflight;
     this.hints = new Map(initialHints);
     // Built from preflight hints only. Renderer feedback keeps refining
     // `this.hints` per spine item, but the publication-level answer must not
@@ -121,18 +126,25 @@ export class BrowserEpubReader {
     this.preferences = preferences;
     this.viewport = viewport;
     this.plannerPolicy = mergePlannerPolicy(options.plannerPolicy);
-    this.uiIntent = options.onIntent;
+    this.readerEvent = options.onEvent;
     this.themeRegistry = options.themeRegistry ?? new ReaderThemeRegistry();
     this.markStore = options.markStore ?? new MemoryReaderMarkStore();
+
+    const xmlPlatform = new BrowserDomXmlPlatform(container.ownerDocument);
+    this.contentDocumentCache = new PublicationContentDocumentCache(resources, xmlPlatform, {
+      policy: options.contentDocumentCachePolicy,
+      preferredSpineIndex: () => this.pendingNavigationLocator?.spineIndex ?? this.locator?.spineIndex ?? null,
+    });
 
     this.host = new RendererHost(createReadingRendererFactories({
       container,
       publication,
       resources,
+      contentDocumentCache: this.contentDocumentCache,
       plannerPolicy: this.plannerPolicy,
-      xmlPlatform: new BrowserDomXmlPlatform(container.ownerDocument),
+      xmlPlatform,
       themeResolver: this.themeRegistry,
-      onDiagnostics: next => this.appendDiagnostics(next, options),
+      onDiagnostics: next => this.appendDiagnostics(next, this.options),
       contentHintsForSpine: spineIndex => this.hints.get(spineIndex),
       onPresentationHints: (spineIndex, hints) => {
         this.hints.set(spineIndex, mergeHints(this.hints.get(spineIndex), hints));
@@ -151,20 +163,24 @@ export class BrowserEpubReader {
       undefined,
       () => this.preferences.compatibility.recoverMalformedXhtml,
     );
+    const publicationSearch = new PublicationSearch(publication, searchProvider, {
+      cache: options.searchCachePolicy,
+      preferredSpineIndex: () => this.locator?.spineIndex ?? this.host.state.plan?.spineIndex ?? null,
+    });
     this.searchController = new ReaderSearchController(
-      new PublicationSearch(publication, searchProvider),
+      publicationSearch,
       this.navigator,
     );
     this.markController = new ReaderMarkController(this.markStore, this.host, this.navigator);
     this.decorations = new ReaderDecorationController(publication, this.host, this.markStore, undefined, activation => {
       const mark = this.markStore.snapshot().marks.find(candidate => candidate.id === activation.decoration.id);
-      if (!mark || mark.kind === 'bookmark' || !this.uiIntent) return false;
+      if (!mark || mark.kind === 'bookmark' || !this.readerEvent) return false;
       const surfaceRect = activation.context.surfaceElement.getBoundingClientRect();
       const containerRect = this.container.getBoundingClientRect();
       const viewportWidth = activation.context.document.defaultView?.innerWidth || activation.context.surfaceElement.clientWidth || surfaceRect.width;
       const viewportHeight = activation.context.document.defaultView?.innerHeight || activation.context.surfaceElement.clientHeight || surfaceRect.height;
-      this.uiIntent({
-        type: 'open-mark',
+      this.readerEvent({
+        type: 'mark-activated',
         activation: {
           mark,
           anchor: {
@@ -186,25 +202,13 @@ export class BrowserEpubReader {
         next: () => this.next(),
         previous: () => this.previous(),
       },
-      openSearch: () => {
+      hostCommand: command => {
         if (this.selection) this.clearSelection();
-        options.onIntent?.({ type: 'open-search' });
-      },
-      openHelp: () => {
-        if (this.selection) this.clearSelection();
-        options.onIntent?.({ type: 'open-help' });
+        options.onCommand?.(command);
       },
       historyBack: async () => { await this.back(); },
       historyForward: async () => { await this.forward(); },
-      toggleChrome: () => {
-        if (this.selection) this.clearSelection();
-        options.onIntent?.({ type: 'toggle-chrome' });
-      },
       stepFont: delta => this.stepFont(delta),
-      escape: () => {
-        this.clearSelection();
-        options.onIntent?.({ type: 'escape' });
-      },
     });
     this.inputRouter = new BrowserReaderInputRouter(
       container,
@@ -217,7 +221,7 @@ export class BrowserEpubReader {
       onExternalLink: options.onExternalLink,
       onUnresolvedPublicationLink: options.onUnresolvedPublicationLink,
       onFootnoteLink: async activation => {
-        if (!this.uiIntent) return false;
+        if (!this.readerEvent) return false;
         const footnote = await loadPublicationFootnote(
           this.resources.resolver,
           this.container.ownerDocument,
@@ -225,7 +229,7 @@ export class BrowserEpubReader {
           activation.label,
         );
         if (!footnote || this.disposed) return false;
-        this.uiIntent({ type: 'open-footnote', footnote, trigger: activation.trigger });
+        this.readerEvent({ type: 'footnote-activated', footnote, trigger: activation.trigger });
         return true;
       },
     }, href => this.goToWithHistory({ kind: 'href', href }));
@@ -234,11 +238,11 @@ export class BrowserEpubReader {
       container,
       activation => {
         this.selection = activation?.selection ?? null;
-        this.uiIntent?.({ type: 'selection-changed', activation });
+        this.readerEvent?.({ type: 'selection-changed', activation });
       },
     );
     this.mediaRouter = new BrowserPublicationMediaRouter(activation => {
-      if (this.uiIntent) this.uiIntent({ type: 'open-image', activation });
+      if (this.readerEvent) this.readerEvent({ type: 'image-activated', activation });
     });
     this.selectionPollTimer = container.ownerDocument.defaultView?.setInterval(() => {
       if (!this.disposed && container.ownerDocument.visibilityState !== 'hidden') {
@@ -276,6 +280,7 @@ export class BrowserEpubReader {
         return result.hits;
       },
       clear: () => this.searchController.clear(),
+      clearCache: () => this.searchController.clearCache(),
       goTo: async index => {
         return this.searchWithHistory(() => this.searchController.goToHit(index));
       },
@@ -291,7 +296,7 @@ export class BrowserEpubReader {
       addBookmark: label => addBookmarkAndNotify(
         nextLabel => this.markController.addBookmark(nextLabel),
         label,
-        options.onIntent,
+        options.onEvent,
       ),
       addHighlight: (range, highlight, color, label, tags) => this.markController.addHighlight(range, highlight, color, label, tags),
       addAnnotation: (range, body, highlight, color, label, tags) => this.markController.addAnnotation(range, body, highlight, color, label, tags),
@@ -346,40 +351,47 @@ export class BrowserEpubReader {
     if (!loaded.publication) {
       throw new BrowserEpubReaderOpenError('The EPUB package could not be parsed.', loaded.diagnostics);
     }
-    reportOpenProgress(options, 'preflight', `Inspecting ${loaded.publication.spine.length} reading sections`, 3);
-    const preflight = await preflightPublicationContent(opened.archive, loaded.publication, options.signal);
-    throwIfAborted(options.signal);
-    reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
-    const resource = await ResourceResolver.create(opened.archive, loaded.publication, {
-      ...options.resourcePolicy,
-      deobfuscateIdpfFonts: preferences.compatibility.deobfuscateIdpfFonts,
-    });
-    throwIfAborted(options.signal);
-    const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory(), {
-      normalizeLegacyCss: preferences.compatibility.normalizeLegacyCss,
-    });
-    const diagnostics = [...loaded.diagnostics, ...preflight.diagnostics, ...resource.diagnostics];
-    const viewport = measureViewport(container);
-    const reader = new BrowserEpubReader(
-      loaded.publication,
-      container,
-      resources,
-      diagnostics,
-      preflight.hints,
-      preferences,
-      viewport,
-      options,
-    );
-
+    const initial = resolveInitialLocator(loaded.publication, options);
+    const contentPreflight = new PublicationContentPreflightSession(opened.archive, loaded.publication, options.signal);
+    let reader: BrowserEpubReader | null = null;
     try {
+      const initialWindow = preflightWindowIndexes(loaded.publication, initial.spineIndex);
+      reportOpenProgress(options, 'preflight', `Inspecting ${initialWindow.length} render-critical reading sections`, 3);
+      const preflight = await contentPreflight.inspect(initialWindow);
+      throwIfAborted(options.signal);
+      reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
+      const resource = await ResourceResolver.create(opened.archive, loaded.publication, {
+        ...options.resourcePolicy,
+        deobfuscateIdpfFonts: preferences.compatibility.deobfuscateIdpfFonts,
+      });
+      throwIfAborted(options.signal);
+      const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory(), {
+        normalizeLegacyCss: preferences.compatibility.normalizeLegacyCss,
+      });
+      const diagnostics = [...loaded.diagnostics, ...preflight.diagnostics, ...resource.diagnostics];
+      const viewport = measureViewport(container);
+      reader = new BrowserEpubReader(
+        loaded.publication,
+        container,
+        resources,
+        contentPreflight,
+        diagnostics,
+        preflight.hints,
+        preferences,
+        viewport,
+        options,
+      );
+
       reportOpenProgress(options, 'rendition', 'Laying out the first section', 5);
-      const initial = resolveInitialLocator(loaded.publication, options);
       await reader.goToLocator(initial);
       throwIfAborted(options.signal);
+      contentPreflight.detachParentSignal();
       reader.publish('ready', null);
+      reader.startBackgroundPreflight();
       return reader;
     } catch (error) {
-      reader.dispose();
+      if (reader) reader.dispose();
+      else contentPreflight.dispose();
       throw error;
     }
   }
@@ -399,7 +411,7 @@ export class BrowserEpubReader {
     const result = await this.navigator.next();
     if (result.status === 'moved') this.locator = result.locator;
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    if (result.status === 'boundary') this.uiIntent?.({ type: 'navigation-boundary', edge: result.edge });
+    if (result.status === 'boundary') this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
     return result;
   }
 
@@ -408,7 +420,7 @@ export class BrowserEpubReader {
     const result = await this.navigator.previous();
     if (result.status === 'moved') this.locator = result.locator;
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    if (result.status === 'boundary') this.uiIntent?.({ type: 'navigation-boundary', edge: result.edge });
+    if (result.status === 'boundary') this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
     return result;
   }
 
@@ -532,6 +544,9 @@ export class BrowserEpubReader {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.cancelBackgroundPreflight?.();
+    this.cancelBackgroundPreflight = null;
+    this.contentPreflight.dispose();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     this.inputRouter.dispose();
     this.linkRouter.dispose();
@@ -541,13 +556,20 @@ export class BrowserEpubReader {
     this.decorations.dispose();
     this.searchController.dispose();
     this.host.dispose();
+    this.contentDocumentCache.dispose();
     this.resources.dispose();
     this.snapshotValue = this.buildSnapshot('disposed', null);
     for (const listener of this.listeners) listener();
     this.listeners.clear();
   }
 
-  private planForSpine(spineIndex: number) {
+  private async planForSpine(spineIndex: number) {
+    const preflight = await this.contentPreflight.inspect(preflightWindowIndexes(this.publication, spineIndex));
+    this.applyContentPreflight(preflight, false);
+    return this.buildPlanForSpine(spineIndex);
+  }
+
+  private buildPlanForSpine(spineIndex: number) {
     const spineItem = this.publication.spine[spineIndex];
     if (!spineItem) throw new RangeError(`Spine index ${spineIndex} is outside the publication reading order.`);
     return planRendition({
@@ -580,7 +602,7 @@ export class BrowserEpubReader {
     this.inputRouter?.syncDocuments(documents);
     this.linkRouter?.syncDocuments(documents);
     this.selectionRouter?.syncDocuments(documents);
-    this.mediaRouter?.syncDocuments(documents.filter(context => this.planForSpine(context.spineIndex).renderer !== 'fixed-layout'));
+    this.mediaRouter?.syncDocuments(documents.filter(context => this.buildPlanForSpine(context.spineIndex).renderer !== 'fixed-layout'));
   }
 
   private async goToWithHistory(target: NavigationTarget): Promise<Locator | null> {
@@ -648,6 +670,60 @@ export class BrowserEpubReader {
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
   }
 
+  private startBackgroundPreflight(): void {
+    if (this.disposed || this.cancelBackgroundPreflight) return;
+    const run = () => {
+      this.cancelBackgroundPreflight = null;
+      void this.contentPreflight.inspect().then(
+        result => {
+          if (!this.disposed) this.applyContentPreflight(result, true);
+        },
+        error => {
+          if (this.disposed || isAbortError(error)) return;
+          this.appendDiagnostics([{
+            code: 'CONTENT_PREFLIGHT_BACKGROUND_FAILED',
+            severity: 'warning',
+            phase: 'content',
+            message: 'Background content preflight stopped unexpectedly; renderer-side inspection remains available.',
+            cause: error,
+          }], this.options);
+        },
+      );
+    };
+    const view = this.container.ownerDocument.defaultView;
+    if (!view) {
+      run();
+      return;
+    }
+    if (typeof view.requestIdleCallback === 'function') {
+      const handle = view.requestIdleCallback(run, { timeout: 250 });
+      this.cancelBackgroundPreflight = () => view.cancelIdleCallback(handle);
+      return;
+    }
+    const handle = view.setTimeout(run, 0);
+    this.cancelBackgroundPreflight = () => view.clearTimeout(handle);
+  }
+
+  private applyContentPreflight(result: PublicationContentPreflightResult, complete: boolean): void {
+    let hintsChanged = false;
+    for (const [spineIndex, hints] of result.hints) {
+      const current = this.hints.get(spineIndex);
+      // Renderer-computed presentation is more authoritative than the static
+      // CSS subset, while preflight still fills page/viewport fields the live
+      // renderer does not report.
+      const merged = mergeHints(hints, current ?? {});
+      if (!sameContentHints(current, merged)) hintsChanged = true;
+      this.hints.set(spineIndex, merged);
+    }
+    const previousPresentation = this.presentation;
+    if (complete) this.presentation = resolvePublicationPresentation(this.publication, this.hints);
+    const unique = this.diagnostics.append(result.diagnostics);
+    if (unique.length > 0) this.options.onDiagnostics?.(unique);
+    if (hintsChanged || unique.length > 0 || previousPresentation !== this.presentation) {
+      this.publish(this.snapshotValue.status, this.snapshotValue.error);
+    }
+  }
+
   private publishError(error: unknown): void {
     // Input/host-callback failures are operational errors, not evidence that the
     // active publication can no longer render. Preserve the current lifecycle status.
@@ -690,6 +766,22 @@ export class BrowserEpubReader {
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
   throw signal.reason instanceof Error ? signal.reason : new DOMException('EPUB open aborted.', 'AbortError');
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function preflightWindowIndexes(publication: Publication, spineIndex: number): readonly number[] {
+  const indexes: number[] = [];
+  for (let index = spineIndex - 1; index <= spineIndex + 1; index += 1) {
+    if (publication.spine[index]) indexes.push(index);
+  }
+  return indexes;
+}
+
+function sameContentHints(a: ContentPresentationHints | undefined, b: ContentPresentationHints): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b);
 }
 
 function reportOpenProgress(

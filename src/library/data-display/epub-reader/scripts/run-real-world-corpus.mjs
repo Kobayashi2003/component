@@ -181,13 +181,7 @@ try {
             spineIndex,
             href: document.href,
             text: document.text,
-            locatorRange(start, end) {
-              const length = Math.max(1, document.text.length);
-              return {
-                start: { href: document.href, spineIndex, locations: { progression: start / length } },
-                end: { href: document.href, spineIndex, locations: { progression: end / length } },
-              };
-            },
+            segments: [],
           };
         },
       });

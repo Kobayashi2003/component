@@ -1,5 +1,6 @@
-import { DEFAULT_READER_PREFERENCES, type BrowserEpubReader, type BrowserEpubReaderSnapshot, type Locator, type ReaderMark } from '../../core';
-import { BrowserReadingSessionStorage, readingSessionKey, type ReadingSessionRecord, type ReadingSessionStorage } from '../../react/state/reading-session';
+import { DEFAULT_READER_PREFERENCES, type BrowserEpubReader, type BrowserEpubReaderSnapshot, type Locator, type ReaderMark, type ReadingSessionRecord, type ReadingSessionStorage } from '../../core';
+import { BrowserReadingSessionStorage } from '../../react/state/browser-reading-session-storage';
+import { readingSessionKey } from '../../react/state/reading-session';
 import { ReactEpubReaderStore, type ReactEpubReaderOpener } from '../../react/state/store';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -186,7 +187,12 @@ async function main(): Promise<void> {
       id: 'bookmark:fixture', kind: 'bookmark', locator: restored,
       createdAt: new Date(0).toISOString(), updatedAt: new Date(0).toISOString(),
     };
-    sessions.save('fixture', { locator: restored, preferences: DEFAULT_READER_PREFERENCES, marks: [bookmark], updatedAt: new Date(0).toISOString() });
+    sessions.save('fixture', {
+      locator: restored,
+      preferences: DEFAULT_READER_PREFERENCES,
+      marks: [bookmark],
+      updatedAt: new Date(0).toISOString(),
+    });
     let receivedLocator: Locator | undefined;
     let restoredMarkCount = 0;
     const persistent = new ReactEpubReaderStore(async (_source, _element, options) => {
@@ -225,8 +231,39 @@ async function main(): Promise<void> {
     } as unknown as Storage;
     const browserSessions = new BrowserReadingSessionStorage(brokenStorage);
     assert(browserSessions.load('broken') === null, 'malformed persisted sessions must be ignored');
-    browserSessions.save('broken', { locator: { href: 'c.xhtml', spineIndex: 0, locations: {} }, updatedAt: new Date().toISOString() });
+    browserSessions.save('broken', {
+      locator: { href: 'c.xhtml', spineIndex: 0, locations: {} },
+      marks: [],
+      updatedAt: new Date().toISOString(),
+    });
     browserSessions.remove('broken');
+  }
+
+  // Development data is disposable: only the exact current shape is loaded.
+  // Incomplete records are rejected rather than migrated.
+  {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    } as unknown as Storage;
+    const browserSessions = new BrowserReadingSessionStorage(storage, 'test:');
+    const locator: Locator = { href: 'c.xhtml', spineIndex: 0, locations: { progression: 0.25 } };
+    values.set('test:incomplete', JSON.stringify({ locator, updatedAt: new Date().toISOString() }));
+    values.set('test:partial-marks', JSON.stringify({
+      locator,
+      marks: [{ kind: 'bookmark' }],
+      updatedAt: new Date().toISOString(),
+    }));
+    assert(browserSessions.load('incomplete') === null, 'incomplete reading sessions must not be migrated');
+    assert(browserSessions.load('partial-marks') === null, 'partially valid reading sessions must be rejected as a whole');
+    browserSessions.save('current', {
+      locator,
+      marks: [],
+      updatedAt: new Date().toISOString(),
+    });
+    assert(browserSessions.load('current')?.locator.href === 'c.xhtml', 'the exact current reading-session schema must load');
   }
 
   assert(

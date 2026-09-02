@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { browserVersion, discoverChromium } from './chromium-runtime.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), 'epub-reader-browser-probe-'));
@@ -82,42 +83,4 @@ try {
 } finally {
   writeFileSync(reportPath, JSON.stringify({ ...report, generatedAt: new Date().toISOString() }, null, 2) + '\n');
   rmSync(tmp, { recursive: true, force: true });
-}
-
-function discoverChromium() {
-  const candidates = [
-    process.env.CHROMIUM_BIN,
-    process.env.CHROME_BIN,
-    ...(process.platform === 'win32' ? [
-      join(process.env.PROGRAMFILES ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      join(process.env['PROGRAMFILES(X86)'] ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      join(process.env.LOCALAPPDATA ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      join(process.env.PROGRAMFILES ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-      join(process.env['PROGRAMFILES(X86)'] ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-    ] : []),
-    ...(process.platform === 'darwin' ? [
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    ] : []),
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/google-chrome',
-    '/usr/bin/microsoft-edge',
-  ];
-  return candidates.find(candidate => candidate && existsSync(candidate));
-}
-
-function browserVersion(executable) {
-  if (process.platform === 'win32') {
-    const escaped = executable.replaceAll("'", "''");
-    const run = spawnSync(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', `(Get-Item -LiteralPath '${escaped}').VersionInfo.ProductVersion`],
-      { encoding: 'utf8', timeout: 5000 },
-    );
-    return (run.stdout || '').trim() || 'unknown';
-  }
-  const run = spawnSync(executable, ['--version'], { encoding: 'utf8', timeout: 5000 });
-  return (run.stdout || run.stderr || '').trim() || 'unknown';
 }

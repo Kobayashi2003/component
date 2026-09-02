@@ -1,12 +1,11 @@
-import { feedbackForIntent } from '../../react/chrome/feedback-model';
+import { feedbackForReaderEvent } from '../../react/chrome/feedback-model';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Reader feedback model test failed: ${message}`);
 }
 
-assert(feedbackForIntent({ type: 'bookmark-added' })?.tone === 'success', 'bookmark creation should produce success feedback');
-assert(feedbackForIntent({ type: 'navigation-boundary', edge: 'start' })?.message === 'Beginning of book', 'start boundary should be described');
-assert(feedbackForIntent({ type: 'navigation-boundary', edge: 'end' })?.message === 'End of book', 'end boundary should be described');
-assert(feedbackForIntent({ type: 'open-search' }) === null, 'panel intents should not create transient feedback');
+assert(feedbackForReaderEvent({ type: 'bookmark-added' })?.tone === 'success', 'bookmark creation should produce success feedback');
+assert(feedbackForReaderEvent({ type: 'navigation-boundary', edge: 'start' })?.message === 'Beginning of book', 'start boundary should be described');
+assert(feedbackForReaderEvent({ type: 'navigation-boundary', edge: 'end' })?.message === 'End of book', 'end boundary should be described');
 
 console.log('Reader feedback model unit test: PASS');

@@ -1,4 +1,4 @@
-import type { ReaderUiIntent } from '../../core';
+import type { ReaderEvent } from '../../core';
 
 export type ReaderFeedbackTone = 'success' | 'boundary';
 
@@ -8,13 +8,13 @@ export interface ReaderFeedbackSpec {
   readonly edge?: 'start' | 'end';
 }
 
-export function feedbackForIntent(intent: ReaderUiIntent): ReaderFeedbackSpec | null {
-  if (intent.type === 'bookmark-added') return { message: 'Bookmark saved', tone: 'success' };
-  if (intent.type === 'navigation-boundary') {
+export function feedbackForReaderEvent(event: ReaderEvent): ReaderFeedbackSpec | null {
+  if (event.type === 'bookmark-added') return { message: 'Bookmark saved', tone: 'success' };
+  if (event.type === 'navigation-boundary') {
     return {
-      message: intent.edge === 'start' ? 'Beginning of book' : 'End of book',
+      message: event.edge === 'start' ? 'Beginning of book' : 'End of book',
       tone: 'boundary',
-      edge: intent.edge,
+      edge: event.edge,
     };
   }
   return null;

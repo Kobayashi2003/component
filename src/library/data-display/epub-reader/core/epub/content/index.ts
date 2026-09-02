@@ -6,3 +6,4 @@ export * from './intrinsic-viewport';
 export * from './svg-materializer';
 
 export * from './preflight';
+export * from './document-cache';

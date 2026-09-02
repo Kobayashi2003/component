@@ -1,14 +1,17 @@
 import type { PageProgressionDirection } from '../../epub/publication';
 
-export type ReaderCommand =
-  | { readonly type: 'navigate'; readonly direction: 'forward' | 'backward'; readonly source: InputSource }
+export type ReaderHostCommand =
   | { readonly type: 'open-search'; readonly source: InputSource }
   | { readonly type: 'open-help'; readonly source: InputSource }
+  | { readonly type: 'toggle-chrome'; readonly source: InputSource }
+  | { readonly type: 'escape'; readonly source: InputSource };
+
+export type ReaderCommand =
+  | { readonly type: 'navigate'; readonly direction: 'forward' | 'backward'; readonly source: InputSource }
+  | ReaderHostCommand
   | { readonly type: 'history-back'; readonly source: InputSource }
   | { readonly type: 'history-forward'; readonly source: InputSource }
-  | { readonly type: 'toggle-chrome'; readonly source: InputSource }
-  | { readonly type: 'font-step'; readonly delta: 1 | -1; readonly source: InputSource }
-  | { readonly type: 'escape'; readonly source: InputSource };
+  | { readonly type: 'font-step'; readonly delta: 1 | -1; readonly source: InputSource };
 
 export type InputSource = 'keyboard' | 'wheel' | 'click-zone' | 'center-tap' | 'swipe';
 

@@ -19,8 +19,10 @@ const suites = {
     'tests/unit/reader-features.test.js',
     'tests/unit/panel-model.test.js',
     'tests/unit/feedback-model.test.js',
+    'tests/unit/external-link-model.test.js',
     'tests/unit/reader-chrome-model.test.js',
     'tests/unit/content-preflight-css.test.js',
+    'tests/unit/content-document-cache.test.js',
   ],
   integration: [
     'tests/integration/publication-loading.test.js',

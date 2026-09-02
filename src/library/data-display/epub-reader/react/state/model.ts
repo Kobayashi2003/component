@@ -58,6 +58,7 @@ export interface EpubReaderHandle {
   search: {
     run(query: string, options?: Partial<SearchOptions>): Promise<readonly SearchHit[]>;
     clear(): void;
+    clearCache(): void;
     goTo(index: number): Promise<SearchHit | null>;
     next(): Promise<SearchHit | null>;
     previous(): Promise<SearchHit | null>;

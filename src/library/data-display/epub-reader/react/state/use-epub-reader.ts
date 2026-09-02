@@ -56,6 +56,7 @@ export function useEpubReader(
     search: {
       run: (query, searchOptions) => store.searchRun(query, searchOptions),
       clear: () => store.searchClear(),
+      clearCache: () => store.searchClearCache(),
       goTo: index => store.searchGoTo(index),
       next: () => store.searchNext(),
       previous: () => store.searchPrevious(),

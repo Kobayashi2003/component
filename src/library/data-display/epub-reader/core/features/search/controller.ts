@@ -73,8 +73,17 @@ export class ReaderSearchController {
     this.setState({ query: '', hits: [], index: -1, searching: false, truncated: false, diagnostics: [], error: null });
   }
 
+  /** Release indexes independently from the visible search result set. */
+  clearCache(): void {
+    this.active?.abort(new DOMException('Search cache cleared.', 'AbortError'));
+    this.active = null;
+    this.searchEngine.clearCache();
+    if (this.stateValue.searching) this.setState({ ...this.stateValue, searching: false, error: null });
+  }
+
   dispose(): void {
     this.clear();
+    this.searchEngine.clearCache();
     this.listeners.clear();
   }
 

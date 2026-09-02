@@ -5,10 +5,28 @@ import { isFootnoteReference, type FootnoteLinkActivation } from './footnote';
 
 export interface PublicationLinkRouterOptions {
   /** Host decides whether/how HTTP(S), mailto and tel URLs open. Executable/unsupported schemes stay blocked. */
-  readonly onExternalLink?: (href: string) => void;
+  readonly onExternalLink?: (target: ExternalLinkTarget) => void;
   readonly onUnresolvedPublicationLink?: (href: string) => void;
   /** Return true when the host displayed the referenced note without navigation. */
   readonly onFootnoteLink?: (activation: FootnoteLinkActivation) => boolean | Promise<boolean>;
+}
+
+export type ExternalLinkKind = 'website' | 'email' | 'phone';
+
+/** An external destination that has passed the engine's protocol policy. */
+export interface ExternalLinkTarget {
+  readonly kind: ExternalLinkKind;
+  readonly href: string;
+}
+
+/** The single protocol-policy decision used before a host receives an external link. */
+export function resolveExternalLinkTarget(href: string): ExternalLinkTarget | null {
+  const normalized = href.trim();
+  const scheme = externalScheme(normalized);
+  if (scheme === 'http' || scheme === 'https') return { kind: 'website', href: normalized };
+  if (scheme === 'mailto') return { kind: 'email', href: normalized };
+  if (scheme === 'tel') return { kind: 'phone', href: normalized };
+  return null;
 }
 
 /** Routes authored EPUB hyperlinks through ReaderNavigator instead of allowing iframe replacement. */
@@ -51,7 +69,8 @@ export class PublicationLinkRouter {
 
       const scheme = externalScheme(href);
       if (scheme) {
-        if (SAFE_EXTERNAL_SCHEMES.has(scheme)) this.options.onExternalLink?.(href);
+        const target = resolveExternalLinkTarget(href);
+        if (target) this.options.onExternalLink?.(target);
         else this.options.onUnresolvedPublicationLink?.(href);
         return;
       }
@@ -100,8 +119,6 @@ function stripFragment(href: string): string {
   const index = href.indexOf('#');
   return index < 0 ? href : href.slice(0, index);
 }
-
-const SAFE_EXTERNAL_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
 
 function externalScheme(href: string): string | null {
   return /^([a-z][a-z0-9+.-]*):/iu.exec(href)?.[1]?.toLowerCase() ?? null;

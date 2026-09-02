@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type {
   ReaderFootnote,
+  ExternalLinkTarget,
   ReaderImageActivation,
   ReaderMarkActivation,
   ReaderSelectionActivation,
@@ -13,7 +14,7 @@ export type ReaderPanelId = 'contents' | 'search' | 'settings' | 'marks' | 'comp
  * The one surface the reader is showing over its page, if any.
  *
  * These are mutually exclusive by nature — a panel, a footnote, the selection
- * toolbar, a mark popover and the image viewer all want the same attention and
+ * toolbar, a mark popover, the image viewer and an external-link confirmation all want the same attention and
  * the same slice of the screen. Holding them as one value is what makes that
  * exclusivity true, rather than something each opener has to remember: the
  * previous shape kept five independent flags, and every one of the six ways to
@@ -33,7 +34,14 @@ export type ReaderSurface =
     }
   | { readonly kind: 'selection'; readonly activation: ReaderSelectionActivation }
   | { readonly kind: 'mark'; readonly activation: ReaderMarkActivation }
-  | { readonly kind: 'image'; readonly activation: ReaderImageActivation };
+  | { readonly kind: 'image'; readonly activation: ReaderImageActivation }
+  | {
+      readonly kind: 'external-link';
+      /** Guards against a link confirmation outliving its publication. */
+      readonly source: EpubSource;
+      readonly target: ExternalLinkTarget;
+      readonly returnFocus: HTMLElement | null;
+    };
 
 const NONE: ReaderSurface = { kind: 'none' };
 
@@ -42,6 +50,7 @@ export function surfaceReturnFocus(surface: ReaderSurface): HTMLElement | null {
   switch (surface.kind) {
     case 'panel':
     case 'footnote':
+    case 'external-link':
       return surface.returnFocus;
     case 'selection':
     case 'mark':
@@ -61,6 +70,7 @@ export interface ReaderSurfaces {
   readonly selection: ReaderSelectionActivation | null;
   readonly mark: ReaderMarkActivation | null;
   readonly image: ReaderImageActivation | null;
+  readonly externalLink: ExternalLinkTarget | null;
   /** True while any surface is open, whichever it is. */
   readonly open: boolean;
   show(next: ReaderSurface): void;
@@ -70,8 +80,8 @@ export interface ReaderSurfaces {
 }
 
 /**
- * @param source the publication currently open; a footnote raised from an
- * earlier one is dropped rather than shown against the wrong book.
+ * @param source the publication currently open; publication-owned surfaces
+ * raised from an earlier one are dropped rather than shown against the wrong book.
  */
 export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
   const [surface, setSurface] = useState<ReaderSurface>(NONE);
@@ -84,7 +94,8 @@ export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
       : { kind: 'panel', panel, returnFocus });
   }, []);
 
-  const live = surface.kind === 'footnote' && surface.source !== source ? NONE : surface;
+  const publicationOwned = surface.kind === 'footnote' || surface.kind === 'external-link';
+  const live = publicationOwned && surface.source !== source ? NONE : surface;
 
   // Memoized so callers can depend on this object in their own hooks without
   // invalidating them on every render.
@@ -95,6 +106,7 @@ export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
     selection: live.kind === 'selection' ? live.activation : null,
     mark: live.kind === 'mark' ? live.activation : null,
     image: live.kind === 'image' ? live.activation : null,
+    externalLink: live.kind === 'external-link' ? live.target : null,
     open: live.kind !== 'none',
     show,
     close,

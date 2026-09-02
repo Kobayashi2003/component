@@ -1,5 +1,5 @@
-import { MemoryPublicationArchive } from '../../core/epub/archive';
-import { preflightPublicationContent } from '../../core/epub/content/preflight';
+import { MemoryPublicationArchive, type PublicationArchive } from '../../core/epub/archive';
+import { preflightPublicationContent, PublicationContentPreflightSession } from '../../core/epub/content/preflight';
 import type { Publication, PublicationPath, WritingMode } from '../../core/epub/publication';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -155,6 +155,33 @@ function publicationFor(files: readonly PublicationPath[]): Publication {
   };
 }
 
+function stagedPublication(count: number): Publication {
+  const documents = Array.from({ length: count }, (_, index) => `EPUB/doc-${index}.xhtml` as PublicationPath);
+  return {
+    ...publicationFor(documents),
+    manifest: documents.map((path, index) => ({
+      id: `item-${index}`,
+      sourceHref: path.slice('EPUB/'.length),
+      href: path,
+      path,
+      remote: false,
+      mediaType: 'application/xhtml+xml',
+      properties: [],
+    })),
+    spine: documents.map((path, index) => ({
+      index,
+      idref: `item-${index}`,
+      href: path,
+      path,
+      remote: false,
+      mediaType: 'application/xhtml+xml',
+      linear: true,
+      properties: [],
+      rendition: {},
+    })),
+  };
+}
+
 async function main() {
   const failures: string[] = [];
   for (const testCase of CASES) {
@@ -169,6 +196,74 @@ async function main() {
     }
   }
   assert(failures.length === 0, `preflight CSS subset regressions:\n  ${failures.join('\n  ')}`);
+
+  const staged = stagedPublication(5);
+  const contents = Object.fromEntries(staged.spine.map(item => [
+    item.path!,
+    `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" href="shared.css"/></head><body><p>${item.index}</p></body></html>`,
+  ]));
+  contents['EPUB/shared.css'] = 'body{writing-mode:vertical-rl}';
+  const memory = new MemoryPublicationArchive(contents);
+  const reads = new Map<PublicationPath, number>();
+  const countingArchive: PublicationArchive = {
+    entries: memory.entries,
+    has: path => memory.has(path),
+    async read(path) {
+      reads.set(path, (reads.get(path) ?? 0) + 1);
+      return memory.read(path);
+    },
+    async readText(path, encoding) {
+      reads.set(path, (reads.get(path) ?? 0) + 1);
+      return memory.readText(path, encoding);
+    },
+  };
+  const session = new PublicationContentPreflightSession(countingArchive, staged);
+  const critical = await session.inspect([1, 2, 3]);
+  assert(critical.hints.size === 3, 'a render-critical preflight must return only the requested spine window');
+  assert(staged.spine.filter(item => reads.has(item.path!)).length === 3, 'opening work must not inspect distant spine items');
+  assert(reads.get('EPUB/shared.css') === 1, 'staged items must share stylesheet reads');
+
+  await Promise.all([session.inspect([4]), session.inspect([4])]);
+  assert(reads.get('EPUB/doc-4.xhtml') === 1, 'concurrent background and navigation requests must share one item inspection');
+  const complete = await session.inspect();
+  assert(complete.hints.size === 5, 'the background pass must complete the same full publication profile');
+  assert(staged.spine.every(item => reads.get(item.path!) === 1), 'each content document must be inspected at most once across all stages');
+  session.dispose();
+  const disposed = await session.inspect([0]).then(() => null, error => error);
+  assert(disposed instanceof Error && disposed.message.includes('disposed'), 'disposing a preflight session must reject new work');
+
+  let releaseRead!: () => void;
+  let delayNextRead = true;
+  const delayedArchive: PublicationArchive = {
+    entries: memory.entries,
+    has: path => memory.has(path),
+    async read(path) { return memory.read(path); },
+    async readText(path, encoding) {
+      if (delayNextRead) {
+        delayNextRead = false;
+        await new Promise<void>(resolve => { releaseRead = resolve; });
+      }
+      return memory.readText(path, encoding);
+    },
+  };
+  const abortController = new AbortController();
+  const abortingSession = new PublicationContentPreflightSession(delayedArchive, staged, abortController.signal);
+  const aborted = abortingSession.inspect([0]).then(() => null, error => error);
+  await Promise.resolve();
+  abortController.abort(new DOMException('replaced', 'AbortError'));
+  releaseRead();
+  const abortError = await aborted;
+  assert(abortError instanceof DOMException && abortError.name === 'AbortError', 'replacing a reader must cancel unfinished staged preflight');
+  abortingSession.dispose();
+
+  const openingController = new AbortController();
+  const detachedSession = new PublicationContentPreflightSession(memory, staged, openingController.signal);
+  detachedSession.detachParentSignal();
+  openingController.abort(new DOMException('open call finished', 'AbortError'));
+  const afterOpen = await detachedSession.inspect([0]);
+  assert(afterOpen.hints.has(0), 'an opening signal must stop owning background preflight after the reader becomes ready');
+  detachedSession.dispose();
+
   console.log(`Content preflight CSS subset unit test: PASS (${CASES.length} cases)`);
 }
 

@@ -1,11 +1,7 @@
-import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type SearchOptions } from '../../core';
+import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type ReadingSessionRecord, type ReadingSessionStorage, type SearchOptions } from '../../core';
 import type { EpubSource, ReactEpubReaderSnapshot, UseEpubReaderOptions } from './model';
-import {
-  BrowserReadingSessionStorage,
-  readingSessionKey,
-  type ReadingSessionRecord,
-  type ReadingSessionStorage,
-} from './reading-session';
+import { BrowserReadingSessionStorage } from './browser-reading-session-storage';
+import { readingSessionKey } from './reading-session';
 import {
   SERVER_SNAPSHOT,
   abortReason,
@@ -213,6 +209,7 @@ export class ReactEpubReaderStore {
     return (await this.run(reader => reader.search.run(query, options))) ?? [];
   }
   searchClear(): void { this.requireReader().search.clear(); }
+  searchClearCache(): void { this.requireReader().search.clearCache(); }
   searchGoTo(index: number) { return this.run(reader => reader.search.goTo(index)); }
   searchNext() { return this.run(reader => reader.search.next()); }
   searchPrevious() { return this.run(reader => reader.search.previous()); }
@@ -276,7 +273,7 @@ export class ReactEpubReaderStore {
       if (this.disposed || generation !== this.generation || this.container !== element) return;
       const session = this.resolveReadingSession(this.source, bytes, element.ownerDocument.defaultView);
       const saved = session.storage?.load(session.key) ?? null;
-      const restoredMarkStore = saved?.marks && !this.options.markStore
+      const restoredMarkStore = saved && !this.options.markStore
         ? createRestoredMarkStore(saved.marks)
         : undefined;
       this.readingSessionStorage = session.storage;
@@ -316,7 +313,8 @@ export class ReactEpubReaderStore {
         },
         // Keep host callbacks live without reopening the publication when a
         // parent React component re-renders with new callback identities.
-        onIntent: intent => this.invokeHostCallback(this.options.onIntent, intent),
+        onCommand: command => this.invokeHostCallback(this.options.onCommand, command),
+        onEvent: event => this.invokeHostCallback(this.options.onEvent, event),
         onDiagnostics: diagnostics => this.invokeHostCallback(this.options.onDiagnostics, diagnostics),
         onExternalLink: href => this.invokeHostCallback(this.options.onExternalLink, href),
         onUnresolvedPublicationLink: href => this.invokeHostCallback(this.options.onUnresolvedPublicationLink, href),

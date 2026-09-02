@@ -1,14 +1,51 @@
 import type { Publication, PublicationDiagnostic } from '../../epub/publication';
-import type { SearchDocument, SearchDocumentProvider, SearchHit, SearchOptions, SearchResultSet } from './model';
-import { DEFAULT_SEARCH_OPTIONS } from './model';
+import { searchDocumentLocatorRange } from './location-index';
+import type {
+  PublicationSearchCachePolicy,
+  PublicationSearchCacheSnapshot,
+  SearchDocument,
+  SearchDocumentProvider,
+  SearchHit,
+  SearchOptions,
+  SearchResultSet,
+} from './model';
+import { DEFAULT_SEARCH_CACHE_POLICY, DEFAULT_SEARCH_OPTIONS } from './model';
+
+interface SearchCacheEntry {
+  readonly controller: AbortController;
+  promise: Promise<SearchDocument | null>;
+  /** Undefined while pending; null is a resolved non-searchable resource. */
+  document?: SearchDocument | null;
+  estimatedBytes: number;
+}
+
+export interface PublicationSearchOptions {
+  readonly cache?: Partial<PublicationSearchCachePolicy>;
+  /** Current reading-order position; its neighbouring indexes survive LRU pressure first. */
+  readonly preferredSpineIndex?: () => number | null;
+}
 
 export class PublicationSearch {
-  private readonly documents = new Map<number, Promise<SearchDocument | null>>();
+  private readonly documents = new Map<number, SearchCacheEntry>();
+  private readonly cachePolicy: PublicationSearchCachePolicy;
 
   constructor(
     private readonly publication: Publication,
     private readonly provider: SearchDocumentProvider,
-  ) {}
+    private readonly options: PublicationSearchOptions = {},
+  ) {
+    this.cachePolicy = normalizeCachePolicy(options.cache);
+  }
+
+  get cacheSnapshot(): PublicationSearchCacheSnapshot {
+    const entries = [...this.documents.entries()];
+    return Object.freeze({
+      documents: entries.filter(([, entry]) => entry.document !== undefined).length,
+      pending: entries.filter(([, entry]) => entry.document === undefined).length,
+      estimatedBytes: entries.reduce((total, [, entry]) => total + entry.estimatedBytes, 0),
+      spineIndexes: Object.freeze(entries.map(([spineIndex]) => spineIndex)),
+    });
+  }
 
   async search(
     query: string,
@@ -59,7 +96,7 @@ export class PublicationSearch {
           query: needle,
           spineIndex: document.spineIndex,
           href: document.href,
-          range: document.locatorRange(match.index, end),
+          range: searchDocumentLocatorRange(document, match.index, end),
           excerpt: excerptAround(document.text, match.index, end, config.excerptLength),
           match: match.value,
         });
@@ -70,17 +107,107 @@ export class PublicationSearch {
     return { query: needle, hits: truncated ? hits.slice(0, config.maxResults) : hits, truncated, diagnostics };
   }
 
+  /** Releases resolved indexes and aborts any index construction still in flight. */
+  clearCache(): void {
+    for (const entry of this.documents.values()) {
+      if (entry.document === undefined) {
+        entry.controller.abort(new DOMException('Search cache cleared.', 'AbortError'));
+      }
+    }
+    this.documents.clear();
+  }
+
   private loadDocument(spineIndex: number): Promise<SearchDocument | null> {
-    let pending = this.documents.get(spineIndex);
-    if (!pending) {
+    let entry = this.documents.get(spineIndex);
+    if (!entry) {
       // Parsing is publication-scoped rather than query-scoped. Let one shared
       // load finish even if a particular query is superseded, then reuse it.
-      pending = this.provider.load(spineIndex, new AbortController().signal);
-      this.documents.set(spineIndex, pending);
-      pending.catch(() => this.documents.delete(spineIndex));
+      const controller = new AbortController();
+      entry = { controller, promise: Promise.resolve(null), estimatedBytes: 0 };
+      const current = entry;
+      current.promise = this.provider.load(spineIndex, controller.signal).then(document => {
+        if (this.documents.get(spineIndex) !== current) return document;
+        current.document = document;
+        current.estimatedBytes = document ? estimateSearchDocumentBytes(document) : 0;
+        this.touch(spineIndex, current);
+        this.trimCache();
+        return document;
+      }, error => {
+        if (this.documents.get(spineIndex) === current) this.documents.delete(spineIndex);
+        throw error;
+      });
+      this.documents.set(spineIndex, current);
+    } else {
+      this.touch(spineIndex, entry);
     }
-    return pending;
+    return entry.promise;
   }
+
+  private touch(spineIndex: number, entry: SearchCacheEntry): void {
+    if (this.documents.get(spineIndex) !== entry) return;
+    this.documents.delete(spineIndex);
+    this.documents.set(spineIndex, entry);
+  }
+
+  private trimCache(): void {
+    while (this.exceedsCachePolicy()) {
+      const candidate = this.evictionCandidate();
+      if (candidate == null) return;
+      this.documents.delete(candidate);
+    }
+  }
+
+  private exceedsCachePolicy(): boolean {
+    let documents = 0;
+    let bytes = 0;
+    for (const entry of this.documents.values()) {
+      if (entry.document === undefined) continue;
+      documents += 1;
+      bytes += entry.estimatedBytes;
+    }
+    return documents > this.cachePolicy.maxDocuments || bytes > this.cachePolicy.maxBytes;
+  }
+
+  private evictionCandidate(): number | null {
+    const resolved = [...this.documents.entries()].filter(([, entry]) => entry.document !== undefined);
+    if (resolved.length === 0) return null;
+    const anchor = this.options.preferredSpineIndex?.();
+    if (anchor != null && Number.isInteger(anchor)) {
+      const preferred = new Set([anchor - 1, anchor, anchor + 1]);
+      const outside = resolved.find(([spineIndex]) => !preferred.has(spineIndex));
+      if (outside) return outside[0];
+    }
+    return resolved[0]![0];
+  }
+}
+
+function normalizeCachePolicy(input: Partial<PublicationSearchCachePolicy> | undefined): PublicationSearchCachePolicy {
+  return Object.freeze({
+    maxDocuments: normalizeLimit(input?.maxDocuments, DEFAULT_SEARCH_CACHE_POLICY.maxDocuments),
+    maxBytes: normalizeLimit(input?.maxBytes, DEFAULT_SEARCH_CACHE_POLICY.maxBytes),
+  });
+}
+
+function normalizeLimit(value: number | undefined, fallback: number): number {
+  if (value === Number.POSITIVE_INFINITY) return value;
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : fallback;
+}
+
+function estimateSearchDocumentBytes(document: SearchDocument): number {
+  let bytes = document.text.length * 2 + 96;
+  for (const segment of document.segments) {
+    bytes += 48 + segment.sourceBoundaries.length * 4 + (segment.dom?.path.length ?? 0) * 4;
+    if (segment.fragment) bytes += segment.fragment.length * 2;
+    if (segment.cfi) {
+      for (const path of [segment.cfi.packagePath, segment.cfi.contentPath]) {
+        bytes += 24 + path.steps.length * 16;
+        for (const step of path.steps) bytes += (step.assertion?.length ?? 0) * 2;
+        bytes += (path.textAssertion?.before?.length ?? 0) * 2;
+        bytes += (path.textAssertion?.after?.length ?? 0) * 2;
+      }
+    }
+  }
+  return bytes;
 }
 
 interface Match { readonly index: number; readonly value: string }

@@ -10,8 +10,8 @@ import { buildReaderPreferenceCss } from '../../core/presentation/renderer/reflo
 import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/interaction/input/browser-input-router';
 import type { RenditionPlan } from '../../core/presentation/rendition';
 import { PublicationDiagnosticCollector } from '../../core/runtime/reader/diagnostic-collector';
-import { addBookmarkAndNotify } from '../../core/runtime/reader/bookmark-intent';
-import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../react/chrome/controls-model';
+import { addBookmarkAndNotify } from '../../core/runtime/reader/bookmark-event';
+import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../core/interaction/locator';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -53,12 +53,7 @@ const provider: SearchDocumentProvider = {
       spineIndex,
       href: item.href,
       text,
-      locatorRange(start, end): LocatorRange {
-        return {
-          start: { href: item.href, spineIndex, locations: { progression: text.length ? start / text.length : 0 } },
-          end: { href: item.href, spineIndex, locations: { progression: text.length ? end / text.length : 0 } },
-        };
-      },
+      segments: [],
     };
   },
 };
@@ -154,6 +149,48 @@ async function main() {
   assert(limited.hits.length === 2 && limited.truncated, 'search maxResults should report truncation');
   assert(searchDocumentLoads.every(count => count === 1), 'repeated queries must reuse each parsed publication document');
 
+  const boundedLoads = [0, 0, 0];
+  const boundedProvider: SearchDocumentProvider = {
+    async load(spineIndex, signal) {
+      if (signal.aborted) throw signal.reason;
+      const item = publication.spine[spineIndex];
+      if (!item) return null;
+      boundedLoads[spineIndex] = (boundedLoads[spineIndex] ?? 0) + 1;
+      return { spineIndex, href: item.href, text: `cache term ${spineIndex}`, segments: [] };
+    },
+  };
+  const boundedSearch = new PublicationSearch(publication, boundedProvider, {
+    cache: { maxDocuments: 2, maxBytes: 1024 * 1024 },
+    preferredSpineIndex: () => 0,
+  });
+  await boundedSearch.search('term', { includeNonLinear: true });
+  assert(boundedSearch.cacheSnapshot.spineIndexes.join(',') === '0,1', 'cache pressure should preserve the current and adjacent sections before distant ones');
+  await boundedSearch.search('term', { includeNonLinear: true });
+  assert(boundedLoads.join(',') === '1,1,2', 'an evicted distant section should reload while preferred indexes remain cached');
+  boundedSearch.clearCache();
+  assert(boundedSearch.cacheSnapshot.documents === 0 && boundedSearch.cacheSnapshot.estimatedBytes === 0, 'clearCache should release all resolved indexes');
+
+  const uncached = new PublicationSearch(publication, boundedProvider, { cache: { maxDocuments: 3, maxBytes: 1 } });
+  const uncachedResults = await uncached.search('term', { includeNonLinear: true });
+  assert(uncachedResults.hits.length === 3 && uncached.cacheSnapshot.documents === 0, 'an index larger than the byte budget should serve the active query without remaining cached');
+
+  let pendingAborted = false;
+  const pendingSearch = new PublicationSearch(publication, {
+    load(_spineIndex, signal) {
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => {
+        pendingAborted = true;
+        reject(signal.reason);
+      }, { once: true }));
+    },
+  });
+  const pendingResult = pendingSearch.search('term').then(() => null, error => error);
+  await Promise.resolve();
+  assert(pendingSearch.cacheSnapshot.pending === 1, 'an in-flight index should be visible as pending cache work');
+  pendingSearch.clearCache();
+  const pendingError = await pendingResult;
+  assert(pendingAborted && pendingError instanceof DOMException && pendingError.name === 'AbortError', 'clearCache should abort pending index construction');
+  assert(Number(pendingSearch.cacheSnapshot.pending) === 0, 'clearing pending work should leave an empty cache');
+
   const visited: Locator[] = [];
   const searchController = new ReaderSearchController(search, { async goToLocator(locator) { visited.push(locator); return locator; } });
   const controllerResults = await searchController.run('alpha', { maxResults: 3 });
@@ -162,6 +199,8 @@ async function main() {
   assert(Number(searchController.state.index) === 1 && Number(visited.length) === 1, 'search controller should navigate and advance active hit state');
   await searchController.previous();
   assert(Number(searchController.state.index) === 0 && Number(visited.length) === 2, 'search controller should navigate backward through results');
+  searchController.clearCache();
+  assert(search.cacheSnapshot.documents === 0 && searchController.state.hits.length === 3, 'cache clearing should release indexes without discarding visible results');
   searchController.clear();
   assert(Number(searchController.state.hits.length) === 0 && Number(searchController.state.index) === -1, 'search clear should reset feature state');
 
@@ -517,11 +556,13 @@ async function main() {
       async previous() { previous += 1; return { status: 'boundary', edge: 'start' } as const; },
     },
     navigationResult(result) { if (result.status === 'boundary') boundaries.push(result.edge); },
-    openSearch() { searchOpen += 1; },
-    openHelp() { helpOpen += 1; },
+    hostCommand(command) {
+      if (command.type === 'open-search') searchOpen += 1;
+      else if (command.type === 'open-help') helpOpen += 1;
+      else if (command.type === 'toggle-chrome') chromeToggles += 1;
+    },
     historyBack() { historyBack += 1; },
     historyForward() { historyForward += 1; },
-    toggleChrome() { chromeToggles += 1; },
     stepFont(delta) { font += delta; },
   });
   await input.dispatch({ type: 'navigate', direction: 'forward', source: 'keyboard' });
