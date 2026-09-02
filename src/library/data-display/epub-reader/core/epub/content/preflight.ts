@@ -1,7 +1,11 @@
 import type { PublicationArchive } from '../archive';
+import { createBuiltInCompatibilityProfile } from '../compatibility/built-in-rules';
+import { runContentDocumentCompatibility } from '../compatibility/content-runner';
+import type { CompatibilityProfile } from '../compatibility/profile';
 import {
   resolvePublicationReference,
   resolveSpineRendition,
+  DEFAULT_READER_COMPATIBILITY_PREFERENCES,
   type ContentPageProfile,
   type ContentPresentationHints,
   type IntrinsicViewport,
@@ -41,6 +45,7 @@ export class PublicationContentPreflightSession {
     private readonly archive: PublicationArchive,
     private readonly publication: Publication,
     parentSignal?: AbortSignal,
+    private readonly compatibilityProfile: CompatibilityProfile = createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES),
   ) {
     const abortFromParent = () => this.controller.abort(parentSignal?.reason);
     if (parentSignal?.aborted) {
@@ -97,6 +102,7 @@ export class PublicationContentPreflightSession {
         item,
         this.stylesheetCache,
         this.controller.signal,
+        this.compatibilityProfile,
       );
       this.itemResults.set(item.index, pending);
     }
@@ -118,8 +124,9 @@ export async function preflightPublicationContent(
   archive: PublicationArchive,
   publication: Publication,
   signal: AbortSignal = new AbortController().signal,
+  compatibilityProfile: CompatibilityProfile = createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES),
 ): Promise<PublicationContentPreflightResult> {
-  const session = new PublicationContentPreflightSession(archive, publication, signal);
+  const session = new PublicationContentPreflightSession(archive, publication, signal, compatibilityProfile);
   try {
     return await session.inspect();
   } finally {
@@ -133,6 +140,7 @@ async function inspectPublicationContentItem(
   item: Publication['spine'][number],
   stylesheetCache: Map<PublicationPath, Promise<string>>,
   signal: AbortSignal,
+  compatibilityProfile: CompatibilityProfile,
 ): Promise<PublicationContentPreflightItemResult> {
   throwIfAborted(signal);
   const itemDiagnostics: PublicationDiagnostic[] = [];
@@ -178,28 +186,29 @@ async function inspectPublicationContentItem(
     const presentation = inspectPresentation(html, body, css);
     const page = await classifyPage(archive, item.path, body, resolveSpineRendition(publication, item).layout === 'reflowable', itemDiagnostics);
     throwIfAborted(signal);
-    const hint: ContentPresentationHints = {
-      ...(presentation.writingMode ? { writingMode: presentation.writingMode } : {}),
+    const baseHint: ContentPresentationHints = {
+      ...(presentation.writingMode && !presentation.legacyWritingMode ? { writingMode: presentation.writingMode } : {}),
       ...(presentation.direction ? { direction: presentation.direction } : {}),
       ...(page.intrinsicViewport ? { viewport: page.intrinsicViewport } : {}),
       page,
     };
-
-    if (presentation.legacyWritingMode) {
-      itemDiagnostics.push({
-        code: 'CONTENT_PREFLIGHT_LEGACY_WRITING_MODE',
-        severity: 'info',
-        phase: 'compatibility',
+    const compatible = await runContentDocumentCompatibility(
+      compatibilityProfile.contentDocumentRules,
+      {
         path: item.path,
-        spineIndex: item.index,
-        message: `Resolved ${presentation.writingMode} from a legacy -epub/-webkit writing-mode declaration before rendering.`,
-        repair: {
-          strategy: 'interpret-legacy-epub-writing-mode',
-          description: 'Treat legacy EPUB/WebKit writing-mode declarations as their standard CSS writing-mode equivalent.',
-          confidence: 0.99,
+        spineItem: item,
+        mediaType: item.mediaType,
+        authoredSource: source,
+        presentationCandidate: {
+          writingMode: presentation.writingMode,
+          direction: presentation.direction,
+          writingModeSource: presentation.legacyWritingMode ? 'legacy' : 'standard',
         },
-      });
-    }
+      },
+      { source, parseMode: 'xml', hints: baseHint },
+    );
+    itemDiagnostics.push(...compatible.diagnostics);
+    const hint = compatible.value.hints;
 
     if (page.pageLike && resolveSpineRendition(publication, item).layout === 'reflowable') {
       itemDiagnostics.push({

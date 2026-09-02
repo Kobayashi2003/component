@@ -1,14 +1,16 @@
 import type { PublicationArchive } from '../archive/publication-archive';
 import { OcfZipArchive, type OcfZipLimits } from '../archive/ocf-zip';
+import { createBuiltInCompatibilityProfile } from '../compatibility/built-in-rules';
+import type { CompatibilityProfile } from '../compatibility/profile';
+import { runNavigationFallbackCompatibility, runRootfileSelectionCompatibility } from '../compatibility/publication-runner';
 import { parseContainerDocument } from './container-parser';
 import { validatePublicationModel } from './invariants';
-import type { NavigationModel, Publication, PublicationDiagnostic, PublicationLoadResult, PublicationPath } from './model';
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, type NavigationModel, type Publication, type PublicationDiagnostic, type PublicationLoadResult, type PublicationPath } from './model';
 import { parseNavigationDocument } from './navigation-parser';
 import { parseNcxDocument } from './ncx-parser';
 import { parsePackageDocument } from './package-parser';
 
 const CONTAINER_PATH: PublicationPath = 'META-INF/container.xml';
-const PACKAGE_MEDIA_TYPE = 'application/oebps-package+xml';
 
 export interface PublicationControlDocumentLimits {
   readonly maxContainerXmlBytes: number;
@@ -25,6 +27,7 @@ export const DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS: PublicationControlDocu
 export interface LoadEpubOptions {
   readonly archiveLimits?: Partial<OcfZipLimits>;
   readonly controlDocumentLimits?: Partial<PublicationControlDocumentLimits>;
+  readonly compatibilityProfile?: CompatibilityProfile;
 }
 
 export async function loadEpub(
@@ -33,7 +36,10 @@ export async function loadEpub(
 ): Promise<PublicationLoadResult> {
   const opened = await OcfZipArchive.open(source, options.archiveLimits);
   if (!opened.archive) return { publication: null, diagnostics: opened.diagnostics };
-  return loadPublicationFromArchive(opened.archive, opened.diagnostics, { controlDocumentLimits: options.controlDocumentLimits });
+  return loadPublicationFromArchive(opened.archive, opened.diagnostics, {
+    controlDocumentLimits: options.controlDocumentLimits,
+    compatibilityProfile: options.compatibilityProfile,
+  });
 }
 
 /**
@@ -43,8 +49,7 @@ export async function loadEpub(
  */
 export interface LoadPublicationFromArchiveOptions {
   readonly controlDocumentLimits?: Partial<PublicationControlDocumentLimits>;
-  readonly selectPreferredRootfile?: boolean;
-  readonly useLegacyNavigationFallback?: boolean;
+  readonly compatibilityProfile?: CompatibilityProfile;
 }
 
 export async function loadPublicationFromArchive(
@@ -54,6 +59,8 @@ export async function loadPublicationFromArchive(
 ): Promise<PublicationLoadResult> {
   const diagnostics: PublicationDiagnostic[] = [...initialDiagnostics];
   const controlLimits = { ...DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS, ...options.controlDocumentLimits };
+  const compatibilityProfile = options.compatibilityProfile
+    ?? createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES);
 
   if (!archive.has(CONTAINER_PATH)) {
     diagnostics.push({
@@ -94,10 +101,13 @@ export async function loadPublicationFromArchive(
 
   const container = parseContainerDocument(containerXml, CONTAINER_PATH);
   diagnostics.push(...container.diagnostics);
-  const preferred = options.selectPreferredRootfile === false
-    ? container.rootfiles[0]
-    : container.rootfiles.find(rootfile => rootfile.mediaType === PACKAGE_MEDIA_TYPE)
-      ?? container.rootfiles[0];
+  const selectedRootfile = await runRootfileSelectionCompatibility(
+    compatibilityProfile.publicationRules,
+    { containerPath: CONTAINER_PATH, rootfiles: container.rootfiles },
+    container.rootfiles[0] ?? null,
+  );
+  diagnostics.push(...selectedRootfile.diagnostics);
+  const preferred = selectedRootfile.value;
   if (!preferred) return { publication: null, diagnostics };
 
   if (container.rootfiles.length > 1) {
@@ -108,10 +118,10 @@ export async function loadPublicationFromArchive(
       message: `container.xml declares ${container.rootfiles.length} package documents; the reading system selects ${preferred.fullPath}.`,
       path: CONTAINER_PATH,
       repair: {
-        strategy: options.selectPreferredRootfile === false ? 'select-first-rootfile' : 'select-preferred-rootfile',
-        description: options.selectPreferredRootfile === false
+        strategy: preferred === container.rootfiles[0] ? 'select-first-rootfile' : 'select-preferred-rootfile',
+        description: preferred === container.rootfiles[0]
           ? 'Use the first package rootfile in publisher order.'
-          : 'Select the first package rootfile whose media type is application/oebps-package+xml, otherwise the first declared rootfile.',
+          : 'Select a compatible package rootfile from the validated container candidates.',
         confidence: 0.8,
       },
     });
@@ -167,34 +177,29 @@ export async function loadPublicationFromArchive(
     if (result) navigation = result;
   }
 
-  // EPUB 2 compatibility and malformed EPUB 3 fallback: use NCX only if the
-  // EPUB 3 Navigation Document did not produce a usable TOC.
-  if (options.useLegacyNavigationFallback !== false && navigation.toc.length === 0 && parsedPackage.ncxItem?.path) {
-    const result = await tryParseNcx(archive, parsedPackage.ncxItem.path, diagnostics, controlLimits.maxNavigationDocumentBytes);
-    if (result) {
-      navigation = {
-        ...result,
-        landmarks: result.landmarks.length > 0 ? result.landmarks : parsedPackage.epub2Guide,
-      };
-      if (parsedPackage.publication.version.startsWith('3')) {
-        diagnostics.push({
-          code: 'NAV_COMPATIBILITY_NCX_FALLBACK',
-          severity: 'warning',
-          phase: 'compatibility',
-          message: `EPUB 3 Navigation Document did not provide a usable table of contents; using legacy NCX ${parsedPackage.ncxItem.path}.`,
-          path: parsedPackage.ncxItem.path,
-          repair: {
-            strategy: 'use-ncx-navigation-fallback',
-            description: 'Use the declared NCX navigation as a compatibility fallback when EPUB 3 navigation is missing or unusable.',
-            confidence: 0.7,
-            resolvesCodes: ['PACKAGE_NAV_ITEM_MISSING', 'NAV_DOCUMENT_MISSING', 'NAV_DOCUMENT_READ_FAILED'],
-          },
-        });
-      }
-    }
-  } else if (options.useLegacyNavigationFallback !== false && navigation.source === 'none' && parsedPackage.epub2Guide.length > 0) {
-    navigation = { ...navigation, landmarks: parsedPackage.epub2Guide };
+  let legacyNavigation: NavigationModel | undefined;
+  const hasNavigationFallbackRules = compatibilityProfile.publicationRules
+    .some(rule => rule.stage === 'publication.navigation-fallback');
+  if (hasNavigationFallbackRules && navigation.toc.length === 0 && parsedPackage.ncxItem?.path) {
+    legacyNavigation = await tryParseNcx(
+      archive,
+      parsedPackage.ncxItem.path,
+      diagnostics,
+      controlLimits.maxNavigationDocumentBytes,
+    ) ?? undefined;
   }
+  const compatibleNavigation = await runNavigationFallbackCompatibility(
+    compatibilityProfile.publicationRules,
+    {
+      publication: parsedPackage.publication,
+      primaryNavigation: navigation,
+      legacyNavigation,
+      legacyLandmarks: parsedPackage.epub2Guide,
+    },
+    navigation,
+  );
+  diagnostics.push(...compatibleNavigation.diagnostics);
+  navigation = compatibleNavigation.value;
 
   const publication: Publication = {
     ...parsedPackage.publication,

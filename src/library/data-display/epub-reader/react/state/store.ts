@@ -190,7 +190,7 @@ export class ReactEpubReaderStore {
     this.publish({ ...this.snapshotValue, preferences: next });
   }
   captureLocator() { return this.requireReader().captureLocator(); }
-  registerTheme(theme: import('../../core').ReaderThemeDefinition): void { this.requireReader().registerTheme(theme); }
+  registerTheme(theme: import('../../core').ReaderThemeDefinition): Promise<void> { return this.requireReader().registerTheme(theme); }
   captureSelection() { return this.requireReader().captureSelection(); }
   clearSelection(): void { this.requireReader().clearSelection(); }
   clearReadingSession(): void {

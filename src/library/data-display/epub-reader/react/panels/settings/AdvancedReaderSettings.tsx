@@ -98,7 +98,7 @@ export function AdvancedReaderSettings({
       <div className="epub-settings-panel__advanced-intro">
         <div><span>Compatibility</span><strong>Publication recovery</strong></div>
         <button type="button" onClick={() => void reader.setPreferences({ compatibility: DEFAULT_READER_COMPATIBILITY_PREFERENCES })}>Restore defaults</button>
-        <p>These options are intended for diagnosing unusual EPUB files. Most changes take effect after reopening the book.</p>
+        <p>These options are intended for diagnosing unusual EPUB files. Changes take effect after reopening the book.</p>
       </div>
       {COMPATIBILITY_GROUPS.map(group => (
         <div key={group.title} className="epub-settings-panel__section epub-settings-panel__compatibility-group">

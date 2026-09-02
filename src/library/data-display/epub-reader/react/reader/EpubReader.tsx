@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { EpubContents } from '../panels/EpubContents';
 import { EpubCompatibilityPanel } from '../panels/EpubCompatibilityPanel';
 import { EpubMarksPanel } from '../panels/EpubMarksPanel';
@@ -186,6 +186,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
   });
   const activePanel = READER_PANELS.find(item => item.id === panel);
   const snapshot = reader.state.reader;
+  const activeTheme = snapshot?.appearance.themes.find(theme => theme.id === snapshot.preferences.theme);
   const compatibility = snapshot?.compatibility.status;
   const title = snapshot?.publication.metadata.title?.trim() || 'Opening publication…';
   // The line under the title. A page turn empties it for a few dozen
@@ -442,6 +443,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
         data-page-progression={plan?.pageProgression.value ?? undefined}
         data-spread={plan?.spread.mode ?? undefined}
         data-theme={snapshot?.preferences.theme ?? 'publisher'}
+        style={themeUiStyle(activeTheme?.ui)}
         data-footnote-open={footnote ? 'true' : undefined}
         data-selection-tools-open={selectionTool ? 'true' : undefined}
         data-mark-open={activeMark ? 'true' : undefined}
@@ -565,7 +567,7 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
                         )
                         : panel === 'compatibility'
                           ? <EpubCompatibilityPanel />
-                          : <EpubKeyboardHelp />}
+                          : <EpubKeyboardHelp groups={snapshot?.input.shortcutGroups} />}
               </div>
             </aside>
           ) : null}
@@ -645,4 +647,21 @@ export function EpubReader({ source, readerOptions, onThemeChange }: EpubReaderP
       </div>
     </EpubReaderProvider>
   );
+}
+
+function themeUiStyle(ui: import('../../core').ReaderThemeDefinition['ui']): CSSProperties | undefined {
+  if (!ui) return undefined;
+  return {
+    '--epub-color-reader': ui.reader,
+    '--epub-color-surface': ui.surface,
+    '--epub-color-surface-raised': ui.surfaceRaised,
+    '--epub-color-surface-muted': ui.surfaceMuted,
+    '--epub-color-text': ui.text,
+    '--epub-color-text-muted': ui.textMuted,
+    '--epub-color-line': ui.line,
+    '--epub-color-line-strong': ui.lineStrong,
+    '--epub-color-accent': ui.accent,
+    '--epub-color-accent-strong': ui.accentStrong,
+    '--epub-color-accent-soft': ui.accentSoft,
+  } as CSSProperties;
 }

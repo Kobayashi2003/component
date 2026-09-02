@@ -2,10 +2,15 @@ import { describeReaderPosition } from '../../features/accessibility';
 import { MemoryReaderMarkStore, ReaderMarkController, type ReaderMark, type ReaderMarkStore } from '../../features/annotations';
 import { ReaderThemeRegistry } from '../../presentation/appearance';
 import { OcfZipArchive } from '../../epub/archive';
-import { createCompatibilityReport } from '../../epub/compatibility';
-import { BrowserDomXmlPlatform, PublicationContentDocumentCache, PublicationContentPreflightSession, type PublicationContentPreflightResult } from '../../epub/content';
+import {
+  createReaderCompatibilityProfile,
+  createCompatibilityReport,
+  runRenditionCompatibilityPolicies,
+  type CompatibilityProfile,
+} from '../../epub/compatibility';
+import { BrowserDomXmlPlatform, PublicationContentDocumentCache, PublicationContentDocumentPipeline, PublicationContentPreflightSession, type PublicationContentPreflightResult } from '../../epub/content';
 import { ReaderDecorationController } from '../../features/decorations';
-import { BrowserReaderInputRouter, ReaderInputController } from '../../interaction/input';
+import { BrowserReaderInputRouter, ReaderInputController, type ReaderInputMap } from '../../interaction/input';
 import { locatorAtResourceStart } from '../../interaction/locator';
 import { BrowserPublicationMediaRouter } from '../../features/media';
 import { loadPublicationFootnote, locatorFromCfi, locatorFromHref, PublicationLinkRouter, ReaderNavigationHistory, ReaderNavigator, type NavigationPlanProvider, type NavigationTarget, type ReaderNavigationResult } from '../../interaction/navigation';
@@ -42,6 +47,7 @@ import type {
 } from './model';
 import { PublicationDiagnosticCollector } from './diagnostic-collector';
 import { addBookmarkAndNotify } from './bookmark-event';
+import { configureReaderExtensions, type ReaderExtensionConfiguration } from '../configuration';
 
 type SnapshotListener = () => void;
 
@@ -73,6 +79,7 @@ export class BrowserEpubReader {
    */
   private presentation: ReaderPublicationPresentation;
   private readonly plannerPolicy: RenditionPlannerPolicy;
+  private readonly compatibilityProfile: CompatibilityProfile;
   private readonly resources: PublicationResourceSession;
   private readonly contentPreflight: PublicationContentPreflightSession;
   private readonly contentDocumentCache: PublicationContentDocumentCache;
@@ -84,6 +91,7 @@ export class BrowserEpubReader {
   private readonly markController: ReaderMarkController;
   private readonly decorations: ReaderDecorationController;
   private readonly inputRouter: BrowserReaderInputRouter;
+  private readonly inputMap: ReaderInputMap;
   private readonly linkRouter: PublicationLinkRouter;
   private readonly selectionRouter: BrowserReaderSelectionRouter;
   private readonly mediaRouter: BrowserPublicationMediaRouter;
@@ -113,6 +121,8 @@ export class BrowserEpubReader {
     initialHints: ReadonlyMap<number, ContentPresentationHints>,
     preferences: ReaderPreferences,
     viewport: ViewportMetrics,
+    compatibilityProfile: CompatibilityProfile,
+    extensions: ReaderExtensionConfiguration,
     private readonly options: BrowserEpubReaderOptions,
   ) {
     this.resources = resources;
@@ -124,14 +134,19 @@ export class BrowserEpubReader {
     this.presentation = resolvePublicationPresentation(publication, initialHints);
     this.diagnostics = new PublicationDiagnosticCollector(diagnostics);
     this.preferences = preferences;
+    this.compatibilityProfile = compatibilityProfile;
     this.viewport = viewport;
     this.plannerPolicy = mergePlannerPolicy(options.plannerPolicy);
     this.readerEvent = options.onEvent;
-    this.themeRegistry = options.themeRegistry ?? new ReaderThemeRegistry();
+    // Copy the catalog so one reader owns later dynamic registrations without
+    // mutating the application-level configuration shared by other readers.
+    this.themeRegistry = new ReaderThemeRegistry(extensions.themeCatalog.list());
+    this.inputMap = extensions.inputMap;
     this.markStore = options.markStore ?? new MemoryReaderMarkStore();
 
     const xmlPlatform = new BrowserDomXmlPlatform(container.ownerDocument);
-    this.contentDocumentCache = new PublicationContentDocumentCache(resources, xmlPlatform, {
+    const contentPipeline = new PublicationContentDocumentPipeline(resources, xmlPlatform);
+    this.contentDocumentCache = new PublicationContentDocumentCache(contentPipeline, {
       policy: options.contentDocumentCachePolicy,
       preferredSpineIndex: () => this.pendingNavigationLocator?.spineIndex ?? this.locator?.spineIndex ?? null,
     });
@@ -139,10 +154,8 @@ export class BrowserEpubReader {
     this.host = new RendererHost(createReadingRendererFactories({
       container,
       publication,
-      resources,
       contentDocumentCache: this.contentDocumentCache,
       plannerPolicy: this.plannerPolicy,
-      xmlPlatform,
       themeResolver: this.themeRegistry,
       onDiagnostics: next => this.appendDiagnostics(next, this.options),
       contentHintsForSpine: spineIndex => this.hints.get(spineIndex),
@@ -158,13 +171,11 @@ export class BrowserEpubReader {
 
     const searchProvider = new BrowserPublicationSearchProvider(
       publication,
-      resources,
-      container.ownerDocument,
-      undefined,
-      () => this.preferences.compatibility.recoverMalformedXhtml,
+      contentPipeline,
     );
     const publicationSearch = new PublicationSearch(publication, searchProvider, {
       cache: options.searchCachePolicy,
+      cacheVariant: contentPipeline.analysisSignature,
       preferredSpineIndex: () => this.locator?.spineIndex ?? this.host.state.plan?.spineIndex ?? null,
     });
     this.searchController = new ReaderSearchController(
@@ -216,6 +227,7 @@ export class BrowserEpubReader {
       inputController,
       options.inputPolicy,
       error => this.publishError(error),
+      this.inputMap,
     );
     this.linkRouter = new PublicationLinkRouter(publication, this.navigator, {
       onExternalLink: options.onExternalLink,
@@ -331,6 +343,11 @@ export class BrowserEpubReader {
         ...options.preferences?.compatibility,
       },
     });
+    const extensions = options.extensions ?? configureReaderExtensions();
+    const compatibilityProfile = createReaderCompatibilityProfile(
+      preferences.compatibility,
+      extensions.compatibilityModules,
+    );
     reportOpenProgress(options, 'archive', 'Opening EPUB container', 1);
     const opened = await OcfZipArchive.open(
       source,
@@ -344,15 +361,19 @@ export class BrowserEpubReader {
     reportOpenProgress(options, 'package', 'Reading publication metadata', 2);
     const loaded = await loadPublicationFromArchive(opened.archive, opened.diagnostics, {
       controlDocumentLimits: options.controlDocumentLimits,
-      selectPreferredRootfile: preferences.compatibility.selectPreferredRootfile,
-      useLegacyNavigationFallback: preferences.compatibility.useLegacyNavigationFallback,
+      compatibilityProfile,
     });
     throwIfAborted(options.signal);
     if (!loaded.publication) {
       throw new BrowserEpubReaderOpenError('The EPUB package could not be parsed.', loaded.diagnostics);
     }
     const initial = resolveInitialLocator(loaded.publication, options);
-    const contentPreflight = new PublicationContentPreflightSession(opened.archive, loaded.publication, options.signal);
+    const contentPreflight = new PublicationContentPreflightSession(
+      opened.archive,
+      loaded.publication,
+      options.signal,
+      compatibilityProfile,
+    );
     let reader: BrowserEpubReader | null = null;
     try {
       const initialWindow = preflightWindowIndexes(loaded.publication, initial.spineIndex);
@@ -360,14 +381,14 @@ export class BrowserEpubReader {
       const preflight = await contentPreflight.inspect(initialWindow);
       throwIfAborted(options.signal);
       reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
-      const resource = await ResourceResolver.create(opened.archive, loaded.publication, {
-        ...options.resourcePolicy,
-        deobfuscateIdpfFonts: preferences.compatibility.deobfuscateIdpfFonts,
-      });
+      const resource = await ResourceResolver.create(
+        opened.archive,
+        loaded.publication,
+        compatibilityProfile,
+        options.resourcePolicy,
+      );
       throwIfAborted(options.signal);
-      const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory(), {
-        normalizeLegacyCss: preferences.compatibility.normalizeLegacyCss,
-      });
+      const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory());
       const diagnostics = [...loaded.diagnostics, ...preflight.diagnostics, ...resource.diagnostics];
       const viewport = measureViewport(container);
       reader = new BrowserEpubReader(
@@ -379,6 +400,8 @@ export class BrowserEpubReader {
         preflight.hints,
         preferences,
         viewport,
+        compatibilityProfile,
+        extensions,
         options,
       );
 
@@ -536,9 +559,18 @@ export class BrowserEpubReader {
     return locator;
   }
 
-  registerTheme(theme: import('../../presentation/appearance').ReaderThemeDefinition): void {
+  async registerTheme(theme: import('../../presentation/appearance').ReaderThemeDefinition): Promise<void> {
     this.assertAlive();
-    this.themeRegistry.register(theme);
+    const unregister = this.themeRegistry.register(theme);
+    try {
+      if (this.host.state.plan && this.preferences.theme === theme.id) {
+        await this.navigator.relayout('preferences');
+      }
+    } catch (error) {
+      unregister();
+      throw error;
+    }
+    this.publish(this.snapshotValue.status, this.snapshotValue.error);
   }
 
   dispose(): void {
@@ -572,13 +604,26 @@ export class BrowserEpubReader {
   private buildPlanForSpine(spineIndex: number) {
     const spineItem = this.publication.spine[spineIndex];
     if (!spineItem) throw new RangeError(`Spine index ${spineIndex} is outside the publication reading order.`);
+    const contentHints = this.hints.get(spineIndex);
+    const compatibility = runRenditionCompatibilityPolicies(
+      this.compatibilityProfile.renditionPolicies,
+      {
+        publication: this.publication,
+        spineItem,
+        contentHints,
+        preferences: this.preferences,
+      },
+      { fitSingleImagePage: false },
+    );
     return planRendition({
       publication: this.publication,
       spineItem,
       viewport: this.viewport,
       preferences: this.preferences,
-      contentHints: this.hints.get(spineIndex),
+      contentHints,
       policy: this.plannerPolicy,
+      compatibility: compatibility.value,
+      compatibilityDiagnostics: compatibility.diagnostics,
     });
   }
 
@@ -754,6 +799,8 @@ export class BrowserEpubReader {
       marks: this.markStore?.snapshot() ?? { revision: 0, marks: [] },
       selection: this.selection,
       accessibility,
+      appearance: Object.freeze({ themes: this.themeRegistry.list() }),
+      input: this.inputMap.description,
       error,
     });
   }
@@ -926,7 +973,6 @@ function renderPreferencesChanged(a: ReaderPreferences, b: ReaderPreferences): b
     || a.pageMarginPercent !== b.pageMarginPercent
     || a.fixedLayoutFit !== b.fixedLayoutFit
     || a.fixedLayoutGutter !== b.fixedLayoutGutter
-    || a.compatibility.fitSingleImagePages !== b.compatibility.fitSingleImagePages
     || a.theme !== b.theme;
 }
 

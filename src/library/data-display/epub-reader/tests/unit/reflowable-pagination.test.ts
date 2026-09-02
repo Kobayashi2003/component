@@ -283,6 +283,7 @@ const item = publication.spine[0]!;
     spineItem: item,
     viewport: { width: 1600, height: 650 },
     contentHints: { writingMode: 'horizontal-tb', page: pureImagePage },
+    compatibility: { fitSingleImagePage: true },
   });
   assert(plan.contentPage === pureImagePage, 'renderer plan must retain the preflight page profile');
   const css = buildReflowableLayoutCss(plan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
@@ -298,11 +299,9 @@ const item = publication.spine[0]!;
     publication,
     spineItem: item,
     viewport: { width: 1600, height: 650 },
-    preferences: {
-      ...DEFAULT_READER_PREFERENCES,
-      compatibility: { ...DEFAULT_READER_PREFERENCES.compatibility, fitSingleImagePages: false },
-    },
+    preferences: DEFAULT_READER_PREFERENCES,
     contentHints: { page: pureImagePage },
+    compatibility: { fitSingleImagePage: false },
   });
   const unassistedCss = buildReflowableLayoutCss(unassistedPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
   assert(unassistedCss.includes('column-fill: auto') && !unassistedCss.includes('position: fixed !important'),
@@ -313,6 +312,7 @@ const item = publication.spine[0]!;
     spineItem: item,
     viewport: { width: 1600, height: 650 },
     contentHints: { page: { ...pureImagePage, semanticTextLength: 4 } },
+    compatibility: { fitSingleImagePage: false },
   });
   const captionedCss = buildReflowableLayoutCss(captionedPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
   assert(captionedCss.includes('column-fill: auto') && !captionedCss.includes('position: fixed !important'),
@@ -324,6 +324,7 @@ const item = publication.spine[0]!;
     viewport: { width: 1600, height: 650 },
     preferences: { ...DEFAULT_READER_PREFERENCES, flow: 'scrolled' },
     contentHints: { page: pureImagePage },
+    compatibility: { fitSingleImagePage: true },
   });
   const scrolledCss = buildReflowableLayoutCss(scrolledPlan, DEFAULT_REFLOWABLE_RENDERER_POLICY);
   assert(scrolledPlan.renderer === 'reflowable-scroll' && !scrolledCss.includes('position: fixed !important'),

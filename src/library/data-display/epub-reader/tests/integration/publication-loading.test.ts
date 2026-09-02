@@ -3,6 +3,8 @@ import { __zipTestUtils } from '../../core/epub/archive/ocf-zip';
 import { loadEpub, loadPublicationFromArchive } from '../../core/epub/publication/loader';
 import { hasMixedLayout, resolveSpineRendition } from '../../core/epub/publication/resolve-rendition';
 import { resolvePublicationReference } from '../../core/epub/publication/path';
+import { createBuiltInCompatibilityProfile } from '../../core/epub/compatibility';
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES } from '../../core/epub/publication';
 
 const containerXml = `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -139,7 +141,12 @@ async function main() {
   });
   const preferredRootfile = await loadPublicationFromArchive(multipleRootfiles);
   assert(preferredRootfile.publication?.metadata.title === 'Reader Fixture', 'default rootfile recovery should prefer the standard OPF package');
-  const publisherRootfile = await loadPublicationFromArchive(multipleRootfiles, [], { selectPreferredRootfile: false });
+  const publisherRootfile = await loadPublicationFromArchive(multipleRootfiles, [], {
+    compatibilityProfile: createBuiltInCompatibilityProfile({
+      ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+      selectPreferredRootfile: false,
+    }),
+  });
   assert(publisherRootfile.publication?.metadata.title === 'Publisher First Package', 'disabling rootfile recovery should preserve publisher declaration order');
 
   const epub2 = await loadPublicationFromArchive(new MemoryPublicationArchive({
@@ -160,7 +167,12 @@ async function main() {
     'EPUB/package.opf': epub2PackageXml,
     'EPUB/toc.ncx': ncxXml,
     'EPUB/chapter.xhtml': '<html/>',
-  }), [], { useLegacyNavigationFallback: false });
+  }), [], {
+    compatibilityProfile: createBuiltInCompatibilityProfile({
+      ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+      useLegacyNavigationFallback: false,
+    }),
+  });
   assert(epub2WithoutFallback.publication?.navigation.source === 'none', 'disabling legacy navigation must not parse NCX as the active navigation model');
   assert(epub2WithoutFallback.publication?.navigation.landmarks.length === 0, 'disabling legacy navigation must not import EPUB 2 Guide landmarks');
 

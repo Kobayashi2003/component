@@ -5,7 +5,7 @@ import { ReaderMarkController } from '../../core/features/annotations/controller
 import { PublicationSearch, ReaderSearchController } from '../../core/features/search';
 import type { SearchDocumentProvider } from '../../core/features/search';
 import type { Locator, LocatorRange, Publication } from '../../core/epub/publication';
-import { commandForClickZone, commandForKey, commandForPageClick, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputController, touchNavigationAllows } from '../../core/interaction/input';
+import { BUILT_IN_READER_INPUT_BINDINGS, commandForClickZone, commandForKey, commandForPageClick, commandForSwipe, commandForWheel, isInteractivePublicationTarget, ReaderInputBindingRegistry, ReaderInputController, touchNavigationAllows } from '../../core/interaction/input';
 import { buildReaderPreferenceCss } from '../../core/presentation/renderer/reflowable';
 import { BrowserReaderInputRouter, mapContentClientXToViewport, semanticCursorForClickZone, verticalScrollTarget } from '../../core/interaction/input/browser-input-router';
 import type { RenditionPlan } from '../../core/presentation/rendition';
@@ -245,6 +245,35 @@ async function main() {
   assert(commandForKey({ key: 'ArrowRight', altKey: true }, 'rtl')?.type === 'history-forward', 'Alt+Right history should remain physical in RTL books');
   assert(commandForKey({ key: 'c' }, 'ltr')?.type === 'toggle-chrome', 'C should toggle immersive reader controls');
   assert(commandForKey({ key: '?' }, 'ltr')?.type === 'open-help', 'question mark should expose keyboard help');
+  const configurableInput = new ReaderInputBindingRegistry([
+    {
+      id: 'test.invalid-key-source',
+      priority: 20,
+      kinds: ['keyboard'],
+      map: signal => signal.kind === 'keyboard' && signal.key === 'ArrowRight'
+        ? { type: 'navigate', direction: 'forward', source: 'wheel' }
+        : null,
+    },
+    {
+      id: 'test.vim-navigation',
+      priority: 10,
+      kinds: ['keyboard'],
+      shortcuts: [{ label: 'Navigation', items: [{ keys: ['J'], action: 'Next page' }] }],
+      map: signal => signal.kind === 'keyboard' && signal.key.toLowerCase() === 'j'
+        ? { type: 'navigate', direction: 'forward', source: 'keyboard' }
+        : null,
+    },
+    ...BUILT_IN_READER_INPUT_BINDINGS,
+  ]).createMap();
+  const customKey = configurableInput.resolve({ kind: 'keyboard', key: 'j' }, {
+    enabled: true, pageProgression: 'ltr', contentKind: 'reflowable', presentation: 'paginated', wheelBoundaryNavigation: false,
+  });
+  assert(customKey.command?.type === 'navigate' && customKey.command.direction === 'forward', 'a higher-priority input binding must be able to add a semantic shortcut');
+  const isolatedInvalid = configurableInput.resolve({ kind: 'keyboard', key: 'ArrowRight' }, {
+    enabled: true, pageProgression: 'ltr', contentKind: 'reflowable', presentation: 'paginated', wheelBoundaryNavigation: false,
+  });
+  assert(isolatedInvalid.command?.type === 'navigate' && isolatedInvalid.failures.length === 1, 'an invalid contributed command must be isolated before the default binding handles the signal');
+  assert(configurableInput.description.shortcutGroups.some(group => group.items.some(item => item.keys.includes('J'))), 'input help must be derived from the active binding map');
   // Delivery, not just mapping. A keyboard command can only arrive if the
   // element the router binds to is the element that holds focus: events travel
   // upward, so a focusable *parent* leaves the page keys dead. The router makes
@@ -578,10 +607,17 @@ async function main() {
 
   const themes = new ReaderThemeRegistry();
   assert(themes.resolve('paper')?.background === '#f7f1e3' && themes.resolve('graphite')?.colorScheme === 'dark', 'all exposed reader themes must resolve to real definitions');
-  themes.register({ id: 'custom-night', foreground: '#ddd', background: '#111', colorScheme: 'dark' });
+  themes.register({ id: 'custom-night', label: 'Custom night', foreground: '#ddd', background: '#111', colorScheme: 'dark' });
   assert(themes.resolve('custom-night')?.background === '#111', 'theme registry should accept user-defined themes');
   assert(themes.unregister('custom-night'), 'custom reader themes should be removable');
   assert(!themes.unregister('publisher'), 'publisher theme is the non-removable semantic baseline');
+  assert(!themes.unregister('paper'), 'built-in reader themes must not be removable from a shared catalog');
+  let unsafeThemeRejected = false;
+  try { themes.register({ id: 'unsafe-theme', foreground: 'red; position:fixed' }); } catch { unsafeThemeRejected = true; }
+  assert(unsafeThemeRejected, 'theme contributions must reject declaration-breaking values at registration');
+  let networkThemeRejected = false;
+  try { themes.register({ id: 'network-theme', background: 'url(https://example.com/pixel)' }); } catch { networkThemeRejected = true; }
+  assert(networkThemeRejected, 'theme contributions must not introduce network-backed CSS values');
   const cssPlan = {
     preferences: { flow: 'auto', spread: 'auto', pageProgression: 'auto', fontSizePercent: 100, fontFamily: null, lineHeight: null, theme: 'unsafe' },
   } as unknown as RenditionPlan;

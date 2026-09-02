@@ -85,6 +85,7 @@ function makePlan(
     },
     alignXCenter: false,
     preferences: { ...DEFAULT_READER_PREFERENCES, fontSizePercent },
+    compatibility: { fitSingleImagePage: false },
     capabilities: {
       textCustomization: {
         fontSize: renderer !== 'fixed-layout',

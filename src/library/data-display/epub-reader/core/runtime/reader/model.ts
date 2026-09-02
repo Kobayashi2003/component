@@ -1,8 +1,9 @@
 import type { ReaderAccessibilityDescription } from '../../features/accessibility';
 import type { ReaderMarkStore, ReaderMarkStoreSnapshot } from '../../features/annotations';
-import type { ReaderThemeRegistry } from '../../presentation/appearance';
+import type { ReaderThemeDefinition } from '../../presentation/appearance';
 import type { PublicationDiagnostic, Locator, LocatorRange, Publication, PublicationLayoutProfile, ReaderPreferences, PublicationControlDocumentLimits, WritingMode } from '../../epub/publication';
-import type { ReaderHostCommand, ReaderInputPolicy } from '../../interaction/input';
+import type { ReaderHostCommand, ReaderInputMapDescription, ReaderInputPolicy } from '../../interaction/input';
+import type { ReaderExtensionConfiguration } from '../configuration';
 import type { PublicationSearchCachePolicy, ReaderSearchState, SearchOptions, SearchHit } from '../../features/search';
 import type { RendererHostState } from '../../presentation/renderer';
 import type { RenditionPlannerPolicy, ViewportMetrics } from '../../presentation/rendition';
@@ -83,6 +84,8 @@ export interface BrowserEpubReaderSnapshot {
   readonly marks: ReaderMarkStoreSnapshot;
   readonly selection: ReaderSelection | null;
   readonly accessibility: ReaderAccessibilityDescription;
+  readonly appearance: { readonly themes: readonly ReaderThemeDefinition[] };
+  readonly input: ReaderInputMapDescription;
   readonly error: unknown | null;
 }
 
@@ -102,11 +105,12 @@ export interface BrowserEpubReaderOptions extends PublicationLinkRouterOptions {
   readonly archiveLimits?: Partial<OcfZipLimits>;
   readonly controlDocumentLimits?: Partial<PublicationControlDocumentLimits>;
   readonly inputPolicy?: Partial<ReaderInputPolicy>;
+  /** Validated, typed contributions composed before this reading session opens. */
+  readonly extensions?: ReaderExtensionConfiguration;
   readonly searchCachePolicy?: Partial<PublicationSearchCachePolicy>;
   /** Bounds rewritten chapter markup retained for fast revisits. */
   readonly contentDocumentCachePolicy?: Partial<PublicationContentDocumentCachePolicy>;
   readonly markStore?: ReaderMarkStore;
-  readonly themeRegistry?: ReaderThemeRegistry;
   /** Requests a product-level action captured by the engine's input router. */
   readonly onCommand?: (command: ReaderHostCommand) => void;
   /** Reports semantic reader activity independently of product UI handling. */

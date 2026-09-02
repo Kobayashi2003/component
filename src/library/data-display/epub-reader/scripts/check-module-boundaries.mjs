@@ -8,6 +8,14 @@ const roots = {
   react: path.join(packageRoot, 'react'),
   showcase: path.join(packageRoot, 'showcase'),
 };
+const coreRoots = {
+  epub: path.join(roots.core, 'epub'),
+  compatibility: path.join(roots.core, 'epub', 'compatibility'),
+  extension: path.join(roots.core, 'extension'),
+  extensionModel: path.join(roots.core, 'extension', 'model'),
+  features: path.join(roots.core, 'features'),
+  runtime: path.join(roots.core, 'runtime'),
+};
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 
 async function collectSourceFiles(directory) {
@@ -41,7 +49,7 @@ function lineNumberAt(source, offset) {
   return source.slice(0, offset).split('\n').length;
 }
 
-function boundaryViolation(sourceArea, target) {
+function boundaryViolation(sourceArea, source, target) {
   if (sourceArea === 'core' && (isInside(target, roots.react) || isInside(target, roots.showcase))) {
     return 'core must not depend on React or showcase modules';
   }
@@ -50,6 +58,20 @@ function boundaryViolation(sourceArea, target) {
   }
   if (sourceArea === 'showcase' && isInside(target, roots.react) && target !== roots.react) {
     return 'showcase must consume React through the public React entry';
+  }
+  if (isInside(source, coreRoots.epub) && isInside(target, coreRoots.runtime)) {
+    return 'EPUB processing must not depend on reader runtime modules';
+  }
+  if (isInside(source, coreRoots.features) && isInside(target, coreRoots.runtime)) {
+    return 'reading features must not depend on reader runtime modules';
+  }
+  if (isInside(source, coreRoots.extension) && isInside(target, coreRoots.features)) {
+    return 'generic extension mechanisms must not depend on concrete reading features';
+  }
+  if (isInside(source, coreRoots.compatibility)
+    && isInside(target, coreRoots.extension)
+    && target !== coreRoots.extensionModel) {
+    return 'EPUB compatibility may reuse extension ordering types, but not feature lifecycle, capability, or event mechanisms';
   }
   return null;
 }
@@ -61,7 +83,7 @@ for (const [sourceArea, root] of Object.entries(roots)) {
     for (const imported of importedSpecifiers(source)) {
       if (!imported.specifier.startsWith('.')) continue;
       const target = path.resolve(path.dirname(file), imported.specifier);
-      const reason = boundaryViolation(sourceArea, target);
+      const reason = boundaryViolation(sourceArea, file, target);
       if (!reason) continue;
       violations.push({
         file: path.relative(packageRoot, file).replaceAll(path.sep, '/'),

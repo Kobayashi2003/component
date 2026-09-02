@@ -60,6 +60,7 @@ export function planRendition(input: PlanRenditionInput): RenditionPlan {
   const diagnostics: PublicationDiagnostic[] = [
     ...flow.diagnostics,
     ...spread.diagnostics,
+    ...(input.compatibilityDiagnostics ?? []),
   ];
 
   return {
@@ -78,6 +79,7 @@ export function planRendition(input: PlanRenditionInput): RenditionPlan {
     contentPage: input.contentHints?.page,
     intrinsicViewport: input.contentHints?.viewport,
     preferences,
+    compatibility: Object.freeze(input.compatibility ?? { fitSingleImagePage: false }),
     capabilities: buildRenditionCapabilities(
       publicationRendition,
       flow.overflow.value,

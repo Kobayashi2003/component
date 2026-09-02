@@ -12,6 +12,7 @@ import type {
 import { DEFAULT_SEARCH_CACHE_POLICY, DEFAULT_SEARCH_OPTIONS } from './model';
 
 interface SearchCacheEntry {
+  readonly spineIndex: number;
   readonly controller: AbortController;
   promise: Promise<SearchDocument | null>;
   /** Undefined while pending; null is a resolved non-searchable resource. */
@@ -23,10 +24,12 @@ export interface PublicationSearchOptions {
   readonly cache?: Partial<PublicationSearchCachePolicy>;
   /** Current reading-order position; its neighbouring indexes survive LRU pressure first. */
   readonly preferredSpineIndex?: () => number | null;
+  /** Immutable compatibility/content-pipeline identity included in every cache key. */
+  readonly cacheVariant?: string;
 }
 
 export class PublicationSearch {
-  private readonly documents = new Map<number, SearchCacheEntry>();
+  private readonly documents = new Map<string, SearchCacheEntry>();
   private readonly cachePolicy: PublicationSearchCachePolicy;
 
   constructor(
@@ -43,7 +46,7 @@ export class PublicationSearch {
       documents: entries.filter(([, entry]) => entry.document !== undefined).length,
       pending: entries.filter(([, entry]) => entry.document === undefined).length,
       estimatedBytes: entries.reduce((total, [, entry]) => total + entry.estimatedBytes, 0),
-      spineIndexes: Object.freeze(entries.map(([spineIndex]) => spineIndex)),
+      spineIndexes: Object.freeze(entries.map(([, entry]) => entry.spineIndex)),
     });
   }
 
@@ -118,35 +121,36 @@ export class PublicationSearch {
   }
 
   private loadDocument(spineIndex: number): Promise<SearchDocument | null> {
-    let entry = this.documents.get(spineIndex);
+    const key = this.cacheKey(spineIndex);
+    let entry = this.documents.get(key);
     if (!entry) {
       // Parsing is publication-scoped rather than query-scoped. Let one shared
       // load finish even if a particular query is superseded, then reuse it.
       const controller = new AbortController();
-      entry = { controller, promise: Promise.resolve(null), estimatedBytes: 0 };
+      entry = { spineIndex, controller, promise: Promise.resolve(null), estimatedBytes: 0 };
       const current = entry;
       current.promise = this.provider.load(spineIndex, controller.signal).then(document => {
-        if (this.documents.get(spineIndex) !== current) return document;
+        if (this.documents.get(key) !== current) return document;
         current.document = document;
         current.estimatedBytes = document ? estimateSearchDocumentBytes(document) : 0;
-        this.touch(spineIndex, current);
+        this.touch(key, current);
         this.trimCache();
         return document;
       }, error => {
-        if (this.documents.get(spineIndex) === current) this.documents.delete(spineIndex);
+        if (this.documents.get(key) === current) this.documents.delete(key);
         throw error;
       });
-      this.documents.set(spineIndex, current);
+      this.documents.set(key, current);
     } else {
-      this.touch(spineIndex, entry);
+      this.touch(key, entry);
     }
     return entry.promise;
   }
 
-  private touch(spineIndex: number, entry: SearchCacheEntry): void {
-    if (this.documents.get(spineIndex) !== entry) return;
-    this.documents.delete(spineIndex);
-    this.documents.set(spineIndex, entry);
+  private touch(key: string, entry: SearchCacheEntry): void {
+    if (this.documents.get(key) !== entry) return;
+    this.documents.delete(key);
+    this.documents.set(key, entry);
   }
 
   private trimCache(): void {
@@ -168,16 +172,20 @@ export class PublicationSearch {
     return documents > this.cachePolicy.maxDocuments || bytes > this.cachePolicy.maxBytes;
   }
 
-  private evictionCandidate(): number | null {
+  private evictionCandidate(): string | null {
     const resolved = [...this.documents.entries()].filter(([, entry]) => entry.document !== undefined);
     if (resolved.length === 0) return null;
     const anchor = this.options.preferredSpineIndex?.();
     if (anchor != null && Number.isInteger(anchor)) {
       const preferred = new Set([anchor - 1, anchor, anchor + 1]);
-      const outside = resolved.find(([spineIndex]) => !preferred.has(spineIndex));
+      const outside = resolved.find(([, entry]) => !preferred.has(entry.spineIndex));
       if (outside) return outside[0];
     }
     return resolved[0]![0];
+  }
+
+  private cacheKey(spineIndex: number): string {
+    return `${this.options.cacheVariant ?? 'search/default'}:${spineIndex}`;
   }
 }
 

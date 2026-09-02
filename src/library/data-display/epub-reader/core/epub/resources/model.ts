@@ -12,7 +12,6 @@ export interface ResourceResolverOptions {
   readonly remotePolicy?: RemoteResourcePolicy;
   readonly unmanifestedPolicy?: UnmanifestedResourcePolicy;
   readonly maxResourceBytes?: number;
-  readonly deobfuscateIdpfFonts?: boolean;
 }
 
 export interface ResolvedResourceRequest {

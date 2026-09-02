@@ -12,6 +12,7 @@ import type {
   TextDirection,
   WritingMode,
 } from '../../epub/publication';
+import type { RenditionCompatibilityDirectives } from '../../epub/compatibility/rendition-policy';
 
 export type RendererKind =
   | 'reflowable-paginated'
@@ -172,6 +173,7 @@ export interface RenditionPlan {
   readonly intrinsicViewport?: IntrinsicViewport;
 
   readonly preferences: ReaderPreferences;
+  readonly compatibility: RenditionCompatibilityDirectives;
   readonly capabilities: RenditionCapabilities;
   readonly requirements: RenditionRequirements;
   readonly diagnostics: readonly PublicationDiagnostic[];
@@ -184,4 +186,6 @@ export interface PlanRenditionInput {
   readonly preferences?: ReaderPreferences;
   readonly contentHints?: ContentPresentationHints;
   readonly policy?: RenditionPlannerPolicy;
+  readonly compatibility?: RenditionCompatibilityDirectives;
+  readonly compatibilityDiagnostics?: readonly PublicationDiagnostic[];
 }

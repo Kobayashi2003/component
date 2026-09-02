@@ -17,6 +17,24 @@ const [file, setFile] = useState<File | null>(null)
 
 By default, `EpubReader` asks for confirmation before opening an external link; websites open in an isolated new tab. Only `http`, `https`, `mailto`, and `tel` are actionable, while executable and unsupported schemes remain blocked by the core navigation policy. A host can provide `readerOptions.onExternalLink` to replace the built-in confirmation and opening flow; the callback receives a typed destination that has already passed that policy.
 
+## Controlled extensions
+
+Use `configureReaderExtensions` to register EPUB compatibility modules, normalized input bindings, and themes in separate typed buckets, then pass the result through `readerOptions.extensions`. Built-ins are retained and all contributions are validated before a publication opens.
+
+```tsx
+import { configureReaderExtensions } from './core'
+import { EpubReader } from './react'
+
+const extensions = configureReaderExtensions({
+  inputBindings: [vimPageKeys],
+  themes: [midnightTheme],
+})
+
+<EpubReader source={file} readerOptions={{ extensions }} />
+```
+
+See [Controlled Reader Extensions](./docs/extensions.md) and the [checked example](./examples/reader-extensions.ts) for the contracts and authority boundaries. The reader deliberately does not accept a generic `plugins` array.
+
 ## Layers
 
 - `core/` parses and normalizes EPUBs, plans renditions, renders isolated documents, and coordinates navigation and reading services.

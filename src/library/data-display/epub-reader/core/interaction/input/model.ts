@@ -53,3 +53,42 @@ export interface ReaderInputState {
 export interface ReaderInputDispatcher {
   dispatch(command: ReaderCommand): void | Promise<void>;
 }
+
+export type ReaderInputSignal =
+  | ({ readonly kind: 'keyboard' } & import('./commands').KeyLike)
+  | { readonly kind: 'wheel'; readonly deltaY: number; readonly modified: boolean }
+  | { readonly kind: 'page-click'; readonly clientX: number; readonly width: number; readonly ratio: number; readonly edgeNavigation: boolean }
+  | { readonly kind: 'swipe'; readonly deltaX: number; readonly threshold: number };
+
+export interface ReaderShortcutItem {
+  readonly keys: readonly string[];
+  readonly action: string;
+}
+
+export interface ReaderShortcutGroup {
+  readonly label: string;
+  readonly items: readonly ReaderShortcutItem[];
+}
+
+export interface ReaderInputMapDescription {
+  readonly bindingIds: readonly string[];
+  readonly shortcutGroups: readonly ReaderShortcutGroup[];
+}
+
+export interface ReaderInputBinding {
+  readonly id: string;
+  readonly priority?: number;
+  readonly kinds: readonly ReaderInputSignal['kind'][];
+  readonly shortcuts?: readonly ReaderShortcutGroup[];
+  map(signal: ReaderInputSignal, state: ReaderInputState): ReaderCommand | null;
+}
+
+export interface ReaderInputResolution {
+  readonly command: ReaderCommand | null;
+  readonly failures: readonly { readonly bindingId: string; readonly error: unknown }[];
+}
+
+export interface ReaderInputMap {
+  readonly description: ReaderInputMapDescription;
+  resolve(signal: ReaderInputSignal, state: ReaderInputState): ReaderInputResolution;
+}

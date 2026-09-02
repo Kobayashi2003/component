@@ -1,12 +1,12 @@
 import { MemoryPublicationArchive } from '../../core/epub/archive';
-import { createCompatibilityReport } from '../../core/epub/compatibility';
-import { normalizeLegacyEpubCss } from '../../core/epub/resources';
+import { createBuiltInCompatibilityProfile, createCompatibilityReport } from '../../core/epub/compatibility';
+import { normalizeLegacyEpubCss, PublicationResourceSession, ResourceResolver } from '../../core/epub/resources';
 import { planRendition } from '../../core/presentation/rendition';
 import { parseXml } from '../../core/epub/xml';
 import { semanticXmlText, collectRubySamples } from '../../core/epub/text';
-import type { Publication, PublicationPath } from '../../core/epub/publication';
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, type Publication, type PublicationPath } from '../../core/epub/publication';
 import { preflightPublicationContent } from '../../core/epub/content/preflight';
-import { parseXhtmlContentDocument, resolveSvgNavigationHref, type BrowserXmlPlatform } from '../../core/epub/content';
+import { PublicationContentDocumentPipeline, resolveSvgNavigationHref, type BrowserXmlPlatform } from '../../core/epub/content';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -89,15 +89,28 @@ async function main() {
     parseXml: (_source, mediaType) => mediaType === 'application/xhtml+xml' ? parserError : recoveredHtml,
     serializeXml: () => '',
   };
-  const recovered = parseXhtmlContentDocument('<html><body><p>broken', publication.spine[0]!.path!, 0, parsingPlatform);
+  const compatibilityProfile = createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES);
+  const resolver = new ResourceResolver(archive, publication, compatibilityProfile);
+  const session = new PublicationResourceSession(resolver, { create: () => 'blob:test', revoke: () => undefined });
+  const pipeline = new PublicationContentDocumentPipeline(session, parsingPlatform);
+  const recovered = await pipeline.parseForAnalysis(publication.spine[0]!);
   assert(recovered.document === recoveredHtml, 'malformed XHTML must use the same HTML fallback used by rendered content');
   assert(recovered.diagnostics.some(diagnostic => diagnostic.code === 'CONTENT_XHTML_PARSED_AS_HTML'), 'search-compatible parsing must retain the recovery diagnostic');
   let strictParsingFailed = false;
   try {
-    parseXhtmlContentDocument('<html><body><p>broken', publication.spine[0]!.path!, 0, parsingPlatform, false);
+    const strictProfile = createBuiltInCompatibilityProfile({
+      ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+      recoverMalformedXhtml: false,
+    });
+    const strictResolver = new ResourceResolver(archive, publication, strictProfile);
+    const strictSession = new PublicationResourceSession(strictResolver, { create: () => 'blob:strict', revoke: () => undefined });
+    const strictPipeline = new PublicationContentDocumentPipeline(strictSession, parsingPlatform);
+    await strictPipeline.parseForAnalysis(publication.spine[0]!);
+    strictSession.dispose();
   } catch {
     strictParsingFailed = true;
   }
+  session.dispose();
   assert(strictParsingFailed, 'disabling malformed XHTML recovery must reject the invalid content document');
 
   assert(

@@ -214,7 +214,7 @@ ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
  */
 function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
   const page = plan.contentPage;
-  return plan.preferences.compatibility.fitSingleImagePages
+  return plan.compatibility.fitSingleImagePage
     && page?.kind === 'single-image-page'
     && page.pageLike
     && page.replacedElementCount === 1
@@ -370,7 +370,7 @@ export function buildReaderPreferenceCss(plan: RenditionPlan, resolvedTheme?: Re
     // specificity, so publisher rules still win where they exist.
     extra.push(`:where(ruby, rb, rt, rtc) { line-height: normal; }`);
   }
-  const theme = themeDeclarations(preferences.theme, resolvedTheme);
+  const theme = themeDeclarations(resolvedTheme);
   if (theme?.body) rules.push(...theme.body);
   if (theme?.link) extra.push(`a, a:link, a:visited { color: ${theme.link} !important; }`);
   if (theme?.forceTextColor) {
@@ -412,8 +412,8 @@ img, svg, video, canvas, object, embed, iframe {
 `;
 }
 
-function themeDeclarations(theme: string, resolved?: ReaderThemeDefinition | null): { body: string[]; link?: string; forceTextColor: boolean } | null {
-  const value = resolved ?? builtinTheme(theme);
+function themeDeclarations(resolved?: ReaderThemeDefinition | null): { body: string[]; link?: string; forceTextColor: boolean } | null {
+  const value = resolved;
   if (!value || value.id === 'publisher') return null;
   const body: string[] = [];
   const foreground = safeCssValue(value.foreground);
@@ -429,18 +429,8 @@ function themeDeclarations(theme: string, resolved?: ReaderThemeDefinition | nul
 function safeCssValue(value: string | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
-  if (!trimmed || /[;{}\r\n\f]/u.test(trimmed)) return null;
+  if (!trimmed || /[;{}\r\n\f]/u.test(trimmed) || /url\s*\(/iu.test(trimmed)) return null;
   return trimmed;
-}
-
-function builtinTheme(theme: string): ReaderThemeDefinition | null {
-  if (theme === 'light') return { id: 'light', foreground: '#1a1a1a', background: '#ffffff', link: '#1a73e8', colorScheme: 'light' };
-  if (theme === 'dark') return { id: 'dark', foreground: '#e8e8e8', background: '#161616', link: '#8ab4f8', colorScheme: 'dark', forceTextColor: true };
-  if (theme === 'sepia') return { id: 'sepia', foreground: '#2b2118', background: '#f4ecd8', link: '#7a4f2a', colorScheme: 'light' };
-  if (theme === 'paper') return { id: 'paper', foreground: '#29251f', background: '#f7f1e3', link: '#765334', colorScheme: 'light' };
-  if (theme === 'mist') return { id: 'mist', foreground: '#253038', background: '#edf2f5', link: '#386b82', colorScheme: 'light' };
-  if (theme === 'graphite') return { id: 'graphite', foreground: '#e5e8eb', background: '#202329', link: '#91b9d0', colorScheme: 'dark', forceTextColor: true };
-  return null;
 }
 
 function quoteCssString(value: string): string {

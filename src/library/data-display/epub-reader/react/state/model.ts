@@ -47,7 +47,7 @@ export interface EpubReaderHandle {
   };
   setPreferences(patch: import('../../core').ReaderPreferencesPatch): Promise<void>;
   captureLocator(): Promise<Locator | null>;
-  registerTheme(theme: import('../../core').ReaderThemeDefinition): void;
+  registerTheme(theme: import('../../core').ReaderThemeDefinition): Promise<void>;
   captureSelection(): import('../../core').ReaderSelection | null;
   clearSelection(): void;
   clearReadingSession(): void;

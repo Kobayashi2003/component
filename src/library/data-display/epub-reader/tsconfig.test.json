@@ -4,6 +4,7 @@
     "tests/support/react.d.ts",
     "types/styles.d.ts",
     "core/**/*.ts",
+    "examples/**/*.ts",
     "react/**/*.ts",
     "react/**/*.tsx",
     "tests/**/*.ts"

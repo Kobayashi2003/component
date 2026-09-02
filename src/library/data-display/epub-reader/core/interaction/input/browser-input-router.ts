@@ -1,6 +1,7 @@
 import type { RendererContentDocument } from '../../presentation/renderer';
-import { commandForKey, commandForPageClick, commandForSwipe, commandForWheel, touchNavigationAllows } from './commands';
-import { DEFAULT_READER_INPUT_POLICY, type ReaderCommand, type ReaderInputDispatcher, type ReaderInputPolicy, type ReaderInputState } from './model';
+import { touchNavigationAllows } from './commands';
+import { createDefaultReaderInputMap } from './built-in-bindings';
+import { DEFAULT_READER_INPUT_POLICY, type ReaderCommand, type ReaderInputDispatcher, type ReaderInputMap, type ReaderInputPolicy, type ReaderInputSignal, type ReaderInputState } from './model';
 
 interface PointerStart { readonly id: number; readonly x: number; readonly y: number; readonly target: EventTarget | null }
 
@@ -22,7 +23,8 @@ export class BrowserReaderInputRouter {
     private readonly state: () => ReaderInputState,
     private readonly dispatcher: ReaderInputDispatcher,
     policy: Partial<ReaderInputPolicy> = {},
-    private readonly onError: (error: unknown, command: ReaderCommand) => void = () => {},
+    private readonly onError: (error: unknown, command: ReaderCommand | null) => void = () => {},
+    private readonly inputMap: ReaderInputMap = createDefaultReaderInputMap(),
   ) {
     this.policy = { ...DEFAULT_READER_INPUT_POLICY, ...policy };
     // Keyboard events only reach a listener on their own element or an ancestor
@@ -84,7 +86,14 @@ export class BrowserReaderInputRouter {
     if (!this.policy.keyboard || !this.state().enabled) return;
     const key = event as KeyboardEvent;
     if (isEditableTarget(key.target)) return;
-    const command = commandForKey(key, this.state().pageProgression);
+    const command = this.resolve({
+      kind: 'keyboard',
+      key: key.key,
+      ctrlKey: key.ctrlKey,
+      metaKey: key.metaKey,
+      altKey: key.altKey,
+      shiftKey: key.shiftKey,
+    });
     if (!command) return;
     if (shouldPreserveNativeSelectionCommand(key)) return;
     key.preventDefault();
@@ -171,7 +180,7 @@ export class BrowserReaderInputRouter {
       if (Math.abs(wheel.deltaY) < this.policy.wheelThreshold) return;
       const now = Date.now();
       if (!modified && now - this.lastWheelAt < this.policy.wheelCooldownMs) return;
-      const command = commandForWheel(wheel.deltaY, modified);
+      const command = this.resolve({ kind: 'wheel', deltaY: wheel.deltaY, modified });
       if (!command) return;
       if (!modified) this.lastWheelAt = now;
       if (modified && wheel.cancelable) wheel.preventDefault();
@@ -190,7 +199,7 @@ export class BrowserReaderInputRouter {
       const edgeNavigation = this.policy.clickZones
         && state.presentation !== 'scrolled'
         && touchNavigationAllows(state.touchNavigation, 'tap');
-      const command = commandForPageClick(x, viewport, ratio, state.pageProgression, edgeNavigation);
+      const command = this.resolve({ kind: 'page-click', clientX: x, width: viewport, ratio, edgeNavigation });
       if (!command) return;
       if (command.type === 'navigate' && click.cancelable) click.preventDefault();
       this.send(command);
@@ -215,7 +224,7 @@ export class BrowserReaderInputRouter {
       const dx = pointer.clientX - start.x;
       const dy = pointer.clientY - start.y;
       if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
-      const command = commandForSwipe(dx, this.policy.swipeThresholdPx, state.pageProgression);
+      const command = this.resolve({ kind: 'swipe', deltaX: dx, threshold: this.policy.swipeThresholdPx });
       if (!command) return;
       if (pointer.cancelable) pointer.preventDefault();
       this.suppressClickUntil = Date.now() + 450;
@@ -281,6 +290,12 @@ export class BrowserReaderInputRouter {
         void (result as Promise<void>).catch(error => this.onError(error, command));
       }
     } catch (error) { this.onError(error, command); }
+  }
+
+  private resolve(signal: ReaderInputSignal): ReaderCommand | null {
+    const resolution = this.inputMap.resolve(signal, this.state());
+    for (const failure of resolution.failures) this.onError(failure.error, null);
+    return resolution.command;
   }
 
   private assertAlive(): void {
@@ -349,6 +364,7 @@ function viewportWidthForTarget(
     const document = target as Document;
     return document.defaultView?.innerWidth ?? document.documentElement.clientWidth;
   }
+
   return fallback.getBoundingClientRect().width;
 }
 

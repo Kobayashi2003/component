@@ -1,43 +1,29 @@
-import type { BrowserXmlPlatform } from '../../epub/content';
-import { BrowserDomXmlPlatform, parseXhtmlContentDocument } from '../../epub/content';
+import type { PublicationContentDocumentPipeline } from '../../epub/content';
 import { createDomPath, createEpubCfi, parseEpubCfi } from '../../interaction/locator';
 import type { Publication } from '../../epub/publication';
-import type { PublicationResourceSession } from '../../epub/resources';
-import { decodePublicationText } from '../../epub/resources';
 import { buildSemanticTextProjection, type SemanticTextSegment } from '../../epub/text';
 import type { SearchDocument, SearchDocumentProvider, SearchTextSegment } from './model';
 
 export class BrowserPublicationSearchProvider implements SearchDocumentProvider {
   constructor(
     private readonly publication: Publication,
-    private readonly resources: PublicationResourceSession,
-    ownerDocument: Document,
-    private readonly xmlPlatform: BrowserXmlPlatform = new BrowserDomXmlPlatform(ownerDocument),
-    private readonly recoverMalformedXhtml: () => boolean = () => true,
+    private readonly contentPipeline: PublicationContentDocumentPipeline,
   ) {}
 
   async load(spineIndex: number, signal: AbortSignal): Promise<SearchDocument | null> {
     throwIfAborted(signal);
-    const document = await this.build(spineIndex);
+    const document = await this.build(spineIndex, signal);
     throwIfAborted(signal);
     return document;
   }
 
-  private async build(spineIndex: number): Promise<SearchDocument | null> {
+  private async build(spineIndex: number, signal: AbortSignal): Promise<SearchDocument | null> {
     const item = this.publication.spine[spineIndex];
     if (!item?.path || item.remote) return null;
     const media = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
     if (media !== 'application/xhtml+xml' && media !== 'text/html' && media !== 'image/svg+xml') return null;
-    const read = await this.resources.resolver.read('', item.path);
-    if (!read.resource) return null;
-    const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-    const parsedContent = media === 'image/svg+xml'
-      ? { document: this.xmlPlatform.parseXml(source, 'image/svg+xml'), diagnostics: [] }
-      : parseXhtmlContentDocument(source, item.path, item.index, this.xmlPlatform, this.recoverMalformedXhtml());
+    const parsedContent = await this.contentPipeline.parseForAnalysis(item, signal);
     const parsed = parsedContent.document;
-    if (media === 'image/svg+xml' && (parsed.documentElement?.localName === 'parsererror' || parsed.getElementsByTagName('parsererror').length > 0)) {
-      throw new Error(`Search content document is not well-formed XML: ${item.path}.`);
-    }
     removeExecutableScripts(parsed);
     const root = parsed.body ?? parsed.documentElement;
     if (!root) return null;

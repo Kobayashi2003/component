@@ -1,4 +1,6 @@
 import type { PublicationArchive } from '../archive/publication-archive';
+import { runBinaryResourceCompatibility } from '../compatibility/resource-runner';
+import type { CompatibilityProfile } from '../compatibility/profile';
 import type {
   ManifestItem,
   Publication,
@@ -7,7 +9,7 @@ import type {
 } from '../publication/model';
 import { resolvePublicationReference } from '../publication/path';
 import { inferMediaType } from './mime';
-import { deobfuscateIdpfFont, IDPF_FONT_OBFUSCATION, loadContainerEncryption, type EncryptedResourceInfo } from './encryption';
+import { IDPF_FONT_OBFUSCATION, loadContainerEncryption, type EncryptedResourceInfo } from './encryption';
 import type {
   LocalPublicationResource,
   ResolvedResourceRequest,
@@ -35,6 +37,7 @@ export class ResourceResolver {
   constructor(
     readonly archive: PublicationArchive,
     readonly publication: Publication,
+    readonly compatibilityProfile: CompatibilityProfile,
     options: ResourceResolverOptions = {},
     private readonly encryptionByPath: ReadonlyMap<PublicationPath, EncryptedResourceInfo> = new Map(),
   ) {
@@ -42,7 +45,6 @@ export class ResourceResolver {
       remotePolicy: options.remotePolicy ?? 'block',
       unmanifestedPolicy: options.unmanifestedPolicy ?? 'warn',
       maxResourceBytes: options.maxResourceBytes ?? DEFAULT_MAX_RESOURCE_BYTES,
-      deobfuscateIdpfFonts: options.deobfuscateIdpfFonts ?? true,
     };
     this.manifestByPath = new Map(
       publication.manifest
@@ -55,11 +57,12 @@ export class ResourceResolver {
   static async create(
     archive: PublicationArchive,
     publication: Publication,
+    compatibilityProfile: CompatibilityProfile,
     options: ResourceResolverOptions = {},
   ): Promise<ResourceResolverCreateResult> {
     const encryption = await loadContainerEncryption(archive);
     return {
-      resolver: new ResourceResolver(archive, publication, options, encryption.resources),
+      resolver: new ResourceResolver(archive, publication, compatibilityProfile, options, encryption.resources),
       diagnostics: encryption.diagnostics,
     };
   }
@@ -217,42 +220,56 @@ export class ResourceResolver {
 
     try {
       let bytes = await this.archive.read(request.path);
+      if (bytes.byteLength > this.options.maxResourceBytes) {
+        diagnostics.push({
+          code: 'RESOURCE_SIZE_LIMIT_EXCEEDED',
+          severity: 'error',
+          phase: 'resource',
+          message: `Resource ${request.path} is ${bytes.byteLength} bytes, exceeding the configured ${this.options.maxResourceBytes} byte limit.`,
+          path: request.path,
+        });
+        return { resource: null, diagnostics };
+      }
       const encryption = this.encryptionByPath.get(request.path);
       if (encryption) {
-        if (encryption.algorithm === IDPF_FONT_OBFUSCATION) {
-          if (!this.options.deobfuscateIdpfFonts) {
-            diagnostics.push({
-              code: 'RESOURCE_FONT_DEOBFUSCATION_DISABLED',
-              severity: 'warning',
-              phase: 'compatibility',
-              message: `IDPF font recovery is disabled for ${request.path}.`,
-              path: request.path,
-            });
-            return { resource: null, diagnostics };
-          }
-          try {
-            bytes = await deobfuscateIdpfFont(bytes, this.publication);
-          } catch (cause) {
-            diagnostics.push({
-              code: 'RESOURCE_FONT_DEOBFUSCATION_FAILED',
-              severity: 'error',
-              phase: 'resource',
-              message: `Failed to deobfuscate font resource ${request.path}.`,
-              path: request.path,
-              cause,
-            });
-            return { resource: null, diagnostics };
-          }
-        } else {
+        const compatible = await runBinaryResourceCompatibility(
+          this.compatibilityProfile.resourceRules,
+          {
+            publication: this.publication,
+            path: request.path,
+            mediaType: request.mediaType ?? inferMediaType(request.path) ?? 'application/octet-stream',
+            encryptionAlgorithm: encryption.algorithm,
+            maxOutputBytes: this.options.maxResourceBytes,
+          },
+          bytes,
+        );
+        diagnostics.push(...compatible.diagnostics);
+        if (compatible.matchedModuleIds.length === 0) {
+          const idpfDisabled = encryption.algorithm === IDPF_FONT_OBFUSCATION;
           diagnostics.push({
-            code: 'RESOURCE_ENCRYPTION_UNSUPPORTED',
-            severity: 'error',
-            phase: 'resource',
-            message: `Resource ${request.path} uses unsupported encryption algorithm ${encryption.algorithm}.`,
+            code: idpfDisabled ? 'RESOURCE_FONT_DEOBFUSCATION_DISABLED' : 'RESOURCE_ENCRYPTION_UNSUPPORTED',
+            severity: idpfDisabled ? 'warning' : 'error',
+            phase: idpfDisabled ? 'compatibility' : 'resource',
+            message: idpfDisabled
+              ? `IDPF font recovery is disabled for ${request.path}.`
+              : `Resource ${request.path} uses an encryption algorithm without an enabled compatibility module: ${encryption.algorithm}.`,
             path: request.path,
           });
           return { resource: null, diagnostics };
         }
+        if (compatible.appliedModuleIds.length === 0) {
+          diagnostics.push({
+            code: encryption.algorithm === IDPF_FONT_OBFUSCATION
+              ? 'RESOURCE_FONT_DEOBFUSCATION_FAILED'
+              : 'RESOURCE_COMPATIBILITY_TRANSFORM_FAILED',
+            severity: 'error',
+            phase: 'resource',
+            message: `Enabled compatibility modules could not transform encrypted resource ${request.path}.`,
+            path: request.path,
+          });
+          return { resource: null, diagnostics };
+        }
+        bytes = compatible.value;
       }
       if (bytes.byteLength > this.options.maxResourceBytes) {
         diagnostics.push({

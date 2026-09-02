@@ -1,30 +1,12 @@
-const SHORTCUT_GROUPS = [
-  {
-    label: 'Navigation',
-    items: [
-      { keys: ['←', '→'], action: 'Turn the physical page' },
-      { keys: ['PgUp', 'PgDn'], action: 'Previous or next page' },
-      { keys: ['⇧ Space', 'Space'], action: 'Previous or next page' },
-      { keys: ['Alt ←', 'Alt →'], action: 'Reading history' },
-    ],
-  },
-  {
-    label: 'Reader tools',
-    items: [
-      { keys: ['Ctrl / ⌘ F'], action: 'Search this book' },
-      { keys: ['Ctrl / ⌘ Wheel'], action: 'Adjust text size' },
-      { keys: ['C'], action: 'Show or hide controls' },
-      { keys: ['?'], action: 'Keyboard help' },
-      { keys: ['Esc'], action: 'Close the active tool' },
-    ],
-  },
-] as const;
+import { createDefaultReaderInputMap, type ReaderShortcutGroup } from '../../core';
 
-export function EpubKeyboardHelp() {
+const DEFAULT_SHORTCUT_GROUPS = createDefaultReaderInputMap().description.shortcutGroups;
+
+export function EpubKeyboardHelp({ groups = DEFAULT_SHORTCUT_GROUPS }: { readonly groups?: readonly ReaderShortcutGroup[] }) {
   return (
     <section className="epub-reader-panel epub-keyboard-help" aria-label="Keyboard shortcuts">
       <p>Shortcuts work while focus is in the reading area.</p>
-      {SHORTCUT_GROUPS.map(group => (
+      {groups.map(group => (
         <section key={group.label} className="epub-keyboard-help__group">
           <h3>{group.label}</h3>
           <dl>

@@ -1,8 +1,6 @@
 import type { SpineItem } from '../publication';
-import type { PublicationResourceSession } from '../resources';
-import { materializeSvgSpineItem } from './svg-materializer';
-import { materializeXhtmlSpineItem } from './xhtml-materializer';
-import type { BrowserXmlPlatform, MaterializedContentDocument } from './model';
+import type { MaterializedContentDocument } from './model';
+import type { PublicationContentDocumentPipeline } from './content-document-pipeline';
 
 export interface PublicationContentDocumentCachePolicy {
   /** Maximum number of fully materialized spine documents retained. */
@@ -24,9 +22,6 @@ export interface PublicationContentDocumentCacheOptions {
 
 export type PublicationContentDocumentMaterializer = (
   item: SpineItem,
-  resources: PublicationResourceSession,
-  platform: BrowserXmlPlatform,
-  recoverMalformedXhtml: boolean,
 ) => Promise<MaterializedContentDocument>;
 
 export interface PublicationContentDocumentCacheSnapshot {
@@ -71,20 +66,16 @@ export class PublicationContentDocumentCache {
   private disposed = false;
 
   constructor(
-    private readonly resources: PublicationResourceSession,
-    private readonly platform: BrowserXmlPlatform,
+    private readonly pipeline: PublicationContentDocumentPipeline,
     private readonly options: PublicationContentDocumentCacheOptions = {},
-    private readonly materializer: PublicationContentDocumentMaterializer = materializeContentDocument,
+    private readonly materializer?: PublicationContentDocumentMaterializer,
   ) {
     this.policy = normalizePolicy(options.policy);
   }
 
-  async materialize(
-    item: SpineItem,
-    recoverMalformedXhtml = true,
-  ): Promise<MaterializedContentDocument> {
+  async materialize(item: SpineItem): Promise<MaterializedContentDocument> {
     this.assertAlive();
-    const key = contentDocumentCacheKey(item, recoverMalformedXhtml);
+    const key = contentDocumentCacheKey(item, this.pipeline.renderSignature);
     const existing = this.entries.get(key);
     if (existing) {
       existing.lastAccess = ++this.accessClock;
@@ -92,7 +83,7 @@ export class PublicationContentDocumentCache {
     }
 
     const generation = this.generation;
-    const promise = this.load(item, recoverMalformedXhtml).then(freezeMaterializedDocument);
+    const promise = this.load(item).then(freezeMaterializedDocument);
     const pending: PendingCacheEntry = {
       state: 'pending',
       spineIndex: item.index,
@@ -149,8 +140,8 @@ export class PublicationContentDocumentCache {
     });
   }
 
-  private load(item: SpineItem, recoverMalformedXhtml: boolean): Promise<MaterializedContentDocument> {
-    return this.materializer(item, this.resources, this.platform, recoverMalformedXhtml);
+  private load(item: SpineItem): Promise<MaterializedContentDocument> {
+    return this.materializer?.(item) ?? this.pipeline.materializeForRender(item);
   }
 
   private trim(): void {
@@ -192,10 +183,10 @@ export class PublicationContentDocumentCache {
   }
 }
 
-function contentDocumentCacheKey(item: SpineItem, recoverMalformedXhtml: boolean): string {
+function contentDocumentCacheKey(item: SpineItem, profileSignature: string): string {
   const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-  const variant = mediaType === 'image/svg+xml' ? 'svg' : `xhtml:recover=${recoverMalformedXhtml}`;
-  return `${item.index}:${item.path ?? item.href}:${variant}`;
+  const variant = mediaType === 'image/svg+xml' ? 'svg' : 'xhtml';
+  return `${item.index}:${item.path ?? item.href}:${variant}:${profileSignature}`;
 }
 
 function normalizePolicy(
@@ -224,19 +215,4 @@ function freezeMaterializedDocument(document: MaterializedContentDocument): Mate
 
 function approximateDocumentBytes(document: MaterializedContentDocument): number {
   return Math.max(1, document.markup.length * 2);
-}
-
-function materializeContentDocument(
-  item: SpineItem,
-  resources: PublicationResourceSession,
-  platform: BrowserXmlPlatform,
-  recoverMalformedXhtml: boolean,
-): Promise<MaterializedContentDocument> {
-  const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-  if (mediaType === 'image/svg+xml') return materializeSvgSpineItem(item, resources, platform);
-  return materializeXhtmlSpineItem(item, resources, platform, {
-    disableScripts: true,
-    annotateLinks: true,
-    recoverMalformedXhtml,
-  });
 }

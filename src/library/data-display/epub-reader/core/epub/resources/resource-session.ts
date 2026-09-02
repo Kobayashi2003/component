@@ -1,6 +1,6 @@
 import type { PublicationDiagnostic, PublicationPath } from '../publication/model';
+import { runInlineStyleResourceCompatibility, runStylesheetResourceCompatibility } from '../compatibility/resource-runner';
 import { rewriteCssReferences } from './css-rewriter';
-import { normalizeLegacyEpubCss, normalizeLegacyInlineCss } from './css-compat';
 import { decodePublicationText } from './text-decoder';
 import { isCssMediaType } from './mime';
 import type {
@@ -19,13 +19,12 @@ import { ResourceResolver } from './resource-resolver';
  */
 export class PublicationResourceSession {
   private readonly urls: ObjectUrlStore;
-  private readonly cssCache = new Map<PublicationPath, Promise<CssMaterialization>>();
+  private readonly cssCache = new Map<string, Promise<CssMaterialization>>();
   private disposed = false;
 
   constructor(
     readonly resolver: ResourceResolver,
     objectUrlFactory: ObjectUrlFactory,
-    private readonly options: PublicationResourceSessionOptions = {},
   ) {
     this.urls = new ObjectUrlStore(objectUrlFactory);
   }
@@ -129,11 +128,17 @@ export class PublicationResourceSession {
       return url;
     });
 
-    const normalized = this.options.normalizeLegacyCss === false
-      ? { css: rewritten.css, normalizedProperties: [] }
-      : normalizeLegacyInlineCss(rewritten.css);
-    if (normalized.normalizedProperties.length > 0) diagnostics.push(legacyCssDiagnostic(basePath, normalized.normalizedProperties));
-    return { css: normalized.css, diagnostics };
+    const compatible = await runInlineStyleResourceCompatibility(
+      this.resolver.compatibilityProfile.resourceRules,
+      {
+        publication: this.resolver.publication,
+        documentPath: basePath,
+        maxOutputCharacters: this.resolver.options.maxResourceBytes,
+      },
+      rewritten.css,
+    );
+    diagnostics.push(...compatible.diagnostics);
+    return { css: compatible.value, diagnostics };
   }
 
   /**
@@ -186,11 +191,12 @@ export class PublicationResourceSession {
       };
     }
 
-    const cached = this.cssCache.get(path);
+    const cacheKey = `${this.resolver.compatibilityProfile.signature}:${path}`;
+    const cached = this.cssCache.get(cacheKey);
     if (cached) return cached;
 
     const promise = this.buildCss(path, [...stack, path]);
-    this.cssCache.set(path, promise);
+    this.cssCache.set(cacheKey, promise);
     return promise;
   }
 
@@ -244,22 +250,28 @@ export class PublicationResourceSession {
       return url;
     });
 
-    const normalized = this.options.normalizeLegacyCss === false
-      ? { css: rewritten.css, normalizedProperties: [] }
-      : normalizeLegacyEpubCss(rewritten.css);
-    if (normalized.normalizedProperties.length > 0) diagnostics.push(legacyCssDiagnostic(path, normalized.normalizedProperties));
-    const bytes = new TextEncoder().encode(normalized.css);
-    const url = this.urls.getOrCreate(`css:${path}`, bytes, 'text/css;charset=utf-8');
+    const compatible = await runStylesheetResourceCompatibility(
+      this.resolver.compatibilityProfile.resourceRules,
+      {
+        publication: this.resolver.publication,
+        path,
+        maxOutputCharacters: this.resolver.options.maxResourceBytes,
+      },
+      rewritten.css,
+    );
+    diagnostics.push(...compatible.diagnostics);
+    const bytes = new TextEncoder().encode(compatible.value);
+    const url = this.urls.getOrCreate(
+      `css:${this.resolver.compatibilityProfile.signature}:${path}`,
+      bytes,
+      'text/css;charset=utf-8',
+    );
     return { url, diagnostics };
   }
 
   private assertAlive(): void {
     if (this.disposed) throw new Error('PublicationResourceSession has been disposed.');
   }
-}
-
-export interface PublicationResourceSessionOptions {
-  readonly normalizeLegacyCss?: boolean;
 }
 
 interface CssMaterialization {
@@ -276,20 +288,4 @@ function encodeFragment(fragment: string): string {
 
 function isInlineDataUrl(source: string): boolean {
   return /^data:/i.test(source.trim());
-}
-
-
-function legacyCssDiagnostic(path: PublicationPath, properties: readonly string[]): PublicationDiagnostic {
-  return {
-    code: 'RESOURCE_LEGACY_EPUB_CSS_NORMALIZED',
-    severity: 'info',
-    phase: 'compatibility',
-    path,
-    message: `Added standard CSS equivalents for legacy EPUB/WebKit properties: ${properties.join(', ')}.`,
-    repair: {
-      strategy: 'add-standard-css-aliases',
-      description: 'Keep publisher-prefixed CSS and add equivalent standard declarations for cross-browser rendering.',
-      confidence: 0.98,
-    },
-  };
 }

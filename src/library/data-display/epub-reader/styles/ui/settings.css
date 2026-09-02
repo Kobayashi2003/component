@@ -564,14 +564,6 @@
   border-radius: 50%;
 }
 
-.epub-theme-chip__swatch--publisher { background: linear-gradient(135deg, #f8f6f0, #ded7ca); }
-.epub-theme-chip__swatch--light { background: linear-gradient(135deg, #fff, #f1f1f1); }
-.epub-theme-chip__swatch--sepia { background: linear-gradient(135deg, #f4ecd8, #dfcba7); }
-.epub-theme-chip__swatch--paper { background: linear-gradient(135deg, #f7f1e3, #dfd2b6); }
-.epub-theme-chip__swatch--mist { background: linear-gradient(135deg, #edf2f5, #c6d6df); }
-.epub-theme-chip__swatch--dark { background: linear-gradient(135deg, #181818, #606060); }
-.epub-theme-chip__swatch--graphite { background: linear-gradient(135deg, #202329, #58606d); }
-
 .epub-compatibility-panel__summary {
   display: grid;
   gap: 6px;

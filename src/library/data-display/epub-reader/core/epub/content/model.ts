@@ -14,6 +14,11 @@ export interface MaterializedContentDocument {
   readonly diagnostics: readonly PublicationDiagnostic[];
 }
 
+export interface ParsedContentDocument {
+  readonly document: Document;
+  readonly diagnostics: readonly PublicationDiagnostic[];
+}
+
 export interface BrowserXmlPlatform {
   parseXml(source: string, mediaType: DOMParserSupportedType): Document;
   serializeXml(document: Document): string;
@@ -24,6 +29,4 @@ export interface XhtmlMaterializerOptions {
   readonly disableScripts?: boolean;
   /** Preserve http(s) anchors as metadata but prevent iframe navigation later. */
   readonly annotateLinks?: boolean;
-  /** Recover malformed XHTML with the browser HTML parser. */
-  readonly recoverMalformedXhtml?: boolean;
 }

@@ -1,5 +1,4 @@
 import { resolveSpineRendition, type ContentPresentationHints, type Locator, type Publication, type PublicationDiagnostic } from '../../../epub/publication';
-import type { PublicationResourceSession } from '../../../epub/resources';
 import type { PublicationContentDocumentCache } from '../../../epub/content';
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
@@ -8,7 +7,6 @@ import {
   type RenditionPlannerPolicy,
   type RendererKind,
 } from '../../rendition';
-import type { BrowserXmlPlatform } from '../../../epub/content';
 import type { FixedLayoutRendererPolicy } from '../fixed-layout';
 import { FixedLayoutRenderer } from '../fixed-layout';
 import type { ReflowableRendererPolicy } from '../reflowable';
@@ -31,13 +29,11 @@ import {
 export interface ReadingRendererEnvironment {
   readonly container: HTMLElement;
   readonly publication: Publication;
-  readonly resources: PublicationResourceSession;
-  readonly contentDocumentCache?: PublicationContentDocumentCache;
+  readonly contentDocumentCache: PublicationContentDocumentCache;
   readonly plannerPolicy?: RenditionPlannerPolicy;
   readonly reflowablePolicy?: ReflowableRendererPolicy;
   readonly fixedLayoutPolicy?: FixedLayoutRendererPolicy;
   readonly spreadPolicy?: SpreadRendererPolicy;
-  readonly xmlPlatform?: BrowserXmlPlatform;
   readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
   readonly themeResolver?: import('../../appearance').ReaderThemeResolver;
   readonly contentHintsForSpine?: (spineIndex: number) => ContentPresentationHints | undefined;
@@ -401,10 +397,8 @@ function createSingleRenderer(
     return new FixedLayoutRenderer({
       container,
       publication: environment.publication,
-      resources: environment.resources,
       contentDocumentCache: environment.contentDocumentCache,
       policy: environment.fixedLayoutPolicy,
-      xmlPlatform: environment.xmlPlatform,
       onDiagnostics: environment.onDiagnostics,
       onPresentationHints: hints => environment.onPresentationHints?.(spineIndex, hints),
     });
@@ -412,11 +406,9 @@ function createSingleRenderer(
   return new ReflowableRenderer(kind, {
     container,
     publication: environment.publication,
-    resources: environment.resources,
     contentDocumentCache: environment.contentDocumentCache,
     policy: environment.reflowablePolicy,
     themeResolver: environment.themeResolver,
-    xmlPlatform: environment.xmlPlatform,
     onDiagnostics: environment.onDiagnostics,
     onPresentationHints: hints => environment.onPresentationHints?.(spineIndex, hints),
   });

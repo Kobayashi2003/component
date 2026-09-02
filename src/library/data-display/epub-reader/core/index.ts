@@ -20,6 +20,7 @@ export * from './presentation/appearance';
 export * from './features/accessibility';
 
 export * from './runtime/reader';
+export * from './runtime/configuration';
 export * from './runtime/session';
 export * from './epub/compatibility';
 export * from './validation/conformance';

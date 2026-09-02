@@ -14,16 +14,6 @@ const FONT_FAMILIES = [
   { value: 'SFMono-Regular, Consolas, Liberation Mono, monospace', label: 'Monospace' },
 ] as const;
 
-const THEMES = [
-  { value: 'publisher', label: 'Publisher' },
-  { value: 'light', label: 'Light' },
-  { value: 'sepia', label: 'Sepia' },
-  { value: 'paper', label: 'Paper' },
-  { value: 'mist', label: 'Mist' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'graphite', label: 'Graphite' },
-] as const;
-
 const MARGIN_PRESETS = [
   { value: 0, label: 'Publisher' },
   { value: 6, label: 'Balanced' },
@@ -146,16 +136,16 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
           })}>Reset</button>
         </div>
         <div className="epub-settings-panel__theme-grid" role="group" aria-label="Theme presets">
-          {THEMES.map(theme => (
+          {snapshot.appearance.themes.map(theme => (
             <button
-              key={theme.value}
+              key={theme.id}
               type="button"
               className="epub-theme-chip"
-              aria-pressed={preferences.theme === theme.value}
-              onClick={() => void reader.setPreferences({ theme: theme.value })}
+              aria-pressed={preferences.theme === theme.id}
+              onClick={() => void reader.setPreferences({ theme: theme.id })}
             >
-              <span className={`epub-theme-chip__swatch epub-theme-chip__swatch--${theme.value}`} aria-hidden="true" />
-              {theme.label}
+              <span className="epub-theme-chip__swatch" style={theme.preview ? { background: theme.preview } : undefined} aria-hidden="true" />
+              {theme.label ?? theme.id}
             </button>
           ))}
         </div>

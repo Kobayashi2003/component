@@ -9,13 +9,14 @@ import type {
 import { resolvePublicationDocumentBase, resolvePublicationDocumentReference } from '../publication';
 import { inspectXhtmlIntrinsicViewport } from './intrinsic-viewport';
 import {
-  decodePublicationText,
   PublicationResourceSession,
   rewriteCssReferences,
 } from '../resources';
+import type { ContentDocumentParseMode } from '../compatibility';
 import type {
   BrowserXmlPlatform,
   MaterializedContentDocument,
+  ParsedContentDocument,
   XhtmlMaterializerOptions,
 } from './model';
 
@@ -29,10 +30,11 @@ const XML_NS = 'http://www.w3.org/XML/1998/namespace';
  * Publication-relative resources are rebound to object URLs owned by the open
  * PublicationResourceSession; navigation links are annotated, not followed.
  */
-export async function materializeXhtmlSpineItem(
+export async function materializeParsedXhtmlSpineItem(
   item: SpineItem,
   session: PublicationResourceSession,
   platform: BrowserXmlPlatform,
+  parsedContent: ParsedContentDocument,
   options: XhtmlMaterializerOptions = {},
 ): Promise<MaterializedContentDocument> {
   if (item.remote || !item.path) {
@@ -42,23 +44,8 @@ export async function materializeXhtmlSpineItem(
     throw new Error(`XHTML materializer cannot render media type ${item.mediaType}.`);
   }
 
-  const diagnostics: PublicationDiagnostic[] = [];
-  const read = await session.resolver.read('', item.path);
-  diagnostics.push(...read.diagnostics);
-  if (!read.resource) {
-    throw new Error(`Unable to read XHTML content document ${item.path}.`);
-  }
-
-  const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-  const parsed = parseXhtmlContentDocument(
-    source,
-    item.path,
-    item.index,
-    platform,
-    options.recoverMalformedXhtml !== false,
-  );
-  const document = parsed.document;
-  diagnostics.push(...parsed.diagnostics);
+  const diagnostics: PublicationDiagnostic[] = [...parsedContent.diagnostics];
+  const document = parsedContent.document;
 
   if (options.disableScripts ?? true) {
     disableScripts(document, diagnostics, item.path);
@@ -94,35 +81,13 @@ export async function materializeXhtmlSpineItem(
 export function parseXhtmlContentDocument(
   source: string,
   path: PublicationPath,
-  spineIndex: number,
   platform: BrowserXmlPlatform,
-  recoverMalformed = true,
+  parseMode: ContentDocumentParseMode = 'xml',
 ): { readonly document: Document; readonly diagnostics: readonly PublicationDiagnostic[] } {
-  let document = platform.parseXml(source, 'application/xhtml+xml');
-  if (isParsedXhtml(document)) return { document, diagnostics: [] };
-  if (!recoverMalformed) {
-    throw new Error(`XHTML content document is not well-formed XML: ${path}.`);
-  }
-
-  const htmlDocument = platform.parseXml(source, 'text/html');
-  assertParsedXhtml(htmlDocument, path);
-  document = htmlDocument;
-  return {
-    document,
-    diagnostics: [{
-      code: 'CONTENT_XHTML_PARSED_AS_HTML',
-      severity: 'warning',
-      phase: 'compatibility',
-      message: `Recovered non-well-formed XHTML content ${path} with the browser HTML parser.`,
-      path,
-      spineIndex,
-      repair: {
-        strategy: 'parse-malformed-xhtml-as-html',
-        description: 'Use browser HTML parsing as a compatibility fallback, then serialize deterministic script-disabled markup.',
-        confidence: 0.9,
-      },
-    }],
-  };
+  const mediaType = parseMode === 'html-recovery' ? 'text/html' : 'application/xhtml+xml';
+  const document = platform.parseXml(source, mediaType);
+  assertParsedXhtml(document, path);
+  return { document, diagnostics: [] };
 }
 
 async function rewriteDocumentResources(
@@ -591,15 +556,6 @@ function assertParsedXhtml(document: Document, path: PublicationPath): void {
   if (root.localName.toLowerCase() !== 'html') {
     throw new Error(`Expected XHTML html root element in ${path}, found ${root.localName}.`);
   }
-}
-
-function isParsedXhtml(document: Document): boolean {
-  const root = document.documentElement;
-  return Boolean(
-    root
-    && root.localName.toLowerCase() === 'html'
-    && document.getElementsByTagName('parsererror').length === 0,
-  );
 }
 
 function hasRelToken(element: Element, token: string): boolean {

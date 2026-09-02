@@ -1,10 +1,6 @@
 import {
-  BrowserDomXmlPlatform,
   inspectSvgIntrinsicViewport,
   inspectXhtmlIntrinsicViewport,
-  materializeSvgSpineItem,
-  materializeXhtmlSpineItem,
-  type BrowserXmlPlatform,
   type PublicationContentDocumentCache,
 } from '../../../epub/content';
 import type {
@@ -14,7 +10,6 @@ import type {
   Publication,
   PublicationDiagnostic,
 } from '../../../epub/publication';
-import type { PublicationResourceSession } from '../../../epub/resources';
 import type { RenditionPlan, RendererKind } from '../../rendition';
 import { BrowserIFrameContentSurface } from '../browser-iframe-surface';
 import { LifecycleScope } from '../lifecycle';
@@ -36,11 +31,9 @@ import {
 export interface FixedLayoutRendererEnvironment {
   readonly container: HTMLElement;
   readonly publication: Publication;
-  readonly resources: PublicationResourceSession;
-  readonly contentDocumentCache?: PublicationContentDocumentCache;
+  readonly contentDocumentCache: PublicationContentDocumentCache;
   readonly policy?: FixedLayoutRendererPolicy;
   readonly createSurface?: () => ContentSurface;
-  readonly xmlPlatform?: BrowserXmlPlatform;
   readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
   readonly onPresentationHints?: (hints: ContentPresentationHints) => void;
 }
@@ -81,20 +74,8 @@ export class FixedLayoutRenderer implements RendererInstance {
     if (!item || item.href !== plan.href) throw new Error(`Rendition plan does not resolve to spine item ${plan.spineIndex}.`);
 
     const ownerDocument = this.environment.container.ownerDocument;
-    const platform = this.environment.xmlPlatform ?? new BrowserDomXmlPlatform(ownerDocument);
     const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-    const materialized = this.environment.contentDocumentCache
-      ? await this.environment.contentDocumentCache.materialize(
-        item,
-        plan.preferences.compatibility.recoverMalformedXhtml,
-      )
-      : mediaType === 'image/svg+xml'
-        ? await materializeSvgSpineItem(item, this.environment.resources, platform)
-        : await materializeXhtmlSpineItem(item, this.environment.resources, platform, {
-          disableScripts: true,
-          annotateLinks: true,
-          recoverMalformedXhtml: plan.preferences.compatibility.recoverMalformedXhtml,
-        });
+    const materialized = await this.environment.contentDocumentCache.materialize(item);
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);
     this.environment.onPresentationHints?.(materialized.hints);
