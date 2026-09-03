@@ -196,7 +196,8 @@ export interface RendererInstance {
   update(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void>;
 
   captureLocator(transaction: LayoutTransactionContext): Promise<Locator | null>;
-  restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<void>;
+  /** Restores and returns a healed locator when a resilient channel was used. */
+  restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null>;
   navigate(direction: ReadingDirection, transaction: LayoutTransactionContext): Promise<RendererNavigationResult>;
   waitForLayoutStable(transaction: LayoutTransactionContext): Promise<LayoutStabilityReport>;
   snapshot(): RendererLayoutSnapshot;
@@ -222,6 +223,12 @@ export interface RendererHostState {
   readonly layout: RendererLayoutSnapshot | null;
   readonly stability: LayoutStabilityReport | null;
   readonly error: unknown | null;
+}
+
+/** Result of one committed presentation, including the locator actually restored. */
+export interface RendererPresentationResult {
+  readonly state: RendererHostState;
+  readonly locator: Locator | null;
 }
 
 export interface RendererCommitEvent {

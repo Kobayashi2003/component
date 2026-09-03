@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import mixedFixtureUrl from '../../fixtures/corpus/mixed-layout.epub?url';
 import verticalFixtureUrl from '../../fixtures/corpus/vertical-ruby.epub?url';
 import { EpubReaderShowcase } from '../../showcase/EpubReaderShowcase';
+import { resolveCompositeLocator } from '../../core';
 import { configureReaderUi, type EpubReaderHandle } from '../../react';
 import '../../styles.css';
 
@@ -131,11 +132,26 @@ async function run(): Promise<readonly string[]> {
   const contentsPanel = await waitForPanel('Contents');
   assert(contentsButton.getAttribute('aria-expanded') === 'true', 'open panel trigger must expose its expanded state');
   assert(contentsButton.getAttribute('aria-controls') === contentsPanel.id, 'panel trigger and surface must share an ARIA relationship');
+  assert(contentsPanel.querySelectorAll('.epub-contents__tabs [role="tab"]').length === 4, 'publication navigation must expose Contents, Pages, Landmarks, and History views');
+  assert(contentsPanel.querySelector('.epub-contents__link[aria-current="location"]')?.textContent === '縦書き', 'contents must synchronize the current chapter');
+  click(required<HTMLButtonElement>('button[aria-controls="epub-navigation-pages"]'));
+  await waitFor(() => contentsPanel.querySelectorAll('#epub-navigation-pages .epub-contents__entries li').length === 1, 'EPUB page-list entries in navigation');
+  click(required<HTMLButtonElement>('button[aria-controls="epub-navigation-landmarks"]'));
+  await waitFor(() => contentsPanel.querySelector('#epub-navigation-landmarks .epub-contents__entries strong')?.textContent === '本文開始', 'authored EPUB landmark label');
+  click(required<HTMLButtonElement>('button[aria-controls="epub-navigation-contents"]'));
+  await waitFor(() => contentsPanel.querySelector('#epub-navigation-contents'), 'contents tab panel');
+  click(buttonWithLabel('Collapse 補足'));
+  await waitFor(() => document.querySelector('button[aria-label="Expand 補足"]')?.getAttribute('aria-expanded') === 'false', 'non-current TOC branch to collapse');
   const searchButton = buttonWithLabel('Search');
   click(searchButton);
   const searchPanel = await waitForPanel('Search');
   assert(document.querySelectorAll('.epub-reader-shell__panel').length === 1, 'switching tools must retain exactly one panel surface');
   assert(contentsButton.getAttribute('aria-expanded') === 'false' && searchButton.getAttribute('aria-expanded') === 'true', 'switching tools must transfer expanded state');
+  click(contentsButton);
+  const reopenedContentsPanel = await waitForPanel('Contents');
+  assert(reopenedContentsPanel.querySelector('button[aria-label="Expand 補足"]')?.getAttribute('aria-expanded') === 'false', 'TOC collapse state must survive panel remounting');
+  click(searchButton);
+  await waitForPanel('Search');
   dispatchKey(document.activeElement ?? required('.epub-reader-shell'), { key: 'Escape', code: 'Escape' });
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'search panel to close with Escape');
   await waitFor(() => document.activeElement === searchButton, 'closing Search with Escape to restore its trigger focus');
@@ -153,6 +169,77 @@ async function run(): Promise<readonly string[]> {
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'registered tool panel to close');
   await waitFor(() => document.activeElement === statisticsButton, 'registered tool to restore its trigger focus');
   steps.push('registered peer tool rendered in the fixed Shell lifecycle');
+
+  const markReader = activeReader;
+  const markLocator = markReader?.state.reader?.locator;
+  assert(markReader && markLocator, 'registered tool must expose a reader position for mark editing');
+  const locatorDocument = document.implementation.createHTMLDocument('locator recovery');
+  locatorDocument.body.innerHTML = '<section id="coarse"><p>Alpha prefix precise target words omega suffix.</p></section>';
+  const locatorItem = markReader.state.reader?.publication.spine[0];
+  assert(locatorItem, 'locator fixture needs the first reading-order item');
+  const recovered = resolveCompositeLocator(locatorDocument, markReader.state.reader!.publication, locatorItem.index, {
+    href: locatorItem.href,
+    spineIndex: locatorItem.index,
+    locations: { cfi: 'invalid-cfi', fragment: 'coarse', progression: 0.5 },
+    text: { before: 'Alpha prefix ', highlight: 'precise target words', after: ' omega suffix.' },
+  });
+  assert(recovered.method === 'text-quote', 'precise text recovery must run before a coarse ancestor fragment');
+  assert(recovered.point?.node.nodeValue?.slice(recovered.point.offset, recovered.point.offset + 20) === 'precise target words', 'text recovery must preserve the exact character position');
+  assert(recovered.locator.locations.cfi?.startsWith('epubcfi('), 'fallback recovery must replace an invalid CFI with a healed one');
+  steps.push('composite locator preferred and healed its precise fallback');
+  markReader.marks.addHighlight(
+    { start: markLocator, end: markLocator },
+    'solid',
+    'yellow',
+    'Fixture highlight',
+  );
+  markReader.marks.addAnnotation(
+    { start: markLocator, end: markLocator },
+    'Fixture note',
+    'underline',
+    'blue',
+    'Fixture passage',
+  );
+  const fixtureBookmark = await markReader.marks.addBookmark('Fixture bookmark note');
+  assert(fixtureBookmark, 'mark manager fixture must capture a bookmark');
+  const marksButton = buttonWithLabel('Bookmarks and annotations');
+  click(marksButton);
+  const marksPanel = await waitForPanel('Bookmarks and annotations');
+  assert(marksPanel.querySelectorAll('.epub-marks-panel__filters button').length === 4, 'mark manager must expose symmetric type filters');
+  click(buttonWithLabel('Show highlights'));
+  await waitFor(() => marksPanel.querySelectorAll('.epub-marks-panel__list li').length === 1, 'highlight-only mark filter');
+  click(buttonWithText(marksPanel, 'Edit'));
+  const markEditor = await waitFor(
+    () => marksPanel.querySelector<HTMLElement>('.epub-mark-editor'),
+    'inline mark editor',
+  );
+  const yellowSwatch = required<HTMLButtonElement>('.epub-mark-editor__colors .is-yellow');
+  assert(
+    getComputedStyle(yellowSwatch).backgroundColor !== 'rgba(0, 0, 0, 0)',
+    'mark editor color swatches must retain a visible color',
+  );
+  const tagInput = markEditor.querySelector<HTMLInputElement>('input[placeholder="Separate tags with commas"]');
+  assert(tagInput, 'mark editor must expose tag editing');
+  setInputValue(tagInput, 'review, favorite');
+  const saveMark = buttonWithText(markEditor, 'Save');
+  assert(getComputedStyle(saveMark).whiteSpace === 'nowrap', 'mark editor Save action must remain on one line');
+  click(saveMark);
+  await waitFor(() => !marksPanel.querySelector('.epub-mark-editor'), 'inline mark editor to close after saving');
+  assert(marksPanel.querySelectorAll('.epub-marks-panel__tags em').length === 2, 'saved mark tags must render in the manager');
+  click(buttonWithLabel('Show all'));
+  await waitFor(() => marksPanel.querySelectorAll('.epub-marks-panel__list li').length === 3, 'all mark types after filter reset');
+  click(buttonWithText(marksPanel, 'Select'));
+  const selectVisible = await waitFor(() => marksPanel.querySelector<HTMLInputElement>('.epub-marks-panel__bulk input'), 'bulk select control');
+  selectVisible.click();
+  click(buttonWithText(marksPanel, 'Delete'));
+  click(await waitFor(
+    () => Array.from(marksPanel.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === 'Confirm delete 3'),
+    'batch deletion confirmation',
+  ));
+  await waitFor(() => marksPanel.textContent?.includes('No saved marks'), 'atomic batch mark deletion');
+  steps.push('mark manager filtered, edited, tagged and batch-deleted all mark kinds');
+  click(buttonWithLabel('Close Bookmarks and annotations'));
+  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'marks panel to close');
 
   const viewport = required<HTMLElement>('.epub-reader-shell__viewport');
   viewport.focus();
@@ -173,12 +260,26 @@ async function run(): Promise<readonly string[]> {
     return /result/u.test(text) ? text : null;
   }, 'search results');
   assert(document.querySelector('.epub-search-panel__results mark')?.textContent === '吾輩', 'search result must highlight the query');
+  assert(document.querySelectorAll('.epub-search-panel__group').length === 1, 'search results must be grouped under their chapter');
+  assert(document.querySelector('.epub-search-panel__pager span')?.textContent?.trim().startsWith('–'), 'a completed search must not claim a hit was navigated before activation');
   steps.push(`search completed: ${searchSummary}`);
   click(required<HTMLButtonElement>('.epub-search-panel__results li button'));
   const located = await waitForPage(position => position.current === 1, 'search locator to navigate to its first match');
   steps.push(`lightweight search locator navigated to ${located.current}/${located.total}`);
   click(buttonWithLabel('Close Search'));
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'search panel to close');
+  click(contentsButton);
+  const historyPanel = await waitForPanel('Contents');
+  click(required<HTMLButtonElement>('button[aria-controls="epub-navigation-history"]'));
+  const previousLocation = await waitFor(
+    () => historyPanel.querySelector<HTMLButtonElement>('#epub-navigation-history .epub-contents__entries button'),
+    'search origin in navigation history',
+  );
+  click(previousLocation);
+  await waitForPage(position => position.current === restored.current, 'history entry to restore the previous reading location');
+  click(buttonWithLabel('Close Contents'));
+  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'contents panel to close after history navigation');
+  steps.push('publication navigation synchronized Contents, remembered folds, exposed Page List and Landmarks, and restored History');
 
   click(buttonWithLabel('Reader settings'));
   const settingsPanel = await waitForPanel('Reader settings');

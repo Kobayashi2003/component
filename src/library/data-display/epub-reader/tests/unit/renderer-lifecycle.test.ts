@@ -243,9 +243,10 @@ async function main(): Promise<void> {
       };
     }
 
-    async restoreLocator(_locator: Locator, tx: LayoutTransactionContext): Promise<void> {
+    async restoreLocator(_locator: Locator, tx: LayoutTransactionContext): Promise<Locator | null> {
       tx.throwIfSuperseded();
       this.restoreCount += 1;
+      return _locator;
     }
 
     async navigate(

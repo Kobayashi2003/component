@@ -313,14 +313,15 @@ export class BrowserEpubReader {
       addHighlight: (range, highlight, color, label, tags) => this.markController.addHighlight(range, highlight, color, label, tags),
       addAnnotation: (range, body, highlight, color, label, tags) => this.markController.addAnnotation(range, body, highlight, color, label, tags),
       remove: id => this.markStore.remove(id),
+      removeMany: ids => this.markStore.removeMany(ids),
       update: (id, patch) => this.markController.update(id, patch),
       clear: () => this.markStore.clear(),
       goTo: async id => {
         const mark = this.markStore.snapshot().marks.find(candidate => candidate.id === id);
         if (!mark) return false;
         const origin = await this.currentHistoryLocator();
-        await this.markController.goToMark(mark as ReaderMark);
-        this.locator = mark.kind === 'bookmark' ? mark.locator : mark.range.start;
+        const restored = await this.markController.goToMark(mark as ReaderMark);
+        this.locator = restored ?? (mark.kind === 'bookmark' ? mark.locator : mark.range.start);
         this.navigationHistory.record(origin, this.locator);
         this.publish(this.snapshotValue.status, this.snapshotValue.error);
         return true;
@@ -452,14 +453,14 @@ export class BrowserEpubReader {
     return this.goToWithHistory(target);
   }
 
-  async back(): Promise<Locator | null> {
+  async back(steps = 1): Promise<Locator | null> {
     this.assertAlive();
-    return this.restoreHistory('back');
+    return this.restoreHistorySteps('back', steps);
   }
 
-  async forward(): Promise<Locator | null> {
+  async forward(steps = 1): Promise<Locator | null> {
     this.assertAlive();
-    return this.restoreHistory('forward');
+    return this.restoreHistorySteps('forward', steps);
   }
 
   async goToLocator(locator: Locator): Promise<Locator | null> {
@@ -673,15 +674,15 @@ export class BrowserEpubReader {
     }
   }
 
-  private async searchWithHistory(operation: () => Promise<import('../../features/search').SearchHit | null>): Promise<import('../../features/search').SearchHit | null> {
+  private async searchWithHistory(operation: () => Promise<import('../../features/search').ReaderSearchNavigationResult | null>): Promise<import('../../features/search').SearchHit | null> {
     const origin = await this.currentHistoryLocator();
-    const hit = await operation();
-    if (hit) {
-      this.locator = hit.range.start;
+    const navigation = await operation();
+    if (navigation) {
+      this.locator = navigation.locator;
       this.navigationHistory.record(origin, this.locator);
     }
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    return hit;
+    return navigation?.hit ?? null;
   }
 
   private async restoreHistory(direction: 'back' | 'forward'): Promise<Locator | null> {
@@ -696,6 +697,17 @@ export class BrowserEpubReader {
     else this.navigationHistory.commitForward(current);
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
     return this.locator;
+  }
+
+  private async restoreHistorySteps(direction: 'back' | 'forward', steps: number): Promise<Locator | null> {
+    if (!Number.isInteger(steps) || steps < 1) throw new RangeError('History steps must be a positive integer.');
+    let restored: Locator | null = null;
+    for (let step = 0; step < steps; step += 1) {
+      const next = await this.restoreHistory(direction);
+      if (!next) break;
+      restored = next;
+    }
+    return restored;
   }
 
   private async currentHistoryLocator(): Promise<Locator | null> {
@@ -996,9 +1008,16 @@ function mergeApproximateLocator(
   href: string,
   progression: number,
 ): Locator {
-  if (previous?.spineIndex === spineIndex && previous.href === href) {
+  if (
+    previous?.spineIndex === spineIndex
+    && previous.href === href
+    && Math.abs((previous.locations.progression ?? progression) - progression) < 0.001
+  ) {
     return { ...previous, locations: { ...previous.locations, progression } };
   }
+  // A live layout report knows the physical progression but not the new DOM
+  // anchor. Keeping an older CFI here would make the composite locator
+  // contradictory and precise restoration could jump back to the old page.
   return { spineIndex, href, locations: { progression } };
 }
 

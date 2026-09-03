@@ -4,6 +4,11 @@ import { PublicationSearch } from './search';
 
 type SearchListener = (state: ReaderSearchState) => void;
 
+export interface ReaderSearchNavigationResult {
+  readonly hit: SearchHit;
+  readonly locator: import('../../epub/publication').Locator;
+}
+
 export class ReaderSearchController {
   private active: AbortController | null = null;
   private readonly listeners = new Set<SearchListener>();
@@ -35,7 +40,7 @@ export class ReaderSearchController {
         this.setState({
           query: result.query,
           hits: result.hits,
-          index: result.hits.length > 0 ? 0 : -1,
+          index: -1,
           searching: false,
           truncated: result.truncated,
           diagnostics: result.diagnostics,
@@ -54,18 +59,23 @@ export class ReaderSearchController {
     }
   }
 
-  async goToHit(index: number): Promise<SearchHit | null> {
+  async goToHit(index: number): Promise<ReaderSearchNavigationResult | null> {
     const hits = this.stateValue.hits;
     if (hits.length === 0) return null;
     const normalized = modulo(index, hits.length);
     const hit = hits[normalized]!;
-    await this.navigator.goToLocator(hit.range.start);
+    const locator = await this.navigator.goToLocator(hit.range.start);
     this.setState({ ...this.stateValue, index: normalized });
-    return hit;
+    return { hit, locator: locator ?? hit.range.start };
   }
 
-  next(): Promise<SearchHit | null> { return this.goToHit(this.stateValue.index + 1); }
-  previous(): Promise<SearchHit | null> { return this.goToHit(this.stateValue.index - 1); }
+  next(): Promise<ReaderSearchNavigationResult | null> {
+    return this.goToHit(this.stateValue.index < 0 ? 0 : this.stateValue.index + 1);
+  }
+
+  previous(): Promise<ReaderSearchNavigationResult | null> {
+    return this.goToHit(this.stateValue.index < 0 ? this.stateValue.hits.length - 1 : this.stateValue.index - 1);
+  }
 
   clear(): void {
     this.active?.abort(new DOMException('Search cleared.', 'AbortError'));

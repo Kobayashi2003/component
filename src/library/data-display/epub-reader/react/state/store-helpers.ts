@@ -18,7 +18,7 @@ export function createRestoredMarkStore(marks: readonly ReaderMark[]): MemoryRea
   return store;
 }
 
-export function progressionOnlyLocator(locator: Locator, rendererProgression?: number): Locator {
+export function readingSessionPositionLocator(locator: Locator, rendererProgression?: number): Locator {
   const progression = rendererProgression ?? locator.locations.progression ?? 0;
   return {
     href: locator.href,

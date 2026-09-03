@@ -119,8 +119,8 @@ export class ReaderNavigator {
     if (plan.spineIndex !== locator.spineIndex || plan.href !== locator.href) {
       throw new Error('Navigation plan provider returned a plan for the wrong spine item.');
     }
-    await this.host.present(plan, 'navigation', locator);
-    return this.host.captureLocator();
+    const presented = await this.host.present(plan, 'navigation', locator);
+    return presented.locator ?? this.host.captureLocator();
   }
 
   private findSequentialSpine(anchor: number, direction: NavigationDirection): number | null {

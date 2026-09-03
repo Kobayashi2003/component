@@ -5,6 +5,10 @@ export interface ReaderNavigationHistorySnapshot {
   readonly canGoForward: boolean;
   readonly backCount: number;
   readonly forwardCount: number;
+  /** Oldest to newest; the final entry is the immediate Back destination. */
+  readonly back: readonly Locator[];
+  /** Oldest to newest; the final entry is the immediate Forward destination. */
+  readonly forward: readonly Locator[];
 }
 
 /** Stores branch navigation without mixing ordinary sequential page turns into history. */
@@ -22,6 +26,8 @@ export class ReaderNavigationHistory {
       canGoForward: this.forwardStack.length > 0,
       backCount: this.backStack.length,
       forwardCount: this.forwardStack.length,
+      back: Object.freeze(this.backStack.map(copyLocator)),
+      forward: Object.freeze(this.forwardStack.map(copyLocator)),
     });
   }
 
@@ -73,5 +79,10 @@ function copyOptional(locator: Locator | undefined): Locator | null {
 }
 
 function copyLocator(locator: Locator): Locator {
-  return { ...locator, locations: { ...locator.locations } };
+  const dom = locator.locations.dom
+    ? Object.freeze({ ...locator.locations.dom, path: Object.freeze([...locator.locations.dom.path]) })
+    : undefined;
+  const locations = Object.freeze({ ...locator.locations, ...(dom ? { dom } : {}) });
+  const text = locator.text ? Object.freeze({ ...locator.text }) : undefined;
+  return Object.freeze({ ...locator, locations, ...(text ? { text } : {}) });
 }

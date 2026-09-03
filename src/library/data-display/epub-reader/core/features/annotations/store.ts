@@ -20,6 +20,16 @@ export class MemoryReaderMarkStore implements ReaderMarkStore {
     return removed;
   }
 
+  removeMany(ids: readonly string[]): number {
+    const unique = new Set(ids);
+    let removed = 0;
+    for (const id of unique) {
+      if (this.marks.delete(id)) removed += 1;
+    }
+    if (removed > 0) this.publish();
+    return removed;
+  }
+
   clear(): void {
     if (this.marks.size === 0) return;
     this.marks.clear();

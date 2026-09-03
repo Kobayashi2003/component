@@ -20,7 +20,7 @@ const BUILT_IN_RENDERERS: Record<(typeof BUILT_IN_READER_TOOL_MANIFEST)[number][
   },
   marks: {
     renderIcon: () => <ReaderToolIcon id="marks" />,
-    render: ({ reader, openMarkEditor }) => <EpubMarksPanel reader={reader} onEditMark={openMarkEditor} />,
+    render: ({ reader }) => <EpubMarksPanel reader={reader} />,
   },
   settings: {
     renderIcon: () => <ReaderToolIcon id="settings" />,

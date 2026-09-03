@@ -133,11 +133,11 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     return active ? active.captureLocator(transaction) : null;
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<void> {
+  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const target = [this.left, this.right].find(child => child?.plan?.spineIndex === locator.spineIndex);
-    if (target?.renderer) await target.renderer.restoreLocator(locator, transaction);
+    return target?.renderer ? await target.renderer.restoreLocator(locator, transaction) : null;
   }
 
 

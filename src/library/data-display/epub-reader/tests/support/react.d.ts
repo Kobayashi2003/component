@@ -9,6 +9,7 @@ declare module 'react' {
     render(): ReactNode;
   }
   export type RefCallback<T> = (instance: T | null) => void;
+  export interface RefObject<T> { current: T }
   export interface CSSProperties { [key: string]: string | number | undefined }
   export interface FormEvent<T = Element> extends Event { readonly currentTarget: T }
   export interface ChangeEvent<T = Element> extends Event { readonly currentTarget: T }
@@ -19,7 +20,7 @@ declare module 'react' {
   export interface Context<T> { Provider: (props: { value: T; children?: ReactNode }) => unknown }
   export function createContext<T>(defaultValue: T): Context<T>;
   export function useContext<T>(context: Context<T>): T;
-  export function useState<T>(initial: T): [T, (value: T | ((previous: T) => T)) => void];
+  export function useState<T>(initial: T | (() => T)): [T, (value: T | ((previous: T) => T)) => void];
   export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
   export function useMemo<T>(factory: () => T, deps: readonly unknown[]): T;
   export interface MutableRefObject<T> { current: T }
@@ -36,5 +37,6 @@ declare module 'react/jsx-runtime' {
 }
 
 declare namespace JSX {
+  interface IntrinsicAttributes { key?: string | number }
   interface IntrinsicElements { [elementName: string]: any }
 }

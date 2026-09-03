@@ -105,7 +105,7 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
         ) : (
           <footer>
             <button type="button" onClick={remove}>Delete</button>
-            <button type="submit" disabled={mark.kind === 'annotation' && !body.trim()}>Save changes</button>
+            <button type="submit" disabled={mark.kind === 'annotation' && !body.trim()}>Save</button>
           </footer>
         )}
       </form>

@@ -62,7 +62,12 @@ export class ReaderMarkController {
     const updatedAt = this.now().toISOString();
     let updated: ReaderMark;
     if (existing.kind === 'bookmark') {
-      updated = { ...existing, updatedAt, ...(patch.label !== undefined ? { label: patch.label } : {}) };
+      updated = {
+        ...existing,
+        updatedAt,
+        ...(patch.label !== undefined ? { label: patch.label } : {}),
+        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
+      };
     } else if (existing.kind === 'highlight') {
       updated = {
         ...existing,
@@ -70,6 +75,7 @@ export class ReaderMarkController {
         ...(patch.color ? { color: patch.color } : {}),
         ...(patch.highlight ? { highlight: patch.highlight } : {}),
         ...(patch.label !== undefined ? { label: patch.label } : {}),
+        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
       };
     } else {
       updated = {
@@ -79,13 +85,18 @@ export class ReaderMarkController {
         ...(patch.color ? { color: patch.color } : {}),
         ...(patch.highlight ? { highlight: patch.highlight } : {}),
         ...(patch.label !== undefined ? { label: patch.label } : {}),
+        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
       };
     }
     this.store.put(updated);
     return updated;
   }
 
-  async goToMark(mark: Bookmark | Highlight | Annotation): Promise<void> {
-    await this.navigator.goToLocator(mark.kind === 'bookmark' ? mark.locator : mark.range.start);
+  async goToMark(mark: Bookmark | Highlight | Annotation): Promise<import('../../epub/publication').Locator | null> {
+    return this.navigator.goToLocator(mark.kind === 'bookmark' ? mark.locator : mark.range.start);
   }
+}
+
+function normalizeTags(tags: readonly string[]): readonly string[] {
+  return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
 }

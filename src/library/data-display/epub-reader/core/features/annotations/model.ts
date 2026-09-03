@@ -41,6 +41,7 @@ export interface ReaderMarkPatch {
   readonly color?: AnnotationColor;
   readonly highlight?: AnnotationHighlightStyle;
   readonly label?: string;
+  readonly tags?: readonly string[];
 }
 
 export interface ReaderMarkStoreSnapshot {
@@ -52,6 +53,8 @@ export interface ReaderMarkStore {
   snapshot(): ReaderMarkStoreSnapshot;
   put(mark: ReaderMark): void;
   remove(id: string): boolean;
+  /** Removes all matching IDs and publishes at most one store revision. */
+  removeMany(ids: readonly string[]): number;
   clear(): void;
   subscribe(listener: (snapshot: ReaderMarkStoreSnapshot) => void): () => void;
 }

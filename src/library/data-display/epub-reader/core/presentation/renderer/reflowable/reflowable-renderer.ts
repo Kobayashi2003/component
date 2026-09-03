@@ -186,19 +186,21 @@ export class ReflowableRenderer implements RendererInstance {
     );
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<void> {
+  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const document = this.document;
     const plan = this.plan;
-    if (!document || !plan) return;
-    if (locator.spineIndex !== plan.spineIndex || locator.href !== plan.href) return;
+    if (!document || !plan) return null;
+    if (locator.spineIndex !== plan.spineIndex || locator.href !== plan.href) return null;
 
-    transaction.mutate(() => {
+    return transaction.mutate(() => {
       const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
       const resolved = resolveCompositeLocator(document, this.environment.publication, plan.spineIndex, locator);
       if (resolved.point) restoreDomPoint(document, plan, presentation, this.policy, resolved.point);
       else restoreProgression(document, plan, presentation, this.policy, resolved.progression ?? 0);
+      const progression = snapshotReflowableLayout(document, plan, presentation, this.policy).progression;
+      return { ...resolved.locator, locations: { ...resolved.locator.locations, progression } };
     });
   }
 

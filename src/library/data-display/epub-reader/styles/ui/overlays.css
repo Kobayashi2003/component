@@ -119,7 +119,14 @@
 /* Swatch colours live in tokens.css; both surfaces read the same ones. */
 .epub-reader-selection-tool__colors button,
 .epub-reader-mark-popover__colors button {
-  background-color: var(--epub-highlight);
+  background: var(--epub-highlight);
+}
+
+.epub-reader-shell .epub-reader-selection-tool__colors button:hover:not(:disabled),
+.epub-reader-shell .epub-reader-mark-popover__colors button:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--epub-highlight);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--epub-color-text) 34%, transparent);
 }
 
 .epub-reader-selection-tool__colors button.is-yellow,
@@ -339,7 +346,11 @@
   gap: 8px;
   padding-top: 2px;
 }
-.epub-reader-mark-popover footer button { min-height: 34px; padding: 6px 10px; }
+.epub-reader-mark-popover footer button {
+  min-height: 34px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
 .epub-reader-mark-popover footer button:first-child {
   border-color: transparent;
   background: transparent;

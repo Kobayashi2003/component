@@ -67,14 +67,6 @@ export function resolveCompositeLocator(
     } catch { /* try resilient fallbacks */ }
   }
 
-  if (!point && locator.locations.fragment) {
-    const element = document.getElementById(locator.locations.fragment);
-    if (element) {
-      point = { node: element, offset: 0 };
-      method = 'fragment';
-    }
-  }
-
   if (!point && locator.text) {
     point = resolveTextQuote(document, locator.text);
     if (point) method = 'text-quote';
@@ -85,14 +77,23 @@ export function resolveCompositeLocator(
     if (point) method = 'dom-path';
   }
 
+  // A captured fragment names the nearest section, not the original character
+  // position. Keep it behind the exact recovery channels. Href-only targets
+  // still reach this branch because they carry no text or DOM location.
+  if (!point && locator.locations.fragment) {
+    const element = document.getElementById(locator.locations.fragment);
+    if (element) {
+      point = { node: element, offset: 0 };
+      method = 'fragment';
+    }
+  }
+
   const progression = !point && locator.locations.progression != null
     ? Math.max(0, Math.min(1, locator.locations.progression))
     : undefined;
   if (!point && progression != null) method = 'progression';
 
-  const updated: Locator = correctedCfi
-    ? { ...locator, locations: { ...locator.locations, cfi: correctedCfi } }
-    : locator;
+  const updated = healedLocator(document, publication, expectedSpineIndex, locator, point, method, correctedCfi);
   return {
     locator: updated,
     method,
@@ -100,6 +101,37 @@ export function resolveCompositeLocator(
     ...(progression != null ? { progression } : {}),
     ...(correctedCfi ? { correctedCfi } : {}),
   };
+}
+
+function healedLocator(
+  document: Document,
+  publication: Publication,
+  spineIndex: number,
+  locator: Locator,
+  point: DomPoint | null,
+  method: LocatorRestoreMethod,
+  correctedCfi: string | undefined,
+): Locator {
+  if (correctedCfi) return { ...locator, locations: { ...locator.locations, cfi: correctedCfi } };
+  if (!point || method === 'cfi') return locator;
+  try {
+    const rebuilt = createCompositeLocator(
+      document,
+      publication,
+      spineIndex,
+      locator.href,
+      locator.locations.progression ?? 0,
+      point,
+      locator.text?.highlight?.length ?? 48,
+    );
+    return locator.locations.position == null
+      ? rebuilt
+      : { ...rebuilt, locations: { ...rebuilt.locations, position: locator.locations.position } };
+  } catch {
+    // Recovery succeeded. Failure to refresh an optional precision channel
+    // must not turn successful navigation into an error.
+    return locator;
+  }
 }
 
 export function locatorAtResourceStart(publication: Publication, spineIndex: number): Locator {

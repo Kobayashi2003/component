@@ -1,7 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useOptionalEpubReaderContext } from '../reader/context';
 import type { EpubReaderHandle } from '../state/model';
-import { chapterContext } from './panel-model';
+import { groupSearchHitsByChapter } from './panel-model';
 
 export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
@@ -10,6 +10,10 @@ export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubRe
   const state = reader.state.reader?.search;
   const publication = reader.state.reader?.publication;
   const [query, setQuery] = useState('');
+  const groups = useMemo(
+    () => groupSearchHitsByChapter(state?.hits ?? [], publication?.navigation.toc ?? []),
+    [publication?.navigation.toc, state?.hits],
+  );
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -47,25 +51,34 @@ export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubRe
         <>
           <div className="epub-search-panel__pager">
             <button type="button" aria-label="Previous search result" onClick={() => void reader.search.previous()}>Previous</button>
-            <span>{state.index + 1} / {state.hits.length}</span>
+            <span>{state.index >= 0 ? state.index + 1 : '–'} / {state.hits.length}</span>
             <button type="button" aria-label="Next search result" onClick={() => void reader.search.next()}>Next</button>
           </div>
-          <ol className="epub-search-panel__results" aria-label="Search results">
-            {state.hits.map((hit, index) => {
-              const chapter = chapterContext(publication?.navigation.toc ?? [], hit.href, hit.spineIndex);
-              return (
-                <li key={hit.id}>
-                  <button type="button" aria-current={index === state.index ? 'true' : undefined} onClick={() => void reader.search.goTo(index)}>
-                    <span className="epub-search-result__context">
-                      <strong>{chapter.label}</strong>
-                      <small>{index + 1} · section {hit.spineIndex + 1}</small>
-                    </span>
-                    <span className="epub-search-result__excerpt">{highlightMatch(hit.excerpt, hit.excerptMatchStart, hit.excerptMatchEnd)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          <div className="epub-search-panel__groups" aria-label="Search results">
+            {groups.map(group => (
+              <section key={group.key} className="epub-search-panel__group" aria-label={`${group.chapter.label} search results`}>
+                <header>
+                  <div>
+                    <strong>{group.chapter.label}</strong>
+                    {group.chapter.path.length > 1 ? <span>{group.chapter.path.slice(0, -1).join(' / ')}</span> : null}
+                  </div>
+                  <small>{group.results.length}</small>
+                </header>
+                <ol className="epub-search-panel__results">
+                  {group.results.map(({ hit, index }) => (
+                    <li key={hit.id}>
+                      <button type="button" aria-current={index === state.index ? 'true' : undefined} onClick={() => void reader.search.goTo(index)}>
+                        <span className="epub-search-result__context">
+                          <small>Result {index + 1} · section {hit.spineIndex + 1}</small>
+                        </span>
+                        <span className="epub-search-result__excerpt">{highlightMatch(hit.excerpt, hit.excerptMatchStart, hit.excerptMatchEnd)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ))}
+          </div>
         </>
       ) : null}
     </section>

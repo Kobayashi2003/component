@@ -162,12 +162,14 @@ export class FixedLayoutRenderer implements RendererInstance {
     return { href: plan.href, spineIndex: plan.spineIndex, locations: { progression: 0 } };
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<void> {
+  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     // A pre-paginated spine item is exactly one page. There is no intra-page
     // pagination state to restore; fragment and annotation navigation is handled above the renderer.
-    void locator;
+    const plan = this.plan;
+    if (!plan || locator.spineIndex !== plan.spineIndex || locator.href !== plan.href) return null;
+    return { ...locator, locations: { ...locator.locations, progression: 0 } };
   }
 
 

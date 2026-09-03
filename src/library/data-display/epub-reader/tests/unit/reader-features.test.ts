@@ -201,11 +201,12 @@ async function main() {
   const visited: Locator[] = [];
   const searchController = new ReaderSearchController(search, { async goToLocator(locator) { visited.push(locator); return locator; } });
   const controllerResults = await searchController.run('alpha', { maxResults: 3 });
-  assert(searchController.state.index === 0 && controllerResults.hits.length === 3, 'search controller should select the first hit after a successful query');
-  await searchController.next();
-  assert(Number(searchController.state.index) === 1 && Number(visited.length) === 1, 'search controller should navigate and advance active hit state');
+  assert(searchController.state.index === -1 && controllerResults.hits.length === 3, 'search results should remain unselected until navigation occurs');
+  const nextSearchNavigation = await searchController.next();
+  assert(Number(searchController.state.index) === 0 && Number(visited.length) === 1, 'Next should navigate to the first hit when no result is selected');
+  assert(nextSearchNavigation?.locator === visited[0], 'search navigation should return the locator actually restored by the navigator');
   await searchController.previous();
-  assert(Number(searchController.state.index) === 0 && Number(visited.length) === 2, 'search controller should navigate backward through results');
+  assert(Number(searchController.state.index) === 2 && Number(visited.length) === 2, 'search controller should navigate backward and wrap through results');
   searchController.clearCache();
   assert(search.cacheSnapshot.documents === 0 && searchController.state.hits.length === 3, 'cache clearing should release indexes without discarding visible results');
   searchController.clear();
@@ -236,13 +237,15 @@ async function main() {
   const range: LocatorRange = { start: first, end: { ...first, locations: { progression: 0.6 } } };
   store.put({ id: 'h1', kind: 'highlight', range, color: 'yellow', highlight: 'solid', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
   const markController = new ReaderMarkController(store, { async captureLocator() { return first; } }, { async goToLocator() { return null; } }, () => new Date('2026-02-01T00:00:00.000Z'));
-  const updatedHighlight = markController.update('h1', { color: 'blue', highlight: 'underline' });
+  const updatedHighlight = markController.update('h1', { color: 'blue', highlight: 'underline', tags: ['review', ' review ', ''] });
   assert(updatedHighlight?.kind === 'highlight' && updatedHighlight.color === 'blue' && updatedHighlight.highlight === 'underline', 'mark controller should update an existing highlight without changing its identity');
+  assert(updatedHighlight?.tags?.join(',') === 'review', 'mark tag edits should trim, deduplicate and discard empty tags');
   store.put({ id: 'b1', kind: 'bookmark', locator: { ...first, locations: { progression: 0.1 } }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
   assert(store.snapshot().marks[0]?.id === 'b1', 'mark store should present marks in publication reading-position order');
-  assert(store.remove('h1') && store.snapshot().marks.length === 1, 'mark store should remove persistent marks by id');
+  store.put({ id: 'a1', kind: 'annotation', range, body: 'Note', color: 'pink', highlight: 'solid', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
+  assert(store.removeMany(['h1', 'a1', 'missing', 'h1']) === 2 && store.snapshot().marks.length === 1, 'batch removal should delete every matching mark exactly once');
   unsubscribe();
-  assert(publishes === 5, 'mark subscribers should receive initial snapshot plus each mutation');
+  assert(publishes === 6, 'batch removal should publish one atomic revision rather than one revision per mark');
 
   assert(commandForKey({ key: 'ArrowRight' }, 'ltr')?.type === 'navigate', 'keyboard arrows should map to semantic navigation');
   const rtlRight = commandForKey({ key: 'ArrowRight' }, 'rtl');

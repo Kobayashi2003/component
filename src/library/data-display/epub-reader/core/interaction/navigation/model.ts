@@ -1,13 +1,13 @@
 import type { Locator, PublicationHref } from '../../epub/publication';
 import type { RenditionPlan } from '../../presentation/rendition';
-import type { LayoutTransactionReason, ReadingDirection, RendererHostState, RendererNavigationResult } from '../../presentation/renderer';
+import type { LayoutTransactionReason, ReadingDirection, RendererHostState, RendererNavigationResult, RendererPresentationResult } from '../../presentation/renderer';
 
 export type NavigationDirection = 'forward' | 'backward';
 
 export interface NavigationRendererHost {
   readonly state: RendererHostState;
   navigateWithin(direction: ReadingDirection): Promise<RendererNavigationResult>;
-  present(plan: RenditionPlan, reason?: LayoutTransactionReason, targetLocator?: Locator): Promise<RendererHostState>;
+  present(plan: RenditionPlan, reason?: LayoutTransactionReason, targetLocator?: Locator): Promise<RendererPresentationResult>;
   captureLocator(): Promise<Locator | null>;
 }
 

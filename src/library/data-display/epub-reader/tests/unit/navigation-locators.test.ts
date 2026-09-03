@@ -89,7 +89,7 @@ class FakeHost implements NavigationRendererHost {
     return this.within;
   }
 
-  async present(plan: RenditionPlan, _reason?: string, targetLocator?: Locator): Promise<RendererHostState> {
+  async present(plan: RenditionPlan, _reason?: string, targetLocator?: Locator): Promise<import('../../core/presentation/renderer').RendererPresentationResult> {
     void _reason;
     this.activePresentations += 1;
     this.maxConcurrentPresentations = Math.max(this.maxConcurrentPresentations, this.activePresentations);
@@ -106,7 +106,7 @@ class FakeHost implements NavigationRendererHost {
       rendererKind: plan.renderer,
       layout: { pageCount: 1, currentPage: 1 },
     };
-    return this.state;
+    return { state: this.state, locator: targetLocator ?? null };
   }
 
   async captureLocator(): Promise<Locator | null> {
@@ -155,6 +155,9 @@ async function main() {
   history.record({ ...origin, locations: { progression: 0.4 } }, destination);
   history.record({ ...origin, locations: { progression: 0.6 } }, destination);
   assert(history.snapshot.backCount === 2, 'navigation history should enforce its configured retention limit');
+  assert(history.snapshot.back.length === 2, 'navigation history snapshot should expose its retained Back destinations');
+  assert(history.snapshot.back.at(-1)?.locations.progression === 0.6, 'the newest Back destination should be addressable by future history UI');
+  assert(Object.isFrozen(history.snapshot.back), 'published history entries should be immutable snapshots');
 
   assert(navigationForSide('right', 'ltr') === 'forward', 'LTR right side should navigate forward');
   assert(navigationForSide('left', 'rtl') === 'forward', 'RTL left side should navigate forward');

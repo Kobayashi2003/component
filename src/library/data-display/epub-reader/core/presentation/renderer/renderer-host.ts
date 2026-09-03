@@ -10,6 +10,7 @@ import type {
   RendererHostState,
   RendererInstance,
   RendererNavigationResult,
+  RendererPresentationResult,
 } from './model';
 
 type StateListener = (state: RendererHostState) => void;
@@ -72,7 +73,7 @@ export class RendererHost {
     plan: RenditionPlan,
     reason: LayoutTransactionReason = this.currentState.plan ? 'content-change' : 'initial-render',
     targetLocator?: Locator,
-  ): Promise<RendererHostState> {
+  ): Promise<RendererPresentationResult> {
     this.assertAlive();
     this.setState({
       ...this.currentState,
@@ -120,8 +121,9 @@ export class RendererHost {
             const stability = await next.waitForLayoutStable(transaction);
             transaction.throwIfSuperseded();
             const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan) ? targetLocator : captured;
+            let restoredLocator: Locator | null = null;
             if (restoreTarget) {
-              await next.restoreLocator(restoreTarget, transaction);
+              restoredLocator = await next.restoreLocator(restoreTarget, transaction);
               transaction.throwIfSuperseded();
             }
 
@@ -135,7 +137,7 @@ export class RendererHost {
               committed = true;
               this.publishCommit(transaction.generation, reason, plan, layout, stability);
             });
-            return this.currentState;
+            return { state: this.currentState, locator: restoredLocator };
           } finally {
             if (!committed) next.dispose();
           }
@@ -148,23 +150,24 @@ export class RendererHost {
         const stability = await previous!.waitForLayoutStable(transaction);
         transaction.throwIfSuperseded();
         const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan) ? targetLocator : captured;
+        let restoredLocator: Locator | null = null;
         if (restoreTarget) {
-          await previous!.restoreLocator(restoreTarget, transaction);
+          restoredLocator = await previous!.restoreLocator(restoreTarget, transaction);
           transaction.throwIfSuperseded();
         }
         const layout = previous!.snapshot();
         transaction.mutate(() => {
           this.publishCommit(transaction.generation, reason, plan, layout, stability);
         });
-        return this.currentState;
+        return { state: this.currentState, locator: restoredLocator };
       });
 
       // A superseded transaction must never overwrite the state already being
       // produced by its successor.
       if (result.status === 'committed') return result.value;
-      return this.currentState;
+      return { state: this.currentState, locator: null };
     } catch (error) {
-      if (isAbortError(error)) return this.currentState;
+      if (isAbortError(error)) return { state: this.currentState, locator: null };
       if (!this.disposed) {
         this.setState({
           ...this.currentState,

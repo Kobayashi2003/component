@@ -37,7 +37,7 @@ export function EpubSelectionToolbarContent({ activation, reader, onDismiss, onS
     event.preventDefault();
     const value = body.trim();
     if (!value) return;
-    reader.marks.addAnnotation(activation.selection.range, value, 'solid', color);
+    reader.marks.addAnnotation(activation.selection.range, value, 'solid', color, excerpt);
     onSaved('annotation');
     onDismiss(true);
   };

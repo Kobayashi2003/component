@@ -42,8 +42,8 @@ export interface EpubReaderHandle {
   goTo(target: NavigationTarget): Promise<Locator | null>;
   goToLocator(locator: Locator): Promise<Locator | null>;
   history: {
-    back(): Promise<Locator | null>;
-    forward(): Promise<Locator | null>;
+    back(steps?: number): Promise<Locator | null>;
+    forward(steps?: number): Promise<Locator | null>;
   };
   setPreferences(patch: import('../../core').ReaderPreferencesPatch): Promise<void>;
   captureLocator(): Promise<Locator | null>;
@@ -81,6 +81,7 @@ export interface EpubReaderHandle {
       tags?: readonly string[],
     ): import('../../core').Annotation;
     remove(id: string): boolean;
+    removeMany(ids: readonly string[]): number;
     update(id: string, patch: import('../../core').ReaderMarkPatch): import('../../core').ReaderMark | null;
     clear(): void;
     goTo(id: string): Promise<boolean | null>;

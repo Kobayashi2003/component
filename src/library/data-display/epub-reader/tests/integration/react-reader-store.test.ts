@@ -183,8 +183,13 @@ async function main(): Promise<void> {
   {
     const sessions = new MemoryReadingSessionStorage();
     const restored: Locator = { href: 'EPUB/c1.xhtml', spineIndex: 1, locations: { progression: 0.6 } };
+    const preciseBookmarkLocator: Locator = {
+      ...restored,
+      locations: { progression: 0.6, cfi: 'epubcfi(/6/4!/4/2/1:3)' },
+      text: { before: 'before', highlight: 'saved passage', after: 'after' },
+    };
     const bookmark: ReaderMark = {
-      id: 'bookmark:fixture', kind: 'bookmark', locator: restored,
+      id: 'bookmark:fixture', kind: 'bookmark', locator: preciseBookmarkLocator,
       createdAt: new Date(0).toISOString(), updatedAt: new Date(0).toISOString(),
     };
     sessions.save('fixture', {
@@ -213,9 +218,12 @@ async function main(): Promise<void> {
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     assert(receivedLocator?.locations.progression === 0.6, 'saved locator must be supplied before reader open');
     assert(restoredMarkCount === 1, 'saved marks must hydrate the default mark store before reader open');
-    assert(sessions.load('fixture')?.locator.locations.progression === 0.75, 'ready reader locator must replace the stored position');
-    assert(sessions.load('fixture')?.locator.locations.cfi == null, 'session positions must not retain a stale precise anchor over progression');
-    assert(sessions.load('fixture')?.marks?.length === 1, 'ready reader marks must be retained with the reading session');
+    const savedSession = sessions.load('fixture');
+    const savedBookmark = savedSession?.marks[0];
+    assert(savedSession?.locator.locations.progression === 0.75, 'ready reader locator must replace the stored position');
+    assert(savedSession.locator.locations.cfi == null, 'session reopening should use the renderer canonical progression rather than a page-sensitive visible CFI');
+    assert(savedBookmark?.kind === 'bookmark' && savedBookmark.locator.locations.cfi === preciseBookmarkLocator.locations.cfi, 'bookmark persistence must retain exact navigation channels');
+    assert(savedSession.marks.length === 1, 'ready reader marks must be retained with the reading session');
     persistent.clearReadingSession();
     assert(sessions.load('fixture') === null, 'clearReadingSession must remove the active publication record');
     persistent.dispose();

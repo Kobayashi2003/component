@@ -43,8 +43,8 @@ export function useEpubReader(
     goTo: target => store.goTo(target),
     goToLocator: locator => store.goToLocator(locator),
     history: {
-      back: () => store.historyBack(),
-      forward: () => store.historyForward(),
+      back: steps => store.historyBack(steps),
+      forward: steps => store.historyForward(steps),
     },
     setPreferences: patch => store.setPreferences(patch),
     captureLocator: () => store.captureLocator(),
@@ -66,6 +66,7 @@ export function useEpubReader(
       addHighlight: (range, highlight, color, label, tags) => store.addHighlight(range, highlight, color, label, tags),
       addAnnotation: (range, body, highlight, color, label, tags) => store.addAnnotation(range, body, highlight, color, label, tags),
       remove: id => store.removeMark(id),
+      removeMany: ids => store.removeMarks(ids),
       update: (id, patch) => store.updateMark(id, patch),
       clear: () => store.clearMarks(),
       goTo: id => store.goToMark(id),

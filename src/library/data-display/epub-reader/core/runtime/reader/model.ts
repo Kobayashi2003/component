@@ -146,6 +146,7 @@ export interface BrowserEpubReaderMarksApi {
     tags?: readonly string[],
   ): import('../../features/annotations').Annotation;
   remove(id: string): boolean;
+  removeMany(ids: readonly string[]): number;
   update(id: string, patch: import('../../features/annotations').ReaderMarkPatch): import('../../features/annotations').ReaderMark | null;
   clear(): void;
   goTo(id: string): Promise<boolean>;

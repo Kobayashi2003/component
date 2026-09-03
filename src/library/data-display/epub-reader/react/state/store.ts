@@ -8,7 +8,7 @@ import {
   combineAbortSignals,
   createRestoredMarkStore,
   mergePreferences,
-  progressionOnlyLocator,
+  readingSessionPositionLocator,
   sourceBytes,
   statusFromReader,
   stripReactCallbacks,
@@ -176,8 +176,8 @@ export class ReactEpubReaderStore {
   previous() { return this.run(reader => reader.previous()); }
   async goTo(target: NavigationTarget): Promise<Locator | null> { return this.run(reader => reader.goTo(target)); }
   async goToLocator(locator: Locator): Promise<Locator | null> { return this.run(reader => reader.goToLocator(locator)); }
-  async historyBack(): Promise<Locator | null> { return this.run(reader => reader.back()); }
-  async historyForward(): Promise<Locator | null> { return this.run(reader => reader.forward()); }
+  async historyBack(steps = 1): Promise<Locator | null> { return this.run(reader => reader.back(steps)); }
+  async historyForward(steps = 1): Promise<Locator | null> { return this.run(reader => reader.forward(steps)); }
   async setPreferences(patch: ReaderPreferencesPatch): Promise<void> {
     if (this.reader) {
       await this.run(reader => reader.setPreferences(patch));
@@ -233,6 +233,7 @@ export class ReactEpubReaderStore {
     tags?: readonly string[],
   ) { return this.requireReader().marks.addAnnotation(range, body, highlight, color, label, tags); }
   removeMark(id: string): boolean { return this.requireReader().marks.remove(id); }
+  removeMarks(ids: readonly string[]): number { return this.requireReader().marks.removeMany(ids); }
   updateMark(id: string, patch: import('../../core').ReaderMarkPatch) { return this.requireReader().marks.update(id, patch); }
   clearMarks(): void { this.requireReader().marks.clear(); }
   goToMark(id: string): Promise<boolean | null> { return this.run(reader => reader.marks.goTo(id)); }
@@ -448,15 +449,12 @@ export class ReactEpubReaderStore {
   private saveReadingSession(snapshot: BrowserEpubReaderSnapshot, persistPreferences: boolean): void {
     if (!this.readingSessionStorage || !this.readingSessionKey || !snapshot.locator) return;
     const record: ReadingSessionRecord = {
-      // Precise DOM/CFI channels are valuable for annotations, but an engine
-      // snapshot can briefly retain an older text anchor while pagination has
-      // already advanced. Session position follows the renderer's canonical
-      // progression so reopening never jumps one page backwards.
-      locator: progressionOnlyLocator(snapshot.locator, snapshot.renderer?.layout?.progression),
+      // The renderer's physical page/scroll progression is the durable source
+      // for reopening a session. Exact CFI/DOM channels remain on explicit
+      // bookmarks and annotations, where they identify intentional content.
+      locator: readingSessionPositionLocator(snapshot.locator, snapshot.renderer?.layout?.progression),
       ...(persistPreferences ? { preferences: snapshot.preferences } : {}),
-      marks: (snapshot.marks?.marks ?? []).map(mark => mark.kind === 'bookmark'
-        ? { ...mark, locator: progressionOnlyLocator(mark.locator) }
-        : mark),
+      marks: snapshot.marks?.marks ?? [],
       updatedAt: new Date().toISOString(),
     };
     this.readingSessionStorage.save(this.readingSessionKey, record);
