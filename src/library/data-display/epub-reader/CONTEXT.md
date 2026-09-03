@@ -1,4 +1,4 @@
-# EPUB Reader
+# EPUB Reader domain language
 
 This context describes the language used by the EPUB reader engine and its controlled extension model. It separates book compatibility from application-code compatibility and keeps host UI concerns outside the reading model.
 
@@ -21,7 +21,7 @@ The immutable built-in state a reader publishes to its host at one point in time
 _Avoid_: Store, mutable reader state
 
 **Reader Command**:
-A semantic request from reading input to the host product, such as opening search or toggling its chrome.
+A closed semantic action selected from reading input and executed by either the reader or its host, such as turning a page, stepping font size, opening search, or toggling Chrome.
 _Avoid_: Reader event, input event
 
 **Input Binding**:
@@ -35,6 +35,22 @@ _Avoid_: CSS theme switch, component theme list
 **Reader Extension Configuration**:
 The application-composed, prevalidated collection of typed EPUB compatibility modules, input bindings, and themes used when a Reading Session opens.
 _Avoid_: Plugin bag, middleware list
+
+**Reader Shell**:
+The fixed React UI boundary that owns the reading viewport, semantic event routing, surface exclusivity, focus, modal accessibility, and Chrome lifecycle.
+_Avoid_: Layout component, replaceable UI plugin
+
+**Tool Module**:
+A peer React reading tool whose descriptor supplies one toolbar/menu entry and one panel body under Reader Shell ownership.
+_Avoid_: Panel flag, arbitrary plugin
+
+**Surface Renderer**:
+The single presentation provider for one semantic transient surface, such as a footnote or image viewer. The Reader Shell retains its wrapper, focus, dismissal, and isolation rules.
+_Avoid_: Event interceptor, modal plugin
+
+**Reader UI Configuration**:
+The validated host configuration for Tool Modules, Surface Renderers, UI messages, and a closed set of visual and layout tokens.
+_Avoid_: Props bag, arbitrary render slots
 
 **Reader Event**:
 A fact reported after reader state has been committed and its Reader Snapshot has been published.

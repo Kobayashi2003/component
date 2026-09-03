@@ -262,6 +262,7 @@ export type ReaderFlowPreference = 'auto' | 'paginated' | 'scrolled';
 export type ReaderSpreadPreference = 'auto' | 'single' | 'double';
 export type ReaderDirectionPreference = 'auto' | 'ltr' | 'rtl';
 export type FixedLayoutFit = 'contain' | 'width' | 'height' | 'original';
+export type FixedLayoutGutter = 'none' | 'normal';
 export type TouchNavigationPreference = 'both' | 'tap' | 'swipe' | 'off';
 export type ReaderTheme = 'publisher' | 'light' | 'dark' | 'sepia' | (string & {});
 
@@ -308,8 +309,8 @@ export interface ReaderPreferences {
   readonly pageMarginPercent: number;
   /** Scaling strategy for fixed-layout pages and comics. */
   readonly fixedLayoutFit: FixedLayoutFit;
-  /** Physical gutter between fixed-layout pages in a synthetic spread. */
-  readonly fixedLayoutGutter: number;
+  /** Whether synthetic fixed-layout spreads suppress or retain their normal page spacing. */
+  readonly fixedLayoutGutter: FixedLayoutGutter;
   /** Enabled touch/pointer page-turn gestures. Keyboard navigation remains available. */
   readonly touchNavigation: TouchNavigationPreference;
   /** Width of each page-turn edge zone as a percentage of the viewport. */
@@ -331,7 +332,7 @@ export const DEFAULT_READER_PREFERENCES: ReaderPreferences = Object.freeze({
   lineHeight: null,
   pageMarginPercent: 0,
   fixedLayoutFit: 'contain',
-  fixedLayoutGutter: 0,
+  fixedLayoutGutter: 'none',
   touchNavigation: 'both',
   pageTurnZonePercent: 22,
   compatibility: DEFAULT_READER_COMPATIBILITY_PREFERENCES,

@@ -10,7 +10,7 @@
 }
 .adaptive-cursor__dot {
   position: absolute;
-  z-index: 20;
+  z-index: 41;
   top: 0;
   left: 0;
   width: var(--cursor-size);
@@ -24,7 +24,7 @@
 }
 .adaptive-cursor__frame {
   position: absolute;
-  z-index: 19;
+  z-index: 40;
   opacity: 0;
   border: calc(var(--cursor-stroke) * 1px) solid var(--cursor-color);
   box-shadow:

@@ -3,6 +3,7 @@ import type { EpubReaderHandle } from '../state/model';
 import { useOptionalEpubReaderContext } from '../reader/context';
 import { fixedLayoutPublicationProgress, locationForPublicationProgress, publicationProgress, spineIndexForPublicationProgress } from '../../core';
 import { ChevronIcon } from './reader-icons';
+import { useReaderUiConfiguration } from '../configuration/context';
 
 export function EpubReaderControls({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
   const contextual = useOptionalEpubReaderContext();
@@ -12,6 +13,7 @@ export function EpubReaderControls({ reader: explicit }: { readonly reader?: Epu
 }
 
 function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHandle }) {
+  const { messages } = useReaderUiConfiguration();
   const snapshot = reader.state.reader;
   // Rendering the next page puts the whole reader back into `loading`, which is
   // the same status as opening a publication from nothing. They are not the
@@ -54,8 +56,8 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
     : snapshot?.locator ? [snapshot.locator.spineIndex] : [];
   const sectionPosition = visibleSections.length && !fixedLayout
     ? visibleSections.length > 1
-      ? `Sections ${visibleSections[0]! + 1}–${visibleSections[visibleSections.length - 1]! + 1} of ${spineCount}`
-      : `Section ${visibleSections[0]! + 1} of ${spineCount}`
+      ? messages.sectionsPosition(visibleSections[0]! + 1, visibleSections[visibleSections.length - 1]! + 1, spineCount)
+      : messages.sectionPosition(visibleSections[0]! + 1, spineCount)
     : null;
   const [seekDraft, setSeekDraft] = useState<number | null>(null);
   const seekValue = seekDraft ?? progress;
@@ -80,19 +82,19 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
     return () => clearTimeout(timer);
   }, [fixedLayout, interactive, progress, publicationScoped, reader, seekDraft, snapshot?.locator, snapshot?.publication.spine, spineCount]);
   const status = failed
-    ? 'Unavailable'
+    ? messages.unavailable
     : opening
-      ? 'Opening…'
+      ? messages.opening
       : fixedLayout && snapshot?.locator
         ? `${spineIndex + 1} / ${spineCount}`
         : page != null && total != null
         ? `${page} / ${total}`
-        : 'Ready';
+        : messages.ready;
 
   return (
-    <div className={`epub-reader-controls is-${progression}`} data-page-progression={progression} role="group" aria-label="Reading navigation">
+    <div className={`epub-reader-controls is-${progression}`} data-page-progression={progression} role="group" aria-label={messages.readingNavigation}>
       <button className="epub-reader-controls__nav epub-reader-controls__nav--previous" type="button" aria-keyshortcuts="PageUp Shift+Space" onClick={() => void reader.previous()} disabled={!interactive}>
-        {rtl ? <><span>Previous</span><ChevronIcon direction="right" /></> : <><ChevronIcon direction="left" /><span>Previous</span></>}
+        {rtl ? <><span>{messages.previous}</span><ChevronIcon direction="right" /></> : <><ChevronIcon direction="left" /><span>{messages.previous}</span></>}
       </button>
       <div className="epub-reader-controls__position">
         <div className="epub-reader-controls__status" aria-live="off">
@@ -110,8 +112,8 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
           step="1"
           value={seekValue}
           disabled={!interactive || !snapshot?.locator}
-          aria-label={publicationScoped ? 'Position in publication' : 'Position in current section'}
-          aria-valuetext={`${seekValue}% through ${publicationScoped ? 'publication' : 'section'}`}
+          aria-label={publicationScoped ? messages.positionInPublication : messages.positionInSection}
+          aria-valuetext={messages.progressThrough(seekValue, publicationScoped ? 'publication' : 'section')}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             const value = Number(event.currentTarget.value);
             setSeekDraft(value);
@@ -119,7 +121,7 @@ function ResolvedEpubReaderControls({ reader }: { readonly reader: EpubReaderHan
         />
       </div>
       <button className="epub-reader-controls__nav epub-reader-controls__nav--next" type="button" aria-keyshortcuts="PageDown Space" onClick={() => void reader.next()} disabled={!interactive}>
-        {rtl ? <><ChevronIcon direction="left" /><span>Next</span></> : <><span>Next</span><ChevronIcon direction="right" /></>}
+        {rtl ? <><ChevronIcon direction="left" /><span>{messages.next}</span></> : <><span>{messages.next}</span><ChevronIcon direction="right" /></>}
       </button>
     </div>
   );

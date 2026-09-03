@@ -60,7 +60,7 @@ export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubRe
                       <strong>{chapter.label}</strong>
                       <small>{index + 1} · section {hit.spineIndex + 1}</small>
                     </span>
-                    <span className="epub-search-result__excerpt">{highlightMatch(hit.excerpt, hit.match)}</span>
+                    <span className="epub-search-result__excerpt">{highlightMatch(hit.excerpt, hit.excerptMatchStart, hit.excerptMatchEnd)}</span>
                   </button>
                 </li>
               );
@@ -72,9 +72,7 @@ export function EpubSearchPanel({ reader: explicit }: { readonly reader?: EpubRe
   );
 }
 
-function highlightMatch(excerpt: string, match: string) {
-  if (!match) return excerpt;
-  const index = excerpt.toLocaleLowerCase().indexOf(match.toLocaleLowerCase());
-  if (index < 0) return excerpt;
-  return <>{excerpt.slice(0, index)}<mark>{excerpt.slice(index, index + match.length)}</mark>{excerpt.slice(index + match.length)}</>;
+function highlightMatch(excerpt: string, start: number, end: number) {
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > excerpt.length) return excerpt;
+  return <>{excerpt.slice(0, start)}<mark>{excerpt.slice(start, end)}</mark>{excerpt.slice(end)}</>;
 }

@@ -1,52 +1,27 @@
 # EPUB Reader
 
-A local-first EPUB reading system with a framework-independent core and an optional React shell. The host provides the bytes; the reader keeps publication state and reading activity in the browser.
+A local-first EPUB reader with a framework-independent browser core and an optional React interface.
 
 ## Usage
 
 ```tsx
+import { useState } from 'react'
 import { EpubFilePicker, EpubReader } from './react'
+import './styles.css'
 
 const [file, setFile] = useState<File | null>(null)
 
 <EpubFilePicker onFile={setFile} />
-{file ? (
-  <EpubReader source={file} />
-) : null}
+{file ? <EpubReader source={file} /> : null}
 ```
 
-By default, `EpubReader` asks for confirmation before opening an external link; websites open in an isolated new tab. Only `http`, `https`, `mailto`, and `tel` are actionable, while executable and unsupported schemes remain blocked by the core navigation policy. A host can provide `readerOptions.onExternalLink` to replace the built-in confirmation and opening flow; the callback receives a typed destination that has already passed that policy.
+## API
 
-## Controlled extensions
+- `EpubReader` renders the complete reader interface.
+- `useEpubReader` and `EpubViewport` support custom React shells.
+- `BrowserEpubReader` is the framework-independent browser composition root.
+- `configureReaderUi` adds validated themes, input bindings, tools, surface renderers, and EPUB compatibility modules.
 
-Use `configureReaderExtensions` to register EPUB compatibility modules, normalized input bindings, and themes in separate typed buckets, then pass the result through `readerOptions.extensions`. Built-ins are retained and all contributions are validated before a publication opens.
+EPUB bytes and reading data remain local by default. The React source may be a `Blob`, `File`, `ArrayBuffer`, or `Uint8Array`; the lower-level Core reader accepts byte arrays.
 
-```tsx
-import { configureReaderExtensions } from './core'
-import { EpubReader } from './react'
-
-const extensions = configureReaderExtensions({
-  inputBindings: [vimPageKeys],
-  themes: [midnightTheme],
-})
-
-<EpubReader source={file} readerOptions={{ extensions }} />
-```
-
-See [Controlled Reader Extensions](./docs/extensions.md) and the [checked example](./examples/reader-extensions.ts) for the contracts and authority boundaries. The reader deliberately does not accept a generic `plugins` array.
-
-## Layers
-
-- `core/` parses and normalizes EPUBs, plans renditions, renders isolated documents, and coordinates navigation and reading services.
-- `react/` adapts immutable reader snapshots to React and provides the reader interface, panels, and controls.
-- `showcase/` is the local demo entry point; it is not required by applications embedding the reader.
-
-## Notes
-
-- `EpubReader` accepts a `Blob`, `File`, `ArrayBuffer`, or `Uint8Array`. File picking is optional.
-- `EpubReader` includes a full-screen control. Hosts that need an external trigger can pair `useEpubReaderFullscreen(targetRef)` with `EpubReaderFullscreenButton`.
-- EPUB bytes, reading position, and marks remain local by default; persistence is injectable.
-- Search caches lightweight text/locator indexes rather than parsed chapter DOM. The default cache keeps at most 12 sections or approximately 8 MiB; hosts can set `readerOptions.searchCachePolicy` and call `reader.search.clearCache()` when they need a tighter lifecycle.
-- Rendering keeps an immutable, serialized materialization of recently visited spine documents, never a live iframe or DOM tree. The default keeps at most 8 documents or approximately 8 MiB; hosts can adjust or disable it with `readerOptions.contentDocumentCachePolicy`.
-- Opening preflights only the initial spine item and its immediate neighbours before first layout. Navigation awaits any missing local window, while the remaining publication profile is deduplicated and completed during browser idle time; EPUB compatibility checks are unchanged.
-- See [Architecture](./docs/architecture.md) for the lifecycle and ownership boundaries.
+See the [documentation](./docs/README.md) and [checked extension example](./examples/reader-extensions.ts).

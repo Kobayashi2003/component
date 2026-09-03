@@ -100,7 +100,7 @@ const normalized = normalizeReaderPreferences({
   lineHeight: 0.2,
   pageMarginPercent: 99,
   fixedLayoutFit: 'invalid' as typeof DEFAULT_READER_PREFERENCES.fixedLayoutFit,
-  fixedLayoutGutter: 999,
+  fixedLayoutGutter: 'invalid' as typeof DEFAULT_READER_PREFERENCES.fixedLayoutGutter,
   touchNavigation: 'invalid' as typeof DEFAULT_READER_PREFERENCES.touchNavigation,
   pageTurnZonePercent: 99,
 });
@@ -108,7 +108,7 @@ assert(normalized.fontSizePercent === 300, 'font size should be clamped');
 assert(normalized.lineHeight === 0.8, 'line height should be clamped');
 assert(normalized.pageMarginPercent === 18, 'page margins should be clamped');
 assert(normalized.fixedLayoutFit === 'contain', 'unknown fixed-layout fit modes should fall back to contain');
-assert(normalized.fixedLayoutGutter === 64, 'fixed-layout gutters should be clamped');
+assert(normalized.fixedLayoutGutter === 'none', 'unknown fixed-layout gutter modes should fall back to none');
 assert(normalized.touchNavigation === 'both', 'unknown touch navigation modes should fall back to both gestures');
 assert(normalized.pageTurnZonePercent === 40, 'page-turn zones should be clamped');
 

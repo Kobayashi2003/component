@@ -7,7 +7,7 @@ import { parseSvgViewBox, parseViewportMetaContent } from '../../core/epub/conte
 import { planRendition } from '../../core/presentation/rendition';
 import { calculateFixedLayoutPlacement } from '../../core/presentation/renderer/fixed-layout/geometry';
 import { resolveSpreadSlotAssignment } from '../../core/presentation/renderer/spread/slots';
-import { resolveSpreadGap } from '../../core/presentation/renderer/spread/spread-renderer';
+import { resolveFixedLayoutSpreadAlignment, resolveSpreadGap } from '../../core/presentation/renderer/spread/spread-renderer';
 import { DEFAULT_REFLOWABLE_RENDERER_POLICY } from '../../core/presentation/renderer/reflowable/model';
 import { reflowablePageGap, reflowablePageWidth } from '../../core/presentation/renderer/reflowable/styles';
 
@@ -90,6 +90,13 @@ function makePublication(
     'original',
   );
   assert(original.scale === 1 && original.renderedWidth === 1200, 'original-size mode must preserve intrinsic CSS pixels');
+  const spineAligned = calculateFixedLayoutPlacement(
+    { width: 1200, height: 1600 },
+    { width: 1000, height: 700 },
+    'contain',
+    'end',
+  );
+  assert(spineAligned.offsetX === 475, 'end alignment must move a contained left page to the inner spread edge');
 }
 
 // 4. The default policy enables actual synthetic-spread execution.
@@ -146,9 +153,12 @@ function makePublication(
     publication,
     spineItem: publication.spine[0]!,
     viewport: { width: 1200, height: 800 },
-    preferences: { ...DEFAULT_READER_PREFERENCES, spread: 'double', fixedLayoutGutter: 12 },
+    preferences: { ...DEFAULT_READER_PREFERENCES, spread: 'double', fixedLayoutGutter: 'normal' },
   });
-  assert(resolveSpreadGap(publication, customGutterPlan, slots, 24) === 12, 'fixed-layout spreads must honor the user comic gutter');
+  assert(resolveSpreadGap(publication, customGutterPlan, slots, 24) === 24, 'normal fixed-layout spacing must retain the renderer default');
+  assert(resolveFixedLayoutSpreadAlignment('normal', 'left') === 'center', 'normal spacing must keep pages centered in their slots');
+  assert(resolveFixedLayoutSpreadAlignment('none', 'left') === 'end', 'no-gap left pages must align to the inner spread edge');
+  assert(resolveFixedLayoutSpreadAlignment('none', 'right') === 'start', 'no-gap right pages must align to the inner spread edge');
 }
 
 // 8. Alternating RTL manga placements must not pair pages across a page-turn

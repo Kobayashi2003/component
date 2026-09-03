@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client';
+import mixedFixtureUrl from '../../fixtures/corpus/mixed-layout.epub?url';
 import verticalFixtureUrl from '../../fixtures/corpus/vertical-ruby.epub?url';
 import { EpubReaderShowcase } from '../../showcase/EpubReaderShowcase';
+import { configureReaderUi, type EpubReaderHandle } from '../../react';
 import '../../styles.css';
 
 interface PagePosition {
@@ -12,8 +14,35 @@ const resultElement = document.getElementById('result');
 const rootElement = document.getElementById('root');
 if (!resultElement || !rootElement) throw new Error('Browser interaction harness is incomplete.');
 const resultNode = resultElement;
+let activeReader: EpubReaderHandle | null = null;
 
-createRoot(rootElement).render(<EpubReaderShowcase />);
+const TEST_UI_CONFIGURATION = configureReaderUi({
+  layout: { compactBreakpointPx: 720, panelWidthPx: 392 },
+  tools: [{
+    id: 'test.statistics',
+    label: 'Reading statistics',
+    shortLabel: 'Stats',
+    description: 'Test-only registered reader tool',
+    placement: 'secondary',
+    renderIcon: () => <span aria-hidden="true">#</span>,
+    render: ({ reader }) => {
+      activeReader = reader;
+      return (
+        <section aria-label="Registered reading statistics">
+          {reader.state.reader?.publication.metadata.title ?? 'Opening'}
+        </section>
+      );
+    },
+  }],
+  surfaceRenderers: [{
+    kind: 'external-link',
+    render: ({ surface }) => (
+      <p aria-label="Configured external explanation">Approved {surface.target.kind} destination.</p>
+    ),
+  }],
+});
+
+createRoot(rootElement).render(<EpubReaderShowcase readerConfiguration={TEST_UI_CONFIGURATION} />);
 
 void run().then(
   steps => finish({ status: 'pass', steps }),
@@ -34,8 +63,27 @@ async function run(): Promise<readonly string[]> {
   const initial = await waitForPage(position => position.total > 1 && position.current > 0, 'multi-page publication to become ready');
   steps.push(`opened vertical EPUB at ${initial.current}/${initial.total}`);
 
+  const configuredShell = required<HTMLElement>('.epub-reader-shell');
+  const settingsIconPath = buttonWithLabel('Reader settings').querySelector<SVGGraphicsElement>('svg path');
+  assert(settingsIconPath, 'reader settings button must render its icon path');
+  const settingsIconBounds = settingsIconPath.getBBox();
+  assert(
+    Math.abs(settingsIconBounds.y + settingsIconBounds.height / 2 - 12) <= 0.25,
+    'reader settings icon artwork must be vertically centered in its viewBox',
+  );
+  assert(configuredShell.dataset.layout === 'wide', 'the default configured breakpoint should select wide layout at harness width');
+  assert(configuredShell.dataset.density === 'comfortable', 'the default configured density must reach the Shell');
+  assert(configuredShell.dataset.motion === 'system', 'the default configured motion policy must reach the Shell');
+  assert(configuredShell.style.getPropertyValue('--epub-panel-width') === '392px', 'the custom panel width must reach the Shell token');
+  configuredShell.style.width = '710px';
+  await waitFor(() => configuredShell.dataset.layout === 'compact', 'configured compact layout after reader resize');
+  configuredShell.style.width = '';
+  await waitFor(() => configuredShell.dataset.layout === 'wide', 'wide layout after reader resize restoration');
+  const beforeTurn = await waitForPage(position => position.total > 1 && position.current > 0, 'reader to settle after layout restoration');
+  steps.push('validated Reader UI layout, density, motion, and panel-width configuration');
+
   click(required<HTMLButtonElement>('.epub-reader-controls__nav--next'));
-  const advanced = await waitForPage(position => position.current !== initial.current, 'next-page click to update position');
+  const advanced = await waitForPage(position => position.current !== beforeTurn.current, 'next-page click to update position');
   steps.push(`next-page click moved to ${advanced.current}/${advanced.total}`);
 
   await delay(500);
@@ -66,6 +114,10 @@ async function run(): Promise<readonly string[]> {
   assert(externalAction?.getAttribute('href') === 'https://example.com/reader?from=epub#fixture', 'external action should retain the routed URL');
   assert(externalAction.target === '_blank', 'website action should open a new tab');
   assert(externalAction.relList.contains('noopener') && externalAction.relList.contains('noreferrer'), 'website action should isolate the new tab');
+  assert(
+    externalDialog.querySelector('[aria-label="Configured external explanation"]')?.textContent === 'Approved website destination.',
+    'configured Surface Renderer must replace only the external-link explanation content',
+  );
   assert(document.activeElement === externalDialog.querySelector('footer button'), 'external dialog should initially focus the safe Cancel action');
   assert(required<HTMLElement>('.epub-reader-shell__body').inert, 'external dialog should isolate reader content');
   click(required<HTMLButtonElement>('.epub-reader-external-link footer button'));
@@ -76,16 +128,37 @@ async function run(): Promise<readonly string[]> {
 
   const contentsButton = buttonWithLabel('Contents');
   click(contentsButton);
-  await waitForPanel('Contents');
+  const contentsPanel = await waitForPanel('Contents');
+  assert(contentsButton.getAttribute('aria-expanded') === 'true', 'open panel trigger must expose its expanded state');
+  assert(contentsButton.getAttribute('aria-controls') === contentsPanel.id, 'panel trigger and surface must share an ARIA relationship');
+  const searchButton = buttonWithLabel('Search');
+  click(searchButton);
+  const searchPanel = await waitForPanel('Search');
+  assert(document.querySelectorAll('.epub-reader-shell__panel').length === 1, 'switching tools must retain exactly one panel surface');
+  assert(contentsButton.getAttribute('aria-expanded') === 'false' && searchButton.getAttribute('aria-expanded') === 'true', 'switching tools must transfer expanded state');
   dispatchKey(document.activeElement ?? required('.epub-reader-shell'), { key: 'Escape', code: 'Escape' });
-  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'contents panel to close with Escape');
-  await waitFor(() => document.activeElement === contentsButton, 'closing Contents with Escape to restore trigger focus');
-  steps.push('panel Escape handling restored trigger focus');
+  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'search panel to close with Escape');
+  await waitFor(() => document.activeElement === searchButton, 'closing Search with Escape to restore its trigger focus');
+  assert(searchPanel.id === contentsPanel.id, 'tool changes must reuse the single shell-owned panel host');
+  steps.push('panel switching remained exclusive and restored trigger focus');
+
+  const statisticsButton = buttonWithLabel('Reading statistics');
+  click(statisticsButton);
+  const statisticsPanel = await waitForPanel('Reading statistics');
+  assert(
+    statisticsPanel.querySelector('[aria-label="Registered reading statistics"]')?.textContent?.trim() === 'Vertical Ruby Fixture',
+    'a registered peer tool must receive the active reader and render inside the Shell panel',
+  );
+  dispatchKey(document.activeElement ?? statisticsPanel, { key: 'Escape', code: 'Escape' });
+  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'registered tool panel to close');
+  await waitFor(() => document.activeElement === statisticsButton, 'registered tool to restore its trigger focus');
+  steps.push('registered peer tool rendered in the fixed Shell lifecycle');
 
   const viewport = required<HTMLElement>('.epub-reader-shell__viewport');
   viewport.focus();
   dispatchKey(viewport, { key: '?', code: 'Slash', shiftKey: true });
-  await waitForPanel('Keyboard shortcuts');
+  const helpPanel = await waitForPanel('Keyboard shortcuts');
+  await waitFor(() => helpPanel.contains(document.activeElement), 'keyboard-help panel to receive focus');
   dispatchKey(document.activeElement ?? viewport, { key: 'Escape', code: 'Escape' });
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'keyboard-help panel to close');
   steps.push('keyboard shortcut opened and closed Help');
@@ -108,12 +181,28 @@ async function run(): Promise<readonly string[]> {
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'search panel to close');
 
   click(buttonWithLabel('Reader settings'));
-  await waitForPanel('Reader settings');
+  const settingsPanel = await waitForPanel('Reader settings');
+  const settingsHeadings = Array.from(
+    settingsPanel.querySelectorAll<HTMLElement>('.epub-settings-panel__section h3'),
+    heading => heading.textContent?.trim(),
+  );
+  assert(
+    ['Color theme', 'Typography', 'Layout', 'Touch navigation'].every(heading => settingsHeadings.includes(heading)),
+    'the reflowable settings panel must retain every applicable focused settings section',
+  );
+  const touchPreview = required<HTMLElement>('.epub-touch-preview');
+  const touchPreviewMode = () => touchPreview.querySelector('.epub-touch-preview__mode')?.textContent?.trim();
+  assert(touchPreviewMode() === 'TAP + SWIPE', 'touch preview must name the selected gesture mode');
+  click(buttonWithText(settingsPanel, 'Tap zones'));
+  await waitFor(() => touchPreviewMode() === 'TAP ZONES', 'tap-zone preview mode');
+  click(buttonWithText(settingsPanel, 'Tap + swipe'));
+  await waitFor(() => touchPreviewMode() === 'TAP + SWIPE', 'combined touch preview mode');
   click(required<HTMLButtonElement>('.epub-settings-panel__advanced-entry'));
   await waitFor(() => document.querySelector('.epub-settings-panel--advanced'), 'advanced settings');
   click(required<HTMLButtonElement>('.epub-settings-panel__maintenance-action'));
   click(await waitFor(() => document.querySelector<HTMLButtonElement>('.epub-settings-panel__clear-confirm .is-danger'), 'clear-data confirmation'));
   await waitFor(() => document.querySelector('.epub-settings-panel__maintenance-status'), 'clear-data status');
+  steps.push('focused settings sections and advanced maintenance remained usable');
   click(buttonWithLabel('Close Reader settings'));
   await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'settings panel to close');
   click(buttonWithLabel('Close book'));
@@ -121,6 +210,53 @@ async function run(): Promise<readonly string[]> {
   await chooseFile(fixture);
   const reset = await waitForPage(position => position.current === 1, 'cleared reading session to reopen at page one');
   steps.push(`cleared reading session reopened at ${reset.current}/${reset.total}`);
+
+  const mixedResponse = await fetch(mixedFixtureUrl);
+  assert(mixedResponse.ok, `mixed-layout fixture request failed with ${mixedResponse.status}`);
+  const mixedFixture = new File([await mixedResponse.arrayBuffer()], 'mixed-layout.epub', { type: 'application/epub+zip' });
+  click(buttonWithLabel('Close book'));
+  await waitFor(() => document.querySelector<HTMLInputElement>('.epub-file-picker__input'), 'file picker before mixed-layout fixture');
+  await chooseFile(mixedFixture);
+  click(buttonWithLabel('Reading statistics'));
+  const mixedStatistics = await waitForPanel('Reading statistics');
+  await waitFor(
+    () => mixedStatistics.querySelector('[aria-label="Registered reading statistics"]')?.textContent?.trim() === 'Mixed Layout Fixture',
+    'registered tool to receive the mixed-layout reader',
+  );
+  const mixedReader = activeReader;
+  const fixedHref = mixedReader?.state.reader?.publication.spine[1]?.href;
+  assert(mixedReader && fixedHref, 'registered tool must expose the mixed-layout reader and its fixed page');
+  dispatchKey(document.activeElement ?? required('.epub-reader-shell'), { key: 'Escape', code: 'Escape' });
+  await waitFor(() => !document.querySelector('.epub-reader-shell__panel'), 'mixed-layout statistics panel to close');
+  await mixedReader.goTo({ kind: 'href', href: fixedHref });
+  await waitFor(() => required<HTMLElement>('.epub-reader-shell').dataset.renderer === 'fixed-layout', 'mixed-layout fixed page navigation');
+  const spreadRoot = await waitFor(() => document.querySelector<HTMLElement>('[data-epub-spread="true"]'), 'fixed-layout spread');
+
+  click(buttonWithLabel('Reader settings'));
+  const comicSettings = await waitForPanel('Reader settings');
+  assert(
+    comicSettings.querySelector('.epub-settings-panel__comic h3')?.textContent?.trim() === 'Comic display',
+    'mixed publications must expose comic display settings',
+  );
+  const comicPreview = required<HTMLElement>('.epub-comic-layout-preview');
+  const previewMode = () => comicPreview.querySelector('.epub-comic-layout-preview__mode')?.textContent?.trim();
+  assert(previewMode() === 'WHOLE PAGE', 'comic preview must name the selected whole-page fit mode');
+  for (const [label, className, mode] of [
+    ['Fit width', 'is-width', 'FIT WIDTH'],
+    ['Fit height', 'is-height', 'FIT HEIGHT'],
+    ['Original', 'is-original', 'ORIGINAL 1:1'],
+    ['Whole page', 'is-contain', 'WHOLE PAGE'],
+  ] as const) {
+    click(buttonWithText(comicSettings, label));
+    await waitFor(() => comicPreview.classList.contains(className) && previewMode() === mode, `${label} comic preview`);
+  }
+
+  click(buttonWithText(comicSettings, 'Normal'));
+  await waitFor(() => spreadRoot.style.gap === '24px', 'normal fixed-layout spread spacing');
+  click(buttonWithText(comicSettings, 'None'));
+  await waitFor(() => spreadRoot.style.gap === '0px' && fixedSpreadFacingGap(spreadRoot) <= 1, 'gapless fixed-layout page alignment');
+  assert(comicPreview.classList.contains('has-no-gutter'), 'comic preview must show pages touching when gutter is None');
+  steps.push('comic fit previews matched their controls and None gutter joined facing pages');
 
   return steps;
 }
@@ -179,6 +315,20 @@ function buttonWithLabel(label: string): HTMLButtonElement {
   const button = document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
   if (!button) throw new Error(`Button was not found: ${label}`);
   return button;
+}
+
+function buttonWithText(root: ParentNode, text: string): HTMLButtonElement {
+  const button = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+    .find(candidate => candidate.textContent?.trim() === text);
+  if (!button) throw new Error(`Button was not found by text: ${text}`);
+  return button;
+}
+
+function fixedSpreadFacingGap(root: HTMLElement): number {
+  const left = root.querySelector<HTMLElement>('[data-epub-spread-slot="left"] iframe')?.getBoundingClientRect();
+  const right = root.querySelector<HTMLElement>('[data-epub-spread-slot="right"] iframe')?.getBoundingClientRect();
+  if (!left || !right) return Number.POSITIVE_INFINITY;
+  return Math.abs(right.left - left.right);
 }
 
 function click(button: HTMLButtonElement): void {

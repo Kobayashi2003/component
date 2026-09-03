@@ -70,6 +70,9 @@ export interface SearchHit {
   readonly href: PublicationHref;
   readonly range: LocatorRange;
   readonly excerpt: string;
+  /** UTF-16 offsets inside `excerpt`; UI must not rediscover them through case folding. */
+  readonly excerptMatchStart: number;
+  readonly excerptMatchEnd: number;
   readonly match: string;
 }
 

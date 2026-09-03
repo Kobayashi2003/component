@@ -1,11 +1,11 @@
-export * from './epub/archive';
 export * from './epub/publication';
-export * from './epub/xml';
-
-export * from './epub/resources';
-export * from './epub/content';
+export type { OcfCompatibilityMode, OcfZipLimits } from './epub/archive/ocf-zip';
+export { DEFAULT_OCF_ZIP_LIMITS } from './epub/archive/ocf-zip';
+export type { ResourceResolverOptions } from './epub/resources/model';
+export type { PublicationContentDocumentCachePolicy } from './epub/content/document-cache';
+export { DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY } from './epub/content/document-cache';
 export * from './presentation/rendition';
-export * from './presentation/renderer';
+export type { RendererHostState } from './presentation/renderer/model';
 
 export * from './interaction/locator';
 export * from './interaction/navigation';
@@ -13,7 +13,6 @@ export * from './interaction/navigation';
 export * from './features/search';
 export * from './features/annotations';
 export * from './interaction/selection';
-export * from './features/decorations';
 export * from './features/media';
 export * from './interaction/input';
 export * from './presentation/appearance';
@@ -23,6 +22,3 @@ export * from './runtime/reader';
 export * from './runtime/configuration';
 export * from './runtime/session';
 export * from './epub/compatibility';
-export * from './validation/conformance';
-
-export * from './epub/text';

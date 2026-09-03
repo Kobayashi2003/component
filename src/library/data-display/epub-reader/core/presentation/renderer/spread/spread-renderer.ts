@@ -7,7 +7,7 @@ import {
   type RenditionPlannerPolicy,
   type RendererKind,
 } from '../../rendition';
-import type { FixedLayoutRendererPolicy } from '../fixed-layout';
+import type { FixedLayoutHorizontalAlignment, FixedLayoutRendererPolicy } from '../fixed-layout';
 import { FixedLayoutRenderer } from '../fixed-layout';
 import type { ReflowableRendererPolicy } from '../reflowable';
 import { ReflowableRenderer } from '../reflowable';
@@ -303,7 +303,7 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       return;
     }
 
-    const next = createSingleRenderer(childPlan.renderer, child.container, this.environment, childPlan.spineIndex);
+    const next = createSingleRenderer(childPlan.renderer, child.container, this.environment, childPlan.spineIndex, child.slot);
     next.setVisibility?.(false);
     let committed = false;
     try {
@@ -392,6 +392,7 @@ function createSingleRenderer(
   container: HTMLElement,
   environment: ReadingRendererEnvironment,
   spineIndex: number,
+  spreadSlot?: SpreadSlotName,
 ): RendererInstance {
   if (kind === 'fixed-layout') {
     return new FixedLayoutRenderer({
@@ -399,6 +400,9 @@ function createSingleRenderer(
       publication: environment.publication,
       contentDocumentCache: environment.contentDocumentCache,
       policy: environment.fixedLayoutPolicy,
+      resolveHorizontalAlignment: spreadSlot
+        ? plan => resolveFixedLayoutSpreadAlignment(plan.preferences.fixedLayoutGutter, spreadSlot)
+        : undefined,
       onDiagnostics: environment.onDiagnostics,
       onPresentationHints: hints => environment.onPresentationHints?.(spineIndex, hints),
     });
@@ -502,6 +506,16 @@ export function resolveSpreadGap(
   assignment: { readonly leftSpineIndex: number | null; readonly rightSpineIndex: number | null; readonly trueSpread: boolean },
   defaultGap: number,
 ): number {
-  if (plan.renderer === 'fixed-layout') return plan.preferences.fixedLayoutGutter;
+  if (plan.renderer === 'fixed-layout') {
+    return plan.preferences.fixedLayoutGutter === 'none' ? 0 : defaultGap;
+  }
   return shouldSuppressSpreadGap(publication, plan, assignment) ? 0 : defaultGap;
+}
+
+export function resolveFixedLayoutSpreadAlignment(
+  gutter: RenditionPlan['preferences']['fixedLayoutGutter'],
+  slot: SpreadSlotName,
+): FixedLayoutHorizontalAlignment {
+  if (gutter === 'normal') return 'center';
+  return slot === 'left' ? 'end' : 'start';
 }

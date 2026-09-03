@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { AnnotationColor, ReaderSelectionActivation } from '../../core';
 import { QUICK_ANNOTATION_COLORS as COLORS } from './annotation-colors';
 import type { EpubReaderHandle } from '../state/model';
@@ -8,20 +8,15 @@ interface EpubSelectionToolbarProps {
   readonly reader: EpubReaderHandle;
   readonly onDismiss: (restoreFocus?: boolean) => void;
   readonly onSaved: (kind: 'highlight' | 'annotation') => void;
+  readonly onModeChange: (mode: 'toolbar' | 'dialog') => void;
 }
 
-export function EpubSelectionToolbar({ activation, reader, onDismiss, onSaved }: EpubSelectionToolbarProps) {
+export function EpubSelectionToolbarContent({ activation, reader, onDismiss, onSaved, onModeChange }: EpubSelectionToolbarProps) {
   const [color, setColor] = useState<AnnotationColor>('yellow');
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState('');
   const primaryRef = useRef<HTMLButtonElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const center = (activation.anchor.left + activation.anchor.right) / 2;
-  const below = activation.anchor.top < 92;
-  const style = {
-    '--epub-selection-x': `${center}px`,
-    '--epub-selection-y': `${below ? activation.anchor.bottom + 10 : activation.anchor.top - 10}px`,
-  } as CSSProperties;
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus({ preventScroll: true });
@@ -29,6 +24,10 @@ export function EpubSelectionToolbar({ activation, reader, onDismiss, onSaved }:
   }, [activation.focusToolbar, editing]);
 
   const excerpt = selectionLabel(activation.selection.text);
+  const setEditingMode = (next: boolean) => {
+    setEditing(next);
+    onModeChange(next ? 'dialog' : 'toolbar');
+  };
   const saveHighlight = () => {
     reader.marks.addHighlight(activation.selection.range, 'solid', color, excerpt);
     onSaved('highlight');
@@ -43,14 +42,7 @@ export function EpubSelectionToolbar({ activation, reader, onDismiss, onSaved }:
     onDismiss(true);
   };
 
-  return (
-    <aside
-      className={`epub-reader-selection-tool${below ? ' is-below' : ''}${editing ? ' is-editing' : ''}`}
-      style={style}
-      role={editing ? 'dialog' : 'toolbar'}
-      aria-label={editing ? 'Add note to selection' : 'Text selection actions'}
-    >
-      {editing ? (
+  return editing ? (
         <form onSubmit={saveAnnotation}>
           <textarea
             ref={textareaRef}
@@ -62,7 +54,7 @@ export function EpubSelectionToolbar({ activation, reader, onDismiss, onSaved }:
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setBody(event.currentTarget.value)}
           />
           <div className="epub-reader-selection-tool__form-actions">
-            <button type="button" onClick={() => { setEditing(false); setBody(''); }}>Cancel</button>
+            <button type="button" onClick={() => { setEditingMode(false); setBody(''); }}>Cancel</button>
             <button type="submit" disabled={!body.trim()}>Save note</button>
           </div>
         </form>
@@ -82,11 +74,9 @@ export function EpubSelectionToolbar({ activation, reader, onDismiss, onSaved }:
           </div>
           <span className="epub-reader-selection-tool__divider" aria-hidden="true" />
           <button ref={primaryRef} type="button" onClick={saveHighlight}>Highlight</button>
-          <button type="button" onClick={() => setEditing(true)}>Add note</button>
+          <button type="button" onClick={() => setEditingMode(true)}>Add note</button>
           <button className="epub-reader-selection-tool__close" type="button" aria-label="Dismiss selection actions" onClick={() => onDismiss(true)}>×</button>
         </>
-      )}
-    </aside>
   );
 }
 

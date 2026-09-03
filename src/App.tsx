@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   categories,
@@ -15,6 +15,8 @@ type Route =
   | { page: 'home' }
   | { page: 'category'; category: string }
   | { page: 'entry'; category: string; slug: string }
+
+type Theme = 'light' | 'dark'
 
 function parseRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
@@ -41,6 +43,18 @@ function useRoute() {
 }
 
 function Shell({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<Theme>(() =>
+    document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+  )
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.style.colorScheme = theme
+    localStorage.setItem('component-atlas-theme', theme)
+  }, [theme])
+
+  const nextTheme = theme === 'dark' ? 'light' : 'dark'
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -48,6 +62,18 @@ function Shell({ children }: { children: ReactNode }) {
           <span className="brand-mark" aria-hidden="true">CA</span>
           <span>Component Atlas</span>
         </a>
+        <button
+          className="theme-toggle"
+          type="button"
+          onClick={() => setTheme(nextTheme)}
+          aria-label={`Switch to ${nextTheme} theme`}
+          title={`Switch to ${nextTheme} theme`}
+        >
+          <span className="theme-toggle-icon" aria-hidden="true">
+            {theme === 'dark' ? '☀' : '☾'}
+          </span>
+          <span>{nextTheme} mode</span>
+        </button>
       </header>
       <main>{children}</main>
       <footer>
@@ -174,12 +200,63 @@ function CategoryPage({ categoryId }: { categoryId: string }) {
 function EntryPage({ entry }: { entry: CatalogEntry }) {
   const Demo = entry.Demo
   const [readme, setReadme] = useState<string>('')
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [usesFullscreenFallback, setUsesFullscreenFallback] = useState(false)
+  const demoStageRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     let active = true
     entry.loadReadme().then((content) => active && setReadme(content))
     return () => { active = false }
   }, [entry])
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsExpanded(document.fullscreenElement === demoStageRef.current)
+      if (document.fullscreenElement === demoStageRef.current) setUsesFullscreenFallback(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && usesFullscreenFallback) {
+        setUsesFullscreenFallback(false)
+        setIsExpanded(false)
+      }
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [usesFullscreenFallback])
+
+  useEffect(() => {
+    document.body.classList.toggle('demo-expanded', usesFullscreenFallback)
+    return () => document.body.classList.remove('demo-expanded')
+  }, [usesFullscreenFallback])
+
+  const toggleFullscreen = async () => {
+    const stage = demoStageRef.current
+    if (!stage) return
+
+    if (document.fullscreenElement === stage) {
+      await document.exitFullscreen()
+      return
+    }
+
+    if (usesFullscreenFallback) {
+      setUsesFullscreenFallback(false)
+      setIsExpanded(false)
+      return
+    }
+
+    try {
+      await stage.requestFullscreen()
+    } catch {
+      setUsesFullscreenFallback(true)
+      setIsExpanded(true)
+    }
+  }
 
   return (
     <>
@@ -194,15 +271,37 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
           <TagList tags={entry.tags} large />
         </div>
       </section>
-      <section className="demo-stage" aria-label={`${entry.title} live demo`}>
+      <section
+        ref={demoStageRef}
+        className={`demo-stage${usesFullscreenFallback ? ' is-expanded' : ''}`}
+        data-expanded={isExpanded || undefined}
+        aria-label={`${entry.title} live demo`}
+      >
         {entry.compatibility && (
           <div className="compatibility-banner" role="note">
             <span aria-hidden="true">!</span>
             <p><strong>Touch compatibility</strong>{entry.compatibility.message}</p>
           </div>
         )}
-        <div className="demo-stage-label"><span>Preview</span></div>
-        <Suspense fallback={<LoadingBlock />}><Demo /></Suspense>
+        <div className="demo-stage-label">
+          <span>Preview</span>
+          <button
+            className="fullscreen-toggle"
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isExpanded ? 'Exit full screen preview' : 'Open full screen preview'}
+            aria-pressed={isExpanded}
+            title={isExpanded ? 'Exit full screen (Esc)' : 'Open full screen'}
+          >
+            <span className="fullscreen-icon" aria-hidden="true">
+              <i /><i /><i /><i />
+            </span>
+            <span>{isExpanded ? 'Exit full screen' : 'Full screen'}</span>
+          </button>
+        </div>
+        <div className="demo-stage-content">
+          <Suspense fallback={<LoadingBlock />}><Demo /></Suspense>
+        </div>
       </section>
       {!entry.hideDocumentation && (
         <section className="readme-section">

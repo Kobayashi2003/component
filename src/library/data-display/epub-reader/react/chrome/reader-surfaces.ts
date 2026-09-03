@@ -1,14 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import type {
-  ReaderFootnote,
-  ExternalLinkTarget,
-  ReaderImageActivation,
-  ReaderMarkActivation,
-  ReaderSelectionActivation,
-} from '../../core';
+import type { ReaderFootnote, ExternalLinkTarget, ReaderImageActivation, ReaderMarkActivation, ReaderSelectionActivation } from '../../core';
 import type { EpubSource } from '../state/model';
+import type { ReaderToolId } from '../tools/model';
+import type { ReaderSurface } from './reader-surface-model';
 
-export type ReaderPanelId = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help';
+export { surfaceReturnFocus } from './reader-surface-model';
+export type { ReaderSurface } from './reader-surface-model';
 
 /**
  * The one surface the reader is showing over its page, if any.
@@ -22,50 +19,12 @@ export type ReaderPanelId = 'contents' | 'search' | 'settings' | 'marks' | 'comp
  * left an open footnote on screen, opening a footnote left the selection
  * toolbar up, and so on.
  */
-export type ReaderSurface =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'panel'; readonly panel: ReaderPanelId; readonly returnFocus: HTMLElement | null }
-  | {
-      readonly kind: 'footnote';
-      /** Guards against a note outliving the publication it was opened from. */
-      readonly source: EpubSource;
-      readonly footnote: ReaderFootnote;
-      readonly returnFocus: HTMLElement | null;
-    }
-  | { readonly kind: 'selection'; readonly activation: ReaderSelectionActivation }
-  | { readonly kind: 'mark'; readonly activation: ReaderMarkActivation }
-  | { readonly kind: 'image'; readonly activation: ReaderImageActivation }
-  | {
-      readonly kind: 'external-link';
-      /** Guards against a link confirmation outliving its publication. */
-      readonly source: EpubSource;
-      readonly target: ExternalLinkTarget;
-      readonly returnFocus: HTMLElement | null;
-    };
-
 const NONE: ReaderSurface = { kind: 'none' };
-
-/** Where focus belongs once this surface closes. */
-export function surfaceReturnFocus(surface: ReaderSurface): HTMLElement | null {
-  switch (surface.kind) {
-    case 'panel':
-    case 'footnote':
-    case 'external-link':
-      return surface.returnFocus;
-    case 'selection':
-    case 'mark':
-      return surface.activation.returnFocus;
-    case 'image':
-      return surface.activation.trigger;
-    default:
-      return null;
-  }
-}
 
 export interface ReaderSurfaces {
   readonly surface: ReaderSurface;
   /** Narrow accessors, so callers read one surface without re-checking `kind`. */
-  readonly panel: ReaderPanelId | null;
+  readonly panel: ReaderToolId | null;
   readonly footnote: ReaderFootnote | null;
   readonly selection: ReaderSelectionActivation | null;
   readonly mark: ReaderMarkActivation | null;
@@ -76,7 +35,7 @@ export interface ReaderSurfaces {
   show(next: ReaderSurface): void;
   close(): void;
   /** Opens `panel`, or closes it when it is already the open surface. */
-  togglePanel(panel: ReaderPanelId, returnFocus: HTMLElement | null): void;
+  togglePanel(panel: ReaderToolId, returnFocus: HTMLElement | null): void;
 }
 
 /**
@@ -88,7 +47,7 @@ export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
 
   const show = useCallback((next: ReaderSurface) => setSurface(next), []);
   const close = useCallback(() => setSurface(NONE), []);
-  const togglePanel = useCallback((panel: ReaderPanelId, returnFocus: HTMLElement | null) => {
+  const togglePanel = useCallback((panel: ReaderToolId, returnFocus: HTMLElement | null) => {
     setSurface(current => current.kind === 'panel' && current.panel === panel
       ? NONE
       : { kind: 'panel', panel, returnFocus });

@@ -2,9 +2,9 @@
 
 ## Suites
 
-- `unit/` covers isolated publication models, rendition policy, renderer geometry and lifecycle, locators, navigation, reader services, and React-facing view models.
+- `unit/` covers isolated publication models, rendition policy, renderer geometry and lifecycle, locators, navigation, reader services, strict Reading Session decoding, React-facing view models (including publication-scoped settings visibility), controlled Tool and Surface Renderer registries, and validated UI configuration.
 - `integration/` covers archive-to-publication loading, resource sessions, React store lifecycle, content compatibility, and conformance reporting.
-- `conformance/browser/interaction.html` runs the real React showcase in headless Chromium and exercises file selection, pagination, panels, keyboard focus, search, and reading-session persistence.
+- `conformance/browser/interaction.html` runs the real React showcase in headless Chromium and exercises file selection, pagination, built-in and contributed Tool panels, focused settings and maintenance, configured Surface Renderers, ARIA relationships, keyboard focus, modal isolation, search, and reading-session persistence.
 
 Test filenames describe the behavior under test and use the `*.test.ts` suffix. Tests must not depend on development-stage numbers.
 

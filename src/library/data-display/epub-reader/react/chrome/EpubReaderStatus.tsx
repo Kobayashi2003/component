@@ -1,8 +1,10 @@
 import { useOptionalEpubReaderContext } from '../reader/context';
 import { useDelayedFlag } from './loading-delay';
 import type { EpubReaderHandle } from '../state/model';
+import { useReaderUiConfiguration } from '../configuration/context';
 
 export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
+  const { messages } = useReaderUiConfiguration();
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
   if (!reader) throw new Error('<EpubReaderStatus> requires a reader prop or EpubReaderProvider.');
@@ -18,12 +20,12 @@ export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubR
     return (
       <div className="epub-reader-status" role="status">
         <span className="epub-reader-status__loader" aria-hidden="true"><span /></span>
-        <strong>{progress?.label ?? 'Loading EPUB…'}</strong>
-        <span>{progress ? `${percent}%` : 'Preparing…'}</span>
+        <strong>{progress ? messages.openPhase(progress.phase) : messages.loadingEpub}</strong>
+        <span>{progress ? `${percent}%` : messages.preparing}</span>
         <span
           className="epub-reader-status__track"
           role="progressbar"
-          aria-label="Opening publication"
+          aria-label={messages.openingPublication}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
@@ -33,12 +35,12 @@ export function EpubReaderStatus({ reader: explicit }: { readonly reader?: EpubR
   }
   if (reader.state.status === 'error') {
     const error = reader.state.error;
-    const message = error instanceof Error ? error.message : 'The EPUB could not be opened.';
+    const message = error instanceof Error ? error.message : messages.epubOpenFailed;
     return (
       <div className="epub-reader-status" role="alert">
-        <strong>Unable to open EPUB</strong>
+        <strong>{messages.unableToOpenEpub}</strong>
         <span>{message}</span>
-        <button type="button" onClick={() => void reader.retry()}>Try again</button>
+        <button type="button" onClick={() => void reader.retry()}>{messages.tryAgain}</button>
       </div>
     );
   }

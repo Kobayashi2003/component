@@ -37,6 +37,7 @@
      to sit clear of the chrome reads these instead of restating the numbers. */
   --epub-chrome-top: 58px;
   --epub-chrome-bottom: 68px;
+  --epub-panel-width: 380px;
   --epub-radius-sm: 7px;
   --epub-radius-md: 11px;
   --epub-radius-lg: 18px;
@@ -50,6 +51,23 @@
   font-size: 14px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+.epub-reader-shell[data-density="compact"] {
+  --epub-control-sm: 28px;
+  --epub-control-md: 36px;
+  --epub-chrome-top: 52px;
+  --epub-chrome-bottom: 60px;
+  font-size: 13px;
+}
+
+.epub-reader-shell[data-motion="reduced"] *,
+.epub-reader-shell[data-motion="reduced"] *::before,
+.epub-reader-shell[data-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
 }
 
 .epub-reader-shell * {

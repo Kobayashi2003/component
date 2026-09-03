@@ -1,5 +1,13 @@
 declare module 'react' {
   export type ReactNode = unknown;
+  export class Component<P = {}, S = {}> {
+    constructor(props: P);
+    readonly props: Readonly<P>;
+    state: Readonly<S>;
+    setState(state: S | ((previous: Readonly<S>, props: Readonly<P>) => S)): void;
+    componentDidUpdate?(previousProps: Readonly<P>, previousState: Readonly<S>): void;
+    render(): ReactNode;
+  }
   export type RefCallback<T> = (instance: T | null) => void;
   export interface CSSProperties { [key: string]: string | number | undefined }
   export interface FormEvent<T = Element> extends Event { readonly currentTarget: T }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type MouseEvent } from 'react';
+import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react';
 import { CloseIcon } from '../chrome/reader-icons';
 import { externalLinkDetails } from './external-link-model';
 import type { ExternalLinkTarget } from '../../core';
@@ -6,9 +6,10 @@ import type { ExternalLinkTarget } from '../../core';
 interface EpubExternalLinkDialogProps {
   readonly target: ExternalLinkTarget;
   readonly onClose: (restoreFocus?: boolean) => void;
+  readonly body: ReactNode;
 }
 
-export function EpubExternalLinkDialog({ target, onClose }: EpubExternalLinkDialogProps) {
+export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLinkDialogProps) {
   const details = externalLinkDetails(target);
   const dialogRef = useRef<HTMLElement | null>(null);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
@@ -62,10 +63,7 @@ export function EpubExternalLinkDialog({ target, onClose }: EpubExternalLinkDial
         </header>
         <div className="epub-reader-external-link__body">
           <p id={descriptionId}>This book wants to open a link outside the reader.</p>
-          <code title={details.destination}>{details.destination}</code>
-          <p className="epub-reader-external-link__hint">
-            {opensNewTab ? 'The website will open in a new tab.' : 'Your device will choose the app that handles this link.'}
-          </p>
+          {body}
         </div>
         <footer>
           <button ref={cancelRef} type="button" onClick={() => onClose(true)}>Cancel</button>
@@ -80,5 +78,17 @@ export function EpubExternalLinkDialog({ target, onClose }: EpubExternalLinkDial
         </footer>
       </aside>
     </div>
+  );
+}
+
+export function EpubExternalLinkBody({ target }: { readonly target: ExternalLinkTarget }) {
+  const details = externalLinkDetails(target);
+  return (
+    <>
+      <code title={details.destination}>{details.destination}</code>
+      <p className="epub-reader-external-link__hint">
+        {details.kind === 'website' ? 'The website will open in a new tab.' : 'Your device will choose the app that handles this link.'}
+      </p>
+    </>
   );
 }

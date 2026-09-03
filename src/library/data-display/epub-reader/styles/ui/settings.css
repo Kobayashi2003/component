@@ -411,16 +411,32 @@
   letter-spacing: 0.08em;
 }
 
-.epub-touch-preview {
+.epub-touch-preview,
+.epub-comic-layout-preview {
   position: relative;
   display: grid;
   place-items: center;
-  height: 82px;
   overflow: hidden;
   border: 1px solid var(--epub-color-line);
   border-radius: var(--epub-radius-md);
   background: var(--epub-color-surface-muted);
 }
+
+.epub-touch-preview { height: 82px; }
+
+.epub-touch-preview__mode,
+.epub-comic-layout-preview__mode {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  z-index: 2;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.epub-touch-preview__mode,
+.epub-comic-layout-preview__mode { color: var(--epub-color-text-muted); }
 
 .epub-touch-preview__page {
   width: 46px;
@@ -455,49 +471,55 @@
 .epub-touch-preview.is-rtl .epub-touch-preview__swipe { transform: translateX(-50%) scaleX(-1); }
 
 .epub-comic-layout-preview {
-  position: relative;
-  display: grid;
-  place-items: center;
   height: 112px;
-  overflow: hidden;
-  border: 1px solid #3a3d42;
-  border-radius: var(--epub-radius-md);
-  background: #17191c;
 }
 
-.epub-comic-layout-preview__direction {
-  position: absolute;
-  top: 7px;
-  right: 8px;
-  color: #aeb4bd;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.epub-comic-layout-preview__viewport {
+  display: grid;
+  place-items: center;
+  width: 142px;
+  height: 82px;
+  overflow: hidden;
+  border: 1px solid var(--epub-color-line-strong);
+  background: var(--epub-color-surface-raised);
 }
 
 .epub-comic-layout-preview__pages {
   display: flex;
   align-items: center;
-  gap: var(--comic-preview-gap);
-  height: 82px;
+  justify-content: center;
+  gap: 6px;
 }
 
 .epub-comic-layout-preview__pages > span {
+  position: relative;
   display: grid;
   align-content: space-evenly;
-  width: 52px;
-  height: 76px;
+  box-sizing: border-box;
+  width: 44px;
+  height: 68px;
   padding: 7px;
   border-radius: 1px;
   background: #f1eee7;
   box-shadow: 0 3px 12px #0008;
 }
 
+.epub-comic-layout-preview__pages > span::after {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  color: #79766f;
+  content: attr(data-page);
+  font-size: 0.5rem;
+}
+
 .epub-comic-layout-preview__pages i { height: 8px; background: #c5c1b8; }
 .epub-comic-layout-preview.is-single .epub-comic-layout-preview__pages > span:last-child { display: none; }
-.epub-comic-layout-preview.is-width .epub-comic-layout-preview__pages { transform: scale(1.3); }
-.epub-comic-layout-preview.is-height .epub-comic-layout-preview__pages { transform: scale(1.06); }
-.epub-comic-layout-preview.is-original .epub-comic-layout-preview__pages { transform: scale(1.5); }
+.epub-comic-layout-preview.is-width .epub-comic-layout-preview__pages > span { width: 68px; height: 100px; }
+.epub-comic-layout-preview.is-height .epub-comic-layout-preview__pages > span { width: 52px; height: 82px; }
+.epub-comic-layout-preview.is-original .epub-comic-layout-preview__pages > span { width: 76px; height: 112px; }
+.epub-comic-layout-preview.has-no-gutter .epub-comic-layout-preview__pages { gap: 0; }
+.epub-comic-layout-preview.has-no-gutter .epub-comic-layout-preview__pages > span { box-shadow: 0 3px 12px #0006; }
 
 .epub-settings-panel__margin {
   display: grid;

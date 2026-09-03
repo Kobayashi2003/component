@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { EpubFilePicker, EpubReader, EpubReaderBackground } from '../react';
+import { EpubFilePicker, EpubReader, EpubReaderBackground, type ReaderUiConfiguration } from '../react';
 import type { ReaderTheme } from '../core';
 
 /**
@@ -8,13 +8,14 @@ import type { ReaderTheme } from '../core';
  * The reader stays source-driven; this showcase only provides the background
  * frame and the optional local-file picker.
  */
-export function EpubReaderShowcase() {
+export function EpubReaderShowcase({
+  readerConfiguration,
+}: {
+  readonly readerConfiguration?: ReaderUiConfiguration;
+} = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>('publisher');
-
-
-
   const choose = (next: File) => {
     setRejected(null);
     setFile(next);
@@ -37,7 +38,7 @@ export function EpubReaderShowcase() {
       rejectedMessage={rejected}
       readerTheme={readerTheme}
       onCloseBook={() => { setFile(null); setReaderTheme('publisher'); }}
-      reader={file ? <EpubReader source={file} onThemeChange={onThemeChange} /> : null}
+      reader={file ? <EpubReader source={file} configuration={readerConfiguration} onThemeChange={onThemeChange} /> : null}
     />
   );
 }

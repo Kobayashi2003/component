@@ -1,12 +1,12 @@
-export type ReaderToolId = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help';
+export type BuiltInReaderToolIconId = 'contents' | 'search' | 'settings' | 'marks' | 'compatibility' | 'help';
 
-export function ReaderToolIcon({ id }: { readonly id: ReaderToolId }) {
+export function ReaderToolIcon({ id }: { readonly id: BuiltInReaderToolIconId }) {
   const paths = id === 'contents'
     ? <><path d="M5 4.5h11a2 2 0 0 1 2 2v11H7a2 2 0 0 0-2 2z" /><path d="M7 4.5v13" /><path d="M9.5 8h5.5M9.5 11h5.5" /></>
     : id === 'search'
       ? <><circle cx="10" cy="10" r="5.5" /><path d="m14.2 14.2 4.3 4.3" /></>
       : id === 'settings'
-        ? <><path d="M4 7h10M17 7h3M4 14h3M10 14h10" /><circle cx="15.5" cy="7" r="1.5" /><circle cx="8.5" cy="14" r="1.5" /></>
+        ? <><path d="M4 8h10M17 8h3M4 16h3M10 16h10" /><circle cx="15.5" cy="8" r="1.5" /><circle cx="8.5" cy="16" r="1.5" /></>
         : id === 'marks'
           ? <path d="M7 4.5h10v15l-5-3-5 3z" />
           : id === 'compatibility'

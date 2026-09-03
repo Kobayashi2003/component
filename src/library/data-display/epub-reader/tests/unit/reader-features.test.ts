@@ -36,7 +36,7 @@ const publication: Publication = {
 };
 
 const texts = [
-  'Alpha beta alpha. Alphabet should not count as whole word alpha. 𐐀alpha',
+  'Alpha beta alpha. Alphabet should not count as whole word alpha. 𐐀alpha. İx match.',
   'Non linear alpha secret.',
   'Gamma ALPHA delta alpha.',
 ];
@@ -123,6 +123,13 @@ async function main() {
 
   const whole = await search.search('alpha', { wholeWord: true, caseSensitive: false });
   assert(whole.hits.length === 5, 'whole-word search should exclude Alphabet and astral-letter prefixes while retaining standalone alpha/ALPHA');
+
+  const unicodeExcerpt = (await search.search('match')).hits[0];
+  assert(unicodeExcerpt != null, 'the Unicode excerpt fixture must produce a search hit');
+  assert(
+    unicodeExcerpt.excerpt.slice(unicodeExcerpt.excerptMatchStart, unicodeExcerpt.excerptMatchEnd) === 'match',
+    'search must preserve excerpt offsets when earlier Unicode case folding changes string length',
+  );
 
   const repeatedDiagnostic = { code: 'RENDER_REPEAT', severity: 'warning', phase: 'content', message: 'Repeated warning.', path: 'EPUB/c0.xhtml', spineIndex: 0 } as const;
   const diagnostics = new PublicationDiagnosticCollector([repeatedDiagnostic]);

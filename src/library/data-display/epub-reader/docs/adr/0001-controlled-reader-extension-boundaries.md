@@ -15,7 +15,7 @@ The reader will use controlled extension points instead of a generic plugin or m
 ## Consequences
 
 - A Compatibility Profile has deterministic ordering and an identity included in content-document and search-index cache variants.
-- Feature startup occurs only after Publication, resources, content processing, Renderer Host, and navigation services exist, but before the initial presentation; disposal is performed in reverse startup order.
+- If publication-scoped Feature registration becomes public, startup must occur only after Publication, resources, content processing, Renderer Host, and navigation services exist, but before the initial presentation; disposal must run in reverse startup order. The lifecycle primitive remains internal today.
 - State is committed and a Reader Snapshot is published before Reader Events are dispatched; Observer failures are isolated.
-- Feature-specific persisted state is namespaced, validated, and owned by the contributing Feature instead of being added permanently to the generic Reading Session codec.
-- The first migration covers the framework-independent engine. Theme contributions and configurable input bindings remain a separate React and host-UI phase.
+- Any future Feature-specific persisted state must be namespaced, validated, and owned by the contributing Feature instead of being added permanently to the generic Reading Session codec.
+- The currently public Core contribution buckets are Compatibility Modules, Input Bindings, and Themes. Publication-scoped Features, Capabilities, Providers, and Observers remain internal until their host authority and persisted-state ownership are complete.

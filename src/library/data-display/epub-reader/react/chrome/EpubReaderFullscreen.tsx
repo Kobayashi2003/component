@@ -4,13 +4,19 @@ import type { EpubReaderFullscreenController } from './use-epub-reader-fullscree
 export interface EpubReaderFullscreenButtonProps {
   readonly controller: EpubReaderFullscreenController;
   readonly className?: string;
+  readonly enterLabel?: string;
+  readonly exitLabel?: string;
+  readonly shortLabel?: string;
 }
 
 export function EpubReaderFullscreenButton({
   controller,
   className = 'epub-reader-shell__tool is-secondary epub-reader-shell__fullscreen',
+  enterLabel = 'Enter full screen',
+  exitLabel = 'Exit full screen',
+  shortLabel = 'Full screen',
 }: EpubReaderFullscreenButtonProps) {
-  const label = controller.active ? 'Exit full screen' : 'Enter full screen';
+  const label = controller.active ? exitLabel : enterLabel;
   return (
     <button
       className={className}
@@ -22,7 +28,7 @@ export function EpubReaderFullscreenButton({
       onClick={() => void controller.toggle()}
     >
       <FullscreenIcon active={controller.active} />
-      <span>{controller.active ? 'Exit full screen' : 'Full screen'}</span>
+      <span>{controller.active ? exitLabel : shortLabel}</span>
     </button>
   );
 }

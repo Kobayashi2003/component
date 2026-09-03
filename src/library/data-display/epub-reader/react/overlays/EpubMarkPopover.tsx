@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { AnnotationHighlightStyle, ReaderMarkActivation } from '../../core';
 import { ANNOTATION_COLORS as COLORS } from './annotation-colors';
 import type { EpubReaderHandle } from '../state/model';
@@ -17,17 +17,13 @@ interface EpubMarkPopoverProps {
   readonly onChanged: (message: string) => void;
 }
 
-export function EpubMarkPopover({ activation, reader, onClose, onChanged }: EpubMarkPopoverProps) {
+export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged }: EpubMarkPopoverProps) {
   const { mark } = activation;
   const [color, setColor] = useState(mark.color);
   const [highlight, setHighlight] = useState(mark.highlight);
   const [body, setBody] = useState(mark.kind === 'annotation' ? mark.body : '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const closeRef = useRef<HTMLButtonElement | null>(null);
-  const style = {
-    '--epub-mark-x': `${activation.anchor.x}px`,
-    '--epub-mark-y': `${activation.anchor.y}px`,
-  } as CSSProperties;
 
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
@@ -55,7 +51,7 @@ export function EpubMarkPopover({ activation, reader, onClose, onChanged }: Epub
   };
 
   return (
-    <aside className="epub-reader-mark-popover" style={style} role="dialog" aria-modal="false" aria-label={mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'}>
+    <>
       <header>
         <div>
           <strong>{mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'}</strong>
@@ -113,7 +109,7 @@ export function EpubMarkPopover({ activation, reader, onClose, onChanged }: Epub
           </footer>
         )}
       </form>
-    </aside>
+    </>
   );
 }
 

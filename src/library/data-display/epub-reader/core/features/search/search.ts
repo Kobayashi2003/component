@@ -94,13 +94,16 @@ export class PublicationSearch {
       const matches = findMatches(document.text, needle, config, remaining);
       for (const match of matches) {
         const end = match.index + match.value.length;
+        const excerpt = excerptAround(document.text, match.index, end, config.excerptLength);
         hits.push({
           id: `search:${item.index}:${match.index}:${end}`,
           query: needle,
           spineIndex: document.spineIndex,
           href: document.href,
           range: searchDocumentLocatorRange(document, match.index, end),
-          excerpt: excerptAround(document.text, match.index, end, config.excerptLength),
+          excerpt: excerpt.text,
+          excerptMatchStart: excerpt.matchStart,
+          excerptMatchEnd: excerpt.matchEnd,
           match: match.value,
         });
       }
@@ -262,7 +265,13 @@ function isWordCharacter(char: string): boolean {
   return char !== '' && /[\p{L}\p{N}\p{M}_]/u.test(char);
 }
 
-function excerptAround(text: string, start: number, end: number, maxLength: number): string {
+interface SearchExcerpt {
+  readonly text: string;
+  readonly matchStart: number;
+  readonly matchEnd: number;
+}
+
+function excerptAround(text: string, start: number, end: number, maxLength: number): SearchExcerpt {
   const extent = Math.max(24, maxLength);
   // A match longer than the excerpt window leaves no room on either side, and a
   // negative lead would start the excerpt part-way through the match itself.
@@ -271,7 +280,18 @@ function excerptAround(text: string, start: number, end: number, maxLength: numb
   const to = Math.min(text.length, Math.max(end, from + extent));
   const prefix = from > 0 ? '…' : '';
   const suffix = to < text.length ? '…' : '';
-  return `${prefix}${text.slice(from, to).replace(/\s+/gu, ' ').trim()}${suffix}`;
+  // The query is trimmed before matching, so its first and last characters are
+  // non-whitespace. Normalizing the three regions independently preserves the
+  // exact match boundary while still collapsing authored layout whitespace.
+  const leading = text.slice(from, start).replace(/\s+/gu, ' ').trimStart();
+  const matched = text.slice(start, end).replace(/\s+/gu, ' ');
+  const trailing = text.slice(end, to).replace(/\s+/gu, ' ').trimEnd();
+  const matchStart = prefix.length + leading.length;
+  return {
+    text: `${prefix}${leading}${matched}${trailing}${suffix}`,
+    matchStart,
+    matchEnd: matchStart + matched.length,
+  };
 }
 
 function escapeRegExp(value: string): string {

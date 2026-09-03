@@ -24,6 +24,7 @@ import { calculateFixedLayoutPlacement } from './geometry';
 import {
   DEFAULT_FIXED_LAYOUT_RENDERER_POLICY,
   type FixedLayoutPlacement,
+  type FixedLayoutHorizontalAlignment,
   type FixedLayoutRendererPolicy,
   type FixedLayoutSnapshot,
 } from './model';
@@ -33,6 +34,7 @@ export interface FixedLayoutRendererEnvironment {
   readonly publication: Publication;
   readonly contentDocumentCache: PublicationContentDocumentCache;
   readonly policy?: FixedLayoutRendererPolicy;
+  readonly resolveHorizontalAlignment?: (plan: RenditionPlan) => FixedLayoutHorizontalAlignment;
   readonly createSurface?: () => ContentSurface;
   readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
   readonly onPresentationHints?: (hints: ContentPresentationHints) => void;
@@ -237,7 +239,12 @@ export class FixedLayoutRenderer implements RendererInstance {
     const stage = this.stage;
     if (!surface || !stage) throw new Error('Cannot place a fixed-layout page before its surface is mounted.');
     prepareContainer(this.environment.container, plan.preferences.fixedLayoutFit);
-    const calculated = calculateFixedLayoutPlacement(intrinsic, plan.viewport, plan.preferences.fixedLayoutFit);
+    const calculated = calculateFixedLayoutPlacement(
+      intrinsic,
+      plan.viewport,
+      plan.preferences.fixedLayoutFit,
+      this.environment.resolveHorizontalAlignment?.(plan) ?? 'center',
+    );
     const placement = this.policy.center
       ? calculated
       : { ...calculated, offsetX: 0, offsetY: 0 };

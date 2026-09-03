@@ -6,6 +6,7 @@
   "description": "Browser EPUB reading system with CSS-fragmentation pagination for horizontal and vertical writing, image-page handling, fixed-layout support and a React adapter.",
   "scripts": {
     "typecheck": "npm run typecheck:core && npm run typecheck:react",
+    "docs:diagrams": "node scripts/export-doc-diagrams.mjs",
     "boundaries:check": "node scripts/check-module-boundaries.mjs",
     "test": "node scripts/run-tests.mjs",
     "test:unit": "node scripts/run-tests.mjs unit",

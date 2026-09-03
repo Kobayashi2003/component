@@ -1,11 +1,12 @@
 import type { IntrinsicViewport } from '../../../epub/publication';
 import type { FixedLayoutFit } from '../../../epub/publication';
-import type { FixedLayoutPlacement } from './model';
+import type { FixedLayoutHorizontalAlignment, FixedLayoutPlacement } from './model';
 
 export function calculateFixedLayoutPlacement(
   intrinsic: IntrinsicViewport,
   available: { readonly width: number; readonly height: number },
   fit: FixedLayoutFit = 'contain',
+  horizontalAlignment: FixedLayoutHorizontalAlignment = 'center',
 ): FixedLayoutPlacement {
   assertPositive(intrinsic.width, 'intrinsic.width');
   assertPositive(intrinsic.height, 'intrinsic.height');
@@ -21,13 +22,16 @@ export function calculateFixedLayoutPlacement(
         : Math.min(available.width / intrinsic.width, available.height / intrinsic.height);
   const renderedWidth = intrinsic.width * scale;
   const renderedHeight = intrinsic.height * scale;
+  const horizontalSpace = Math.max(0, available.width - renderedWidth);
   return {
     intrinsic: { ...intrinsic },
     available: { ...available },
     scale,
     renderedWidth,
     renderedHeight,
-    offsetX: Math.max(0, (available.width - renderedWidth) / 2),
+    offsetX: horizontalAlignment === 'start'
+      ? 0
+      : horizontalAlignment === 'end' ? horizontalSpace : horizontalSpace / 2,
     offsetY: Math.max(0, (available.height - renderedHeight) / 2),
   };
 }

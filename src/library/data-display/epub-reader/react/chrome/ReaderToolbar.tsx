@@ -1,36 +1,49 @@
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type MutableRefObject } from 'react';
-import type { ReaderPanelId } from './reader-surfaces';
 import type { EpubReaderFullscreenController } from './use-epub-reader-fullscreen';
 import type { ReaderChromeControls } from './use-reader-chrome';
-import { FullscreenIcon, HistoryIcon, MoreIcon, PinIcon, ReaderToolIcon } from './reader-icons';
-import { READER_PANELS } from './reader-toolbar-model';
+import { FullscreenIcon, HistoryIcon, MoreIcon, PinIcon } from './reader-icons';
+import type { ReaderUiMessages } from '../configuration/model';
+import type { ReaderToolId, ReaderToolModule } from '../tools/model';
+import { ReaderToolModuleIcon } from '../tools/ReaderToolBoundary';
 
-export function HistoryButton({ direction, enabled, onActivate }: { readonly direction: 'back' | 'forward'; readonly enabled: boolean; readonly onActivate: () => void }) {
+export function HistoryButton({
+  direction,
+  enabled,
+  label,
+  shortLabel,
+  onActivate,
+}: {
+  readonly direction: 'back' | 'forward';
+  readonly enabled: boolean;
+  readonly label?: string;
+  readonly shortLabel?: string;
+  readonly onActivate: () => void;
+}) {
   const back = direction === 'back';
-  const label = back ? 'Back to previous reading location' : 'Forward to next reading location';
+  const resolvedLabel = label ?? (back ? 'Back to previous reading location' : 'Forward to next reading location');
   return (
     <button
       className={`epub-reader-shell__tool is-secondary epub-reader-shell__history is-${direction}`}
       type="button"
       disabled={!enabled}
-      aria-label={label}
+      aria-label={resolvedLabel}
       aria-keyshortcuts={back ? 'Alt+ArrowLeft' : 'Alt+ArrowRight'}
-      title={`${label} (${back ? 'Alt+Left' : 'Alt+Right'})`}
+      title={`${resolvedLabel} (${back ? 'Alt+Left' : 'Alt+Right'})`}
       onClick={onActivate}
     >
       <HistoryIcon direction={direction} />
-      <span>{back ? 'Back' : 'Forward'}</span>
+      <span>{shortLabel ?? (back ? 'Back' : 'Forward')}</span>
     </button>
   );
 }
 
 interface PanelButtonProps {
   readonly key?: string;
-  readonly item: (typeof READER_PANELS)[number];
-  readonly panel: ReaderPanelId | null;
+  readonly item: ReaderToolModule;
+  readonly panel: ReaderToolId | null;
   readonly panelId: string;
-  readonly buttonRefs: MutableRefObject<Map<ReaderPanelId, HTMLButtonElement>>;
-  readonly onToggle: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
+  readonly buttonRefs: MutableRefObject<Map<ReaderToolId, HTMLButtonElement>>;
+  readonly onToggle: (panel: ReaderToolId, origin: HTMLButtonElement) => void;
   readonly secondary?: boolean;
 }
 
@@ -46,12 +59,12 @@ export function PanelButton({ item, panel, panelId, buttonRefs, onToggle, second
       aria-pressed={panel === item.id}
       aria-expanded={panel === item.id}
       aria-controls={panel === item.id ? panelId : undefined}
-      aria-keyshortcuts={item.id === 'search' ? 'Control+F Meta+F' : item.id === 'help' ? '?' : undefined}
+      aria-keyshortcuts={item.ariaKeyShortcuts}
       aria-label={item.label}
       title={item.label}
       onClick={(event: MouseEvent<HTMLButtonElement>) => onToggle(item.id, event.currentTarget)}
     >
-      <ReaderToolIcon id={item.id} />
+      <ReaderToolModuleIcon tool={item} />
       <span>{item.shortLabel}</span>
     </button>
   );
@@ -59,19 +72,23 @@ export function PanelButton({ item, panel, panelId, buttonRefs, onToggle, second
 
 interface CompactReaderToolsMenuProps {
   readonly id: string;
-  readonly panel: ReaderPanelId | null;
+  readonly items: readonly ReaderToolModule[];
+  readonly panel: ReaderToolId | null;
   readonly panelId: string;
   readonly fullscreen: EpubReaderFullscreenController;
   readonly readerChrome: ReaderChromeControls;
-  readonly onTogglePanel: (panel: ReaderPanelId, origin: HTMLButtonElement) => void;
+  readonly messages: ReaderUiMessages;
+  readonly onTogglePanel: (panel: ReaderToolId, origin: HTMLButtonElement) => void;
 }
 
 export function CompactReaderToolsMenu({
   id,
+  items,
   panel,
   panelId,
   fullscreen,
   readerChrome,
+  messages,
   onTogglePanel,
 }: CompactReaderToolsMenuProps) {
   const [open, setOpen] = useState(false);
@@ -99,7 +116,7 @@ export function CompactReaderToolsMenu({
     setOpen(false);
     if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
   };
-  const activatePanel = (next: ReaderPanelId) => {
+  const activatePanel = (next: ReaderToolId) => {
     const origin = triggerRef.current;
     close();
     if (origin) onTogglePanel(next, origin);
@@ -130,11 +147,11 @@ export function CompactReaderToolsMenu({
         ref={triggerRef}
         className="epub-reader-shell__tool is-secondary"
         type="button"
-        aria-label="More reader tools"
+        aria-label={messages.moreTools}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        title="More reader tools"
+        title={messages.moreTools}
         onClick={() => setOpen(current => !current)}
       >
         <MoreIcon />
@@ -146,10 +163,10 @@ export function CompactReaderToolsMenu({
           ref={menuRef}
           className="epub-reader-shell__tools-menu"
           role="menu"
-          aria-label="More reader tools"
+          aria-label={messages.moreTools}
           onKeyDown={handleMenuKeyDown}
         >
-          {READER_PANELS.slice(4).map(item => (
+          {items.map(item => (
             <button
               key={item.id}
               className="epub-reader-shell__tool"
@@ -159,7 +176,7 @@ export function CompactReaderToolsMenu({
               aria-controls={panel === item.id ? panelId : undefined}
               onClick={() => activatePanel(item.id)}
             >
-              <ReaderToolIcon id={item.id} />
+              <ReaderToolModuleIcon tool={item} />
               <span>{item.shortLabel}</span>
             </button>
           ))}
@@ -175,7 +192,7 @@ export function CompactReaderToolsMenu({
             }}
           >
             <FullscreenIcon active={fullscreen.active} />
-            <span>{fullscreen.active ? 'Exit full screen' : 'Full screen'}</span>
+            <span>{fullscreen.active ? messages.exitFullscreen : messages.fullscreen}</span>
           </button>
           <button
             className="epub-reader-shell__tool"
@@ -188,7 +205,7 @@ export function CompactReaderToolsMenu({
             }}
           >
             <PinIcon active={readerChrome.pinned} />
-            <span>{readerChrome.pinned ? 'Unpin controls' : 'Pin controls'}</span>
+            <span>{readerChrome.pinned ? messages.unpinControls : messages.pinControls}</span>
           </button>
         </div>
       ) : null}

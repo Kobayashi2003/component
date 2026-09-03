@@ -34,5 +34,17 @@ assert(shouldLockReaderChrome({
   pointerOverChrome: false,
   focusInChrome: false,
 }), 'an open reader surface must keep its controls available');
+assert(shouldLockReaderChrome({
+  hasPublicationSnapshot: true,
+  surfaceOpen: false,
+  pointerOverChrome: true,
+  focusInChrome: false,
+}), 'a pointer using the controls must keep them available');
+assert(shouldLockReaderChrome({
+  hasPublicationSnapshot: true,
+  surfaceOpen: false,
+  pointerOverChrome: false,
+  focusInChrome: true,
+}), 'keyboard focus in the controls must keep them available');
 
 console.log('Reader chrome model unit test: PASS');

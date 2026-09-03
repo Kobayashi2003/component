@@ -72,7 +72,9 @@ export function normalizeReaderPreferences(
     fixedLayoutFit: ['contain', 'width', 'height', 'original'].includes(value.fixedLayoutFit)
       ? value.fixedLayoutFit
       : 'contain',
-    fixedLayoutGutter: clamp(value.fixedLayoutGutter, 0, 64),
+    fixedLayoutGutter: ['none', 'normal'].includes(value.fixedLayoutGutter)
+      ? value.fixedLayoutGutter
+      : 'none',
     touchNavigation: ['both', 'tap', 'swipe', 'off'].includes(value.touchNavigation)
       ? value.touchNavigation
       : 'both',

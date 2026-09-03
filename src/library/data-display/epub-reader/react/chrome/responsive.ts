@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
+import { readerLayoutForWidth } from '../configuration/layout';
 
-const COMPACT_READER_WIDTH = 700;
-
-export function useCompactReaderLayout(target: { readonly current: HTMLElement | null }): boolean {
+export function useCompactReaderLayout(
+  target: { readonly current: HTMLElement | null },
+  compactBreakpointPx: number,
+): boolean {
   const [compact, setCompact] = useState(false);
 
   useEffect(() => {
     const element = target.current;
     if (!element) return;
-    const update = () => setCompact(element.getBoundingClientRect().width <= COMPACT_READER_WIDTH);
+    const update = () => setCompact(
+      readerLayoutForWidth(element.getBoundingClientRect().width, compactBreakpointPx) === 'compact',
+    );
     update();
     if (typeof ResizeObserver !== 'function') {
       window.addEventListener('resize', update);
@@ -17,7 +21,7 @@ export function useCompactReaderLayout(target: { readonly current: HTMLElement |
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [target]);
+  }, [compactBreakpointPx, target]);
 
   return compact;
 }
