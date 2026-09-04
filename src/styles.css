@@ -239,7 +239,10 @@ main { min-height: calc(100vh - 104px); }
 .entry-heading-row > div:first-child { flex: 1; }
 .entry-intro h1 { font-size: clamp(42px, 5.5vw, 68px); }
 
-.demo-stage { margin: clamp(20px, 3vw, 42px) var(--page-x) 0; border: 1px solid var(--line); background: var(--demo-surface); }
+/* The stage carries `popover` so the fullscreen fallback can enter the browser's
+   top layer instead of outbidding the page on z-index. While closed it still has
+   to lay out as an ordinary section, so the popover UA defaults are reset here. */
+.demo-stage { display: block; position: static; inset: auto; width: auto; height: auto; margin: clamp(20px, 3vw, 42px) var(--page-x) 0; padding: 0; overflow: visible; border: 1px solid var(--line); color: inherit; background: var(--demo-surface); }
 .demo-stage-label { display: flex; height: 38px; padding: 0 12px 0 14px; flex: 0 0 38px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); color: var(--faint); font: 500 9px/1 'DM Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; }
 .demo-stage-label > span { display: inline-flex; height: 100%; align-items: center; }
 .fullscreen-toggle { height: 30px; padding: 0 8px; align-self: center; justify-content: center; border: 1px solid transparent; line-height: 1; }
@@ -247,20 +250,18 @@ main { min-height: calc(100vh - 104px); }
 .fullscreen-icon { display: grid; width: 14px; height: 14px; flex: 0 0 14px; place-items: center; transform: translateY(-1px); }
 .fullscreen-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .demo-stage-content { min-width: 0; }
-.demo-stage:fullscreen,
-.demo-stage.is-expanded { display: flex; width: 100vw; height: 100vh; margin: 0; flex-direction: column; border: 0; overflow: auto; background: var(--demo-surface); }
-.demo-stage:fullscreen .demo-stage-label,
-.demo-stage.is-expanded .demo-stage-label { flex: 0 0 44px; padding-right: 18px; padding-left: 18px; background: var(--header); }
-.demo-stage:fullscreen .demo-stage-content,
-.demo-stage.is-expanded .demo-stage-content { display: flex; flex: 1 1 0; min-height: 0; overflow: auto; }
-.demo-stage[data-expanded='true'] .compatibility-banner { flex: 0 0 auto; }
-.demo-stage[data-expanded='true'] .demo-stage-content > * { width: 100%; height: 100%; min-height: 100%; flex: 1 0 100%; }
-.demo-stage[data-expanded='true'] :is(.spotlight-surface, .shape-field) { height: 100%; min-height: 100%; }
-.demo-stage[data-expanded='true'] .vhs-demo { display: flex; flex-direction: column; }
-.demo-stage[data-expanded='true'] .vhs-demo > .vhs-effect { min-height: 0; flex: 1 1 0; }
-.demo-stage[data-expanded='true'] :is(.vhs-effect__content, .vhs-demo__broadcast) { height: 100%; min-height: 100%; }
-.demo-stage.is-expanded { position: fixed; z-index: 1000; inset: 0; }
-body.demo-expanded { overflow: hidden; }
+.demo-stage:is(:fullscreen, :popover-open) { display: flex; position: fixed; inset: 0; width: 100vw; height: 100vh; margin: 0; flex-direction: column; border: 0; overflow: auto; background: var(--demo-surface); }
+.demo-stage:is(:fullscreen, :popover-open) .demo-stage-label { flex: 0 0 44px; padding-right: 18px; padding-left: 18px; background: var(--header); }
+.demo-stage:is(:fullscreen, :popover-open) .compatibility-banner { flex: 0 0 auto; }
+.demo-stage:is(:fullscreen, :popover-open) .demo-stage-content { display: flex; flex: 1 1 0; min-height: 0; overflow: auto; }
+.demo-stage:is(:fullscreen, :popover-open) .demo-stage-content > * { width: 100%; height: 100%; min-height: 100%; flex: 1 0 100%; }
+.demo-stage:is(:fullscreen, :popover-open) :is(.spotlight-surface, .shape-field) { height: 100%; min-height: 100%; }
+.demo-stage:is(:fullscreen, :popover-open) .vhs-demo { display: flex; flex-direction: column; }
+.demo-stage:is(:fullscreen, :popover-open) .vhs-demo > .vhs-effect { min-height: 0; flex: 1 1 0; }
+.demo-stage:is(:fullscreen, :popover-open) :is(.vhs-effect__content, .vhs-demo__broadcast) { height: 100%; min-height: 100%; }
+/* Native fullscreen replaces the viewport; the top layer only covers it, so the
+   page underneath would still scroll-chain. */
+body:has(.demo-stage:popover-open) { overflow: hidden; }
 .compatibility-banner { display: flex; min-height: 54px; padding: 11px 16px; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255, 196, 92, 0.28); color: #d8c18d; background: rgba(255, 185, 64, 0.075); }
 .compatibility-banner > span { display: grid; width: 22px; height: 22px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(255, 196, 92, 0.45); border-radius: 50%; color: #f2c76f; font: 500 10px/1 'DM Mono', monospace; }
 .compatibility-banner p { margin: 0; font-size: 12px; line-height: 1.5; }

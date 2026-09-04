@@ -6,7 +6,7 @@ A WebGL cursor lens that combines magnification, UV refraction, distortion, and 
 
 ```tsx
 import { CursorDistortion } from './cursor-distortion'
-;<CursorDistortion
+<CursorDistortion
   drawSource={({ context, width, height }) => {
     context.fillText('DESIGN', width / 2, height / 2)
   }}

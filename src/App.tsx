@@ -230,7 +230,6 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
   const Demo = entry.Demo
   const [readme, setReadme] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
-  const [usesFullscreenFallback, setUsesFullscreenFallback] = useState(false)
   const demoStageRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -239,51 +238,41 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
     return () => { active = false }
   }, [entry])
 
+  // Both expansion routes put the stage in a browser-owned top layer, so the
+  // browser is the source of truth; this state only drives the button's label.
   useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsExpanded(document.fullscreenElement === demoStageRef.current)
-      if (document.fullscreenElement === demoStageRef.current) setUsesFullscreenFallback(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && usesFullscreenFallback) {
-        setUsesFullscreenFallback(false)
-        setIsExpanded(false)
-      }
-    }
+    const stage = demoStageRef.current
+    if (!stage) return
+
+    const onFullscreenChange = () => setIsExpanded(document.fullscreenElement === stage)
+    const onToggle = (event: ToggleEvent) => setIsExpanded(event.newState === 'open')
 
     document.addEventListener('fullscreenchange', onFullscreenChange)
-    document.addEventListener('keydown', onKeyDown)
+    stage.addEventListener('toggle', onToggle)
     return () => {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
-      document.removeEventListener('keydown', onKeyDown)
+      stage.removeEventListener('toggle', onToggle)
     }
-  }, [usesFullscreenFallback])
+  }, [])
 
-  useEffect(() => {
-    document.body.classList.toggle('demo-expanded', usesFullscreenFallback)
-    return () => document.body.classList.remove('demo-expanded')
-  }, [usesFullscreenFallback])
-
-  const toggleFullscreen = async () => {
+  const toggleExpanded = async () => {
     const stage = demoStageRef.current
     if (!stage) return
 
     if (document.fullscreenElement === stage) {
       await document.exitFullscreen()
-      return
-    }
-
-    if (usesFullscreenFallback) {
-      setUsesFullscreenFallback(false)
-      setIsExpanded(false)
-      return
-    }
-
-    try {
-      await stage.requestFullscreen()
-    } catch {
-      setUsesFullscreenFallback(true)
-      setIsExpanded(true)
+    } else if (isExpanded) {
+      // Expanded without owning the fullscreen element means the popover route.
+      stage.hidePopover()
+    } else {
+      // Fullscreen is refused in some embedded contexts. The popover top layer
+      // is the fallback: it paints above the page without any z-index, and
+      // brings its own Escape-to-close behaviour.
+      try {
+        await stage.requestFullscreen()
+      } catch {
+        stage.showPopover()
+      }
     }
   }
 
@@ -302,8 +291,8 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
       </section>
       <section
         ref={demoStageRef}
-        className={`demo-stage${usesFullscreenFallback ? ' is-expanded' : ''}`}
-        data-expanded={isExpanded || undefined}
+        className="demo-stage"
+        popover="auto"
         aria-label={`${entry.title} live demo`}
       >
         {entry.compatibility && (
@@ -317,7 +306,7 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
           <button
             className="fullscreen-toggle"
             type="button"
-            onClick={toggleFullscreen}
+            onClick={toggleExpanded}
             aria-label={isExpanded ? 'Exit full screen preview' : 'Open full screen preview'}
             aria-pressed={isExpanded}
             title={isExpanded ? 'Exit full screen (Esc)' : 'Open full screen'}

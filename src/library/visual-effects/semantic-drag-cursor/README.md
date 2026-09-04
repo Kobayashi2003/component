@@ -6,7 +6,7 @@ A context-aware cursor that combines semantic hover feedback with a directional 
 
 ```tsx
 import { SemanticDragCursor } from './semantic-drag-cursor'
-;<SemanticDragCursor>
+<SemanticDragCursor>
   <a data-cursor="link" href="/work">
     Project
   </a>

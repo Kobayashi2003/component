@@ -6,7 +6,7 @@ A proximity field that makes many interface elements react to the pointer as a s
 
 ```tsx
 import { CursorGravityField } from './cursor-gravity-field'
-;<CursorGravityField radius={210} strength={0.32}>
+<CursorGravityField radius={210} strength={0.32}>
   <button data-cursor-gravity>Alpha</button>
   <article data-cursor-gravity>Card</article>
 </CursorGravityField>
