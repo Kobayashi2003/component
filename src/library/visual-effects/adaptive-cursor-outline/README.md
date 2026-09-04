@@ -1,16 +1,16 @@
-# Cursor Focus Frame
+# Adaptive Cursor Outline
 
 A custom cursor that expands into the outline of interactive descendants.
 
 ## Usage
 
 ```tsx
-import { CursorFocusFrame } from './cursor-focus-frame'
+import { AdaptiveCursorOutline } from './adaptive-cursor-outline'
 
-<CursorFocusFrame color="#e6ff69" padding={8}>
+<AdaptiveCursorOutline color="#e6ff69" padding={8}>
   <button>Regular target</button>
   <button data-cursor-path="M...Z">Irregular target</button>
-</CursorFocusFrame>
+</AdaptiveCursorOutline>
 ```
 
 ## Props

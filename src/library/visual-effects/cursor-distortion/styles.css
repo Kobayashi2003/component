@@ -1,0 +1,95 @@
+.cursor-distortion {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+  background: #eeede8;
+}
+.cursor-distortion__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.cursor-distortion__fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  color: #555;
+}
+.cursor-distortion[data-webgl='unsupported'] .cursor-distortion__canvas {
+  display: none;
+}
+.cursor-distortion[data-webgl='unsupported'] .cursor-distortion__fallback {
+  display: block;
+}
+.cursor-distortion__overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+.cursor-distortion__overlay > * {
+  pointer-events: auto;
+}
+.cursor-distortion__overlay .distortion-hint {
+  display: none;
+}
+.cursor-distortion[data-webgl='unsupported'] .cursor-distortion__overlay {
+  display: none;
+}
+.distortion-demo {
+  min-height: 600px;
+  font-family: Arial, sans-serif;
+}
+.distortion-hint {
+  position: absolute;
+  top: 50%;
+  left: 38%;
+  transform: translate(-50%, -50%);
+  font:
+    10px/1 'DM Mono',
+    monospace;
+  text-transform: uppercase;
+}
+.distortion-controls {
+  position: absolute;
+  top: 50%;
+  right: clamp(18px, 4vw, 42px);
+  width: 210px;
+  padding: 18px;
+  border: 1px solid #c7c6c0;
+  background: rgba(238, 237, 232, 0.92);
+  transform: translateY(-50%);
+}
+.distortion-controls label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 15px;
+  color: #777671;
+  font:
+    10px/1 'DM Mono',
+    monospace;
+  text-transform: uppercase;
+}
+.distortion-controls label:last-child {
+  margin-bottom: 0;
+}
+.distortion-controls output {
+  color: #11110f;
+}
+.distortion-controls input {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 9px;
+  accent-color: #ff4f3d;
+}
+@media (max-width: 680px) {
+  .distortion-controls {
+    top: auto;
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
+    width: auto;
+    transform: none;
+  }
+}

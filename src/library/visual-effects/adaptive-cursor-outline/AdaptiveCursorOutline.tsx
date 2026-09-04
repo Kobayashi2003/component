@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FocusEvent, PointerEvent, ReactNode } from 'react'
 import './styles.css'
 
-export interface CursorFocusFrameProps {
+export interface AdaptiveCursorOutlineProps {
   children: ReactNode
   className?: string
   selector?: string
@@ -25,7 +25,7 @@ interface Geometry {
 const DEFAULT_SELECTOR =
   '[data-cursor-focus],button,a[href],input,select,textarea'
 
-export function CursorFocusFrame({
+export function AdaptiveCursorOutline({
   children,
   className = '',
   selector = DEFAULT_SELECTOR,
@@ -34,7 +34,7 @@ export function CursorFocusFrame({
   duration = 260,
   strokeWidth = 1.5,
   cursorSize = 10,
-}: CursorFocusFrameProps) {
+}: AdaptiveCursorOutlineProps) {
   const root = useRef<HTMLDivElement>(null)
   const activeTarget = useRef<HTMLElement | null>(null)
   const pointer = useRef({ x: 0, y: 0 })

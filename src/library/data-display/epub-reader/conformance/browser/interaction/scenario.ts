@@ -115,6 +115,84 @@ export async function runBrowserInteractionScenario(): Promise<
     contentDocument?.body,
     "EPUB content document must remain same-origin",
   );
+  const activeShell = required<HTMLElement>(".epub-reader-shell");
+  const contentWindow = contentDocument.defaultView!;
+  const scrolling = contentDocument.scrollingElement as HTMLElement;
+  const lockedScrollTop = scrolling.scrollTop;
+  const lockedScrollLeft = scrolling.scrollLeft;
+  contentDocument.dispatchEvent(
+    new contentWindow.PointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      buttons: 1,
+      isPrimary: true,
+    }),
+  );
+  contentDocument.dispatchEvent(
+    new contentWindow.Event("selectstart", { bubbles: true, cancelable: true }),
+  );
+  scrolling.scrollTop = lockedScrollTop + contentWindow.innerHeight;
+  scrolling.scrollLeft = lockedScrollLeft + contentWindow.innerWidth;
+  contentDocument.dispatchEvent(new contentWindow.Event("scroll"));
+  assert(
+    scrolling.scrollTop === lockedScrollTop &&
+      scrolling.scrollLeft === lockedScrollLeft,
+    "drag selection must not use paginated overflow to cross a page boundary",
+  );
+  contentDocument.dispatchEvent(
+    new contentWindow.PointerEvent("pointerup", {
+      bubbles: true,
+      button: 0,
+      buttons: 0,
+      isPrimary: true,
+    }),
+  );
+  steps.push("paginated drag selection stayed inside the current page");
+
+  for (const chromeRegion of activeShell.querySelectorAll(
+    ".epub-reader-shell__toolbar, .epub-reader-controls",
+  )) {
+    chromeRegion.dispatchEvent(
+      new PointerEvent("pointerleave", { pointerType: "mouse" }),
+    );
+  }
+  contentDocument.body.dispatchEvent(
+    new contentWindow.MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: contentWindow.innerWidth / 2,
+    }),
+  );
+  await waitFor(
+    () => activeShell.classList.contains("is-chrome-hidden"),
+    "reader chrome to auto-hide before text selection",
+  );
+  const selectableText = firstVisibleText(contentDocument);
+  assert(selectableText, "selection fixture needs visible publication text");
+  const nativeRange = contentDocument.createRange();
+  nativeRange.setStart(selectableText, 0);
+  nativeRange.setEnd(selectableText, Math.min(4, selectableText.length));
+  const nativeSelection = contentWindow.getSelection();
+  nativeSelection?.removeAllRanges();
+  nativeSelection?.addRange(nativeRange);
+  contentDocument.dispatchEvent(new contentWindow.Event("selectionchange"));
+  await waitFor(
+    () => document.querySelector(".epub-reader-selection-tool"),
+    "selection action toolbar",
+  );
+  assert(
+    activeShell.classList.contains("is-chrome-hidden"),
+    "text selection actions must not reveal the top or bottom reader chrome",
+  );
+  nativeSelection?.removeAllRanges();
+  contentDocument.dispatchEvent(new contentWindow.Event("selectionchange"));
+  await waitFor(
+    () => !document.querySelector(".epub-reader-selection-tool"),
+    "selection action toolbar to close",
+  );
+  steps.push("text selection actions left edge chrome hidden");
+
   const externalTrigger = contentDocument.createElement("a");
   externalTrigger.href = "#external-fixture";
   externalTrigger.dataset.epubHref =
@@ -344,12 +422,108 @@ export async function runBrowserInteractionScenario(): Promise<
     "fallback recovery must replace an invalid CFI with a healed one",
   );
   steps.push("composite locator preferred and healed its precise fallback");
-  markReader.marks.addHighlight(
-    { start: markLocator, end: markLocator },
+  const markHits = await markReader.search.run("吾輩");
+  const markHit = markHits.at(-1);
+  assert(markHit, "mark popover fixture needs a visible text range");
+  await markReader.search.goTo(markHits.length - 1);
+  const fixtureHighlight = markReader.marks.addHighlight(
+    markHit.range,
     "solid",
     "yellow",
     "Fixture highlight",
   );
+  markReader.search.clear();
+  const highlightOverlay = await waitFor(
+    () =>
+      Array.from(
+        contentDocument.querySelectorAll<HTMLElement>(
+          "[data-epub-decoration-id]",
+        ),
+      ).find(
+        (candidate) => {
+          const bounds = candidate.getBoundingClientRect();
+          const view = contentDocument.defaultView!;
+          return (
+            candidate.dataset.epubDecorationId === fixtureHighlight.id &&
+            bounds.width > 0 &&
+            bounds.height > 0 &&
+            bounds.right > 0 &&
+            bounds.bottom > 0 &&
+            bounds.left < view.innerWidth &&
+            bounds.top < view.innerHeight
+          );
+        },
+      ),
+    "visible highlight decoration",
+  );
+  const highlightBounds = highlightOverlay.getBoundingClientRect();
+  highlightOverlay.dispatchEvent(
+    new contentDocument.defaultView!.MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: highlightBounds.left + highlightBounds.width / 2,
+      clientY: highlightBounds.top + highlightBounds.height / 2,
+    }),
+  );
+  const markPopover = await waitFor(
+    () => document.querySelector<HTMLElement>(".epub-reader-mark-popover"),
+    "mark popover",
+  );
+  const readerBodyBounds = required<HTMLElement>(
+    ".epub-reader-shell__body",
+  ).getBoundingClientRect();
+  const markPopoverBounds = markPopover.getBoundingClientRect();
+  assert(
+    markPopoverBounds.left >= readerBodyBounds.left &&
+      markPopoverBounds.right <= readerBodyBounds.right &&
+      markPopoverBounds.top >= readerBodyBounds.top &&
+      markPopoverBounds.bottom <= readerBodyBounds.bottom,
+    "mark popover must remain inside the reader after measuring its real height",
+  );
+  const popoverSave = buttonWithText(markPopover, "Save Change");
+  assert(
+    getComputedStyle(popoverSave).whiteSpace === "nowrap",
+    "mark popover Save Change action must remain on one line",
+  );
+  const popoverColorLegend = required<HTMLElement>(
+    ".epub-reader-mark-popover__field--color legend",
+  );
+  const popoverColors = required<HTMLElement>(
+    ".epub-reader-mark-popover__colors",
+  );
+  assert(
+    popoverColors.getBoundingClientRect().top -
+      popoverColorLegend.getBoundingClientRect().bottom >=
+      9,
+    "the Color label and selected swatch ring must remain visually separated",
+  );
+  const popoverStyleLegend = required<HTMLElement>(
+    ".epub-reader-mark-popover__field:not(.epub-reader-mark-popover__field--color) legend",
+  );
+  const popoverStyles = required<HTMLElement>(
+    ".epub-reader-mark-popover__styles",
+  );
+  assert(
+    popoverStyles.getBoundingClientRect().top -
+      popoverStyleLegend.getBoundingClientRect().bottom >=
+      8,
+    "the Style label and option grid must retain a calm visual gap",
+  );
+  const popoverSwatch = required<HTMLElement>(
+    ".epub-reader-mark-popover__colors button",
+  ).getBoundingClientRect();
+  assert(
+    Math.abs(popoverSwatch.width - popoverSwatch.height) <= 0.5,
+    "mark popover color controls must render as circles",
+  );
+  click(
+    required<HTMLButtonElement>(".epub-reader-shell__dismiss-layer"),
+  );
+  await waitFor(
+    () => !document.querySelector(".epub-reader-mark-popover"),
+    "outside click to dismiss mark popover",
+  );
+  await markReader.history.back();
   markReader.marks.addAnnotation(
     { start: markLocator, end: markLocator },
     "Fixture note",
@@ -361,9 +535,17 @@ export async function runBrowserInteractionScenario(): Promise<
     "Fixture bookmark note",
   );
   assert(fixtureBookmark, "mark manager fixture must capture a bookmark");
-  const marksButton = buttonWithLabel("Bookmarks and annotations");
+  const marksButton = buttonWithLabel("Marks");
   click(marksButton);
-  const marksPanel = await waitForPanel("Bookmarks and annotations");
+  const marksPanel = await waitForPanel("Marks");
+  const panelContent = required<HTMLElement>(
+    ".epub-reader-shell__panel-content",
+  );
+  assert(
+    getComputedStyle(panelContent).scrollbarGutter === "stable" &&
+      panelContent.scrollWidth <= panelContent.clientWidth,
+    "left panels must reserve their scrollbar and avoid horizontal overflow",
+  );
   assert(
     marksPanel.querySelectorAll(".epub-marks-panel__filters button").length ===
       4,
@@ -380,18 +562,76 @@ export async function runBrowserInteractionScenario(): Promise<
     () => marksPanel.querySelector<HTMLElement>(".epub-mark-editor"),
     "inline mark editor",
   );
+  assert(
+    markEditor.querySelector(".epub-mark-editor__header")?.textContent
+      ?.trim()
+      .startsWith("Edit highlight"),
+    "the inline editor must expose its own compact editing hierarchy",
+  );
+  const appearanceFields = markEditor.querySelectorAll<HTMLElement>(
+    ".epub-mark-editor__appearance > *",
+  );
+  const inlineStyles = required<HTMLElement>(
+    ".epub-mark-editor__styles",
+  );
+  const inlineStyleButtons = inlineStyles.querySelectorAll("button");
+  const inlineStyleLegend = inlineStyles.parentElement!.querySelector("legend")!;
+  assert(
+    appearanceFields.length === 2 &&
+      appearanceFields[1]!.getBoundingClientRect().top >
+        appearanceFields[0]!.getBoundingClientRect().bottom &&
+      inlineStyleButtons.length === 4 &&
+      inlineStyles.getBoundingClientRect().top -
+        inlineStyleLegend.getBoundingClientRect().bottom >=
+        7,
+    "the inline editor must expose color and the same separated 2-by-2 style controls as the popover",
+  );
+  const inlineUnderline = required<HTMLElement>(
+    ".epub-mark-editor__styles .is-underline",
+  ).closest<HTMLButtonElement>("button")!;
+  click(inlineUnderline);
+  await waitFor(
+    () => inlineUnderline.getAttribute("aria-pressed") === "true",
+    "inline graphical style control to update the selected highlight style",
+  );
   const yellowSwatch = required<HTMLButtonElement>(
     ".epub-mark-editor__colors .is-yellow",
   );
+  const yellowSwatchBounds = yellowSwatch.getBoundingClientRect();
   assert(
-    getComputedStyle(yellowSwatch).backgroundColor !== "rgba(0, 0, 0, 0)",
-    "mark editor color swatches must retain a visible color",
+    getComputedStyle(yellowSwatch).backgroundColor !== "rgba(0, 0, 0, 0)" &&
+      Math.abs(yellowSwatchBounds.width - yellowSwatchBounds.height) <= 0.5,
+    "mark editor color swatches must retain a visible circular shape",
   );
   const tagInput = markEditor.querySelector<HTMLInputElement>(
     'input[placeholder="Separate tags with commas"]',
   );
   assert(tagInput, "mark editor must expose tag editing");
+  const labelInput = required<HTMLTextAreaElement>(
+    ".epub-mark-editor textarea",
+  );
+  labelInput.focus();
+  assert(
+    getComputedStyle(labelInput).outlineWidth === "0px" &&
+      getComputedStyle(labelInput).boxShadow !== "none",
+    "mark editor fields must use the same single restrained focus ring as Search",
+  );
   setInputValue(tagInput, "review, favorite");
+  click(buttonWithText(markEditor, "Delete"));
+  const inlineDeleteConfirmation = await waitFor(
+    () => markEditor.querySelector<HTMLElement>(".epub-mark-editor__confirm"),
+    "inline mark deletion confirmation",
+  );
+  const confirmationBounds = inlineDeleteConfirmation.getBoundingClientRect();
+  const editorFooterBounds = inlineDeleteConfirmation.parentElement!.getBoundingClientRect();
+  const editorActionsBounds = inlineDeleteConfirmation.nextElementSibling!.getBoundingClientRect();
+  assert(
+    confirmationBounds.left >= editorFooterBounds.left &&
+      confirmationBounds.right <= editorFooterBounds.right &&
+      editorActionsBounds.top >= confirmationBounds.bottom,
+    "mark deletion confirmation and regular editor actions must occupy separate contained rows",
+  );
+  click(buttonWithText(markEditor, "Keep"));
   const saveMark = buttonWithText(markEditor, "Save");
   assert(
     getComputedStyle(saveMark).whiteSpace === "nowrap",
@@ -411,6 +651,26 @@ export async function runBrowserInteractionScenario(): Promise<
     () =>
       marksPanel.querySelectorAll(".epub-marks-panel__list li").length === 3,
     "all mark types after filter reset",
+  );
+  const bookmarkItem = required<HTMLElement>(
+    ".epub-marks-panel__list li[data-mark-kind='bookmark'] .epub-marks-panel__item",
+  );
+  const highlightItem = required<HTMLElement>(
+    ".epub-marks-panel__list li[data-mark-kind='highlight'] .epub-marks-panel__item",
+  );
+  const bookmarkPreview = required<HTMLElement>(
+    ".epub-marks-panel__list li[data-mark-kind='bookmark'] .epub-marks-panel__location > strong",
+  );
+  const bookmarkPreviewStyle = getComputedStyle(bookmarkPreview);
+  assert(
+    Math.abs(
+      bookmarkItem.getBoundingClientRect().height -
+        highlightItem.getBoundingClientRect().height,
+    ) <= 0.5 &&
+      bookmarkPreview.getBoundingClientRect().height <=
+        parseFloat(bookmarkPreviewStyle.lineHeight) * 2 + 1 &&
+      bookmarkPreview.scrollHeight > bookmarkPreview.clientHeight,
+    "bookmark and highlight summaries must share a fixed height and ellipsize after two lines",
   );
   click(buttonWithText(marksPanel, "Select"));
   const selectVisible = await waitFor(
@@ -438,7 +698,7 @@ export async function runBrowserInteractionScenario(): Promise<
   steps.push(
     "mark manager filtered, edited, tagged and batch-deleted all mark kinds",
   );
-  click(buttonWithLabel("Close Bookmarks and annotations"));
+  click(buttonWithLabel("Close Marks"));
   await waitFor(
     () => !document.querySelector(".epub-reader-shell__panel"),
     "marks panel to close",
@@ -471,6 +731,11 @@ export async function runBrowserInteractionScenario(): Promise<
       ),
     "search input",
   );
+  searchInput.focus();
+  assert(
+    getComputedStyle(searchInput).outlineWidth === "0px",
+    "search focus must use one restrained focus treatment instead of stacked outlines",
+  );
   setInputValue(searchInput, "吾輩");
   searchInput.form?.requestSubmit();
   const searchSummary = await waitFor(() => {
@@ -488,6 +753,15 @@ export async function runBrowserInteractionScenario(): Promise<
   assert(
     document.querySelectorAll(".epub-search-panel__group").length === 1,
     "search results must be grouped under their chapter",
+  );
+  const searchExcerpt = required<HTMLElement>(
+    ".epub-search-result__excerpt",
+  );
+  const excerptStyle = getComputedStyle(searchExcerpt);
+  assert(
+    searchExcerpt.getBoundingClientRect().height <=
+      parseFloat(excerptStyle.lineHeight) * 2 + 1,
+    "search result excerpts must end on a complete line instead of clipping the next one",
   );
   assert(
     document
@@ -552,6 +826,29 @@ export async function runBrowserInteractionScenario(): Promise<
     ),
     "the reflowable settings panel must retain every applicable focused settings section",
   );
+  const readerShell = required<HTMLElement>(".epub-reader-shell");
+  for (const theme of ["Graphite", "Dark"] as const) {
+    click(buttonWithText(settingsPanel, theme));
+    await waitFor(
+      () => readerShell.dataset.theme === theme.toLowerCase(),
+      `${theme} reader theme`,
+    );
+    const inactiveSegment = Array.from(
+      settingsPanel.querySelectorAll<HTMLButtonElement>(
+        ".epub-settings-panel__segmented button[aria-pressed='false']",
+      ),
+    )[0];
+    assert(inactiveSegment, `${theme} theme needs an inactive segmented control`);
+    const segmentSection = inactiveSegment.closest<HTMLElement>(
+      ".epub-settings-panel__section",
+    );
+    assert(segmentSection, "segmented control must remain in its settings card");
+    assert(
+      getComputedStyle(inactiveSegment).backgroundColor !==
+        getComputedStyle(segmentSection).backgroundColor,
+      `${theme} theme buttons must remain distinct from their settings card`,
+    );
+  }
   const touchPreview = required<HTMLElement>(".epub-touch-preview");
   const touchPreviewMode = () =>
     touchPreview
@@ -716,4 +1013,27 @@ export async function runBrowserInteractionScenario(): Promise<
   );
 
   return steps;
+}
+
+function firstVisibleText(document: Document): Text | null {
+  const win = document.defaultView;
+  if (!win) return null;
+  const walker = document.createTreeWalker(
+    document.body,
+    win.NodeFilter.SHOW_TEXT,
+  );
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.nodeValue?.trim()) continue;
+    const parent = node.parentElement;
+    if (!parent) continue;
+    const bounds = parent.getBoundingClientRect();
+    if (
+      bounds.right > 0 &&
+      bounds.bottom > 0 &&
+      bounds.left < win.innerWidth &&
+      bounds.top < win.innerHeight
+    )
+      return node as Text;
+  }
+  return null;
 }

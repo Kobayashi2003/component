@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { CursorFocusFrame } from './CursorFocusFrame'
+import { AdaptiveCursorOutline } from './AdaptiveCursorOutline'
 
 const organicPath =
   'M7 20 C18 3 37 15 48 5 C64 1 69 20 91 14 C98 32 81 43 94 61 C83 83 64 73 49 95 C31 87 35 68 8 75 C2 54 19 40 7 20 Z'
 const frameColors = ['#e6ff69', '#70d7ff', '#ff8e73']
 
-export default function FocusFrameShowcase() {
+export default function AdaptiveCursorOutlineShowcase() {
   const [padding, setPadding] = useState(8)
   const [duration, setDuration] = useState(260)
   const [stroke, setStroke] = useState(1.5)
@@ -13,8 +13,8 @@ export default function FocusFrameShowcase() {
   const [color, setColor] = useState('#e6ff69')
 
   return (
-    <CursorFocusFrame
-      className="focus-demo"
+    <AdaptiveCursorOutline
+      className="adaptive-outline-demo"
       padding={padding}
       duration={duration}
       strokeWidth={stroke}
@@ -48,7 +48,7 @@ export default function FocusFrameShowcase() {
           </button>
         </div>
 
-        <aside className="focus-controls" aria-label="Focus frame parameters">
+        <aside className="outline-controls" aria-label="Adaptive cursor outline parameters">
           <label>
             Padding <output>{padding}</output>
             <input
@@ -95,7 +95,7 @@ export default function FocusFrameShowcase() {
             />
           </label>
 
-          <div className="focus-colors">
+          <div className="outline-colors">
             {frameColors.map((item) => (
               <button
                 key={item}
@@ -109,6 +109,6 @@ export default function FocusFrameShowcase() {
           </div>
         </aside>
       </div>
-    </CursorFocusFrame>
+    </AdaptiveCursorOutline>
   )
 }

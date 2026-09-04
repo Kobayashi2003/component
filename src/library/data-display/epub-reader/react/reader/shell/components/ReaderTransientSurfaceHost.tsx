@@ -1,7 +1,13 @@
-import { useState, type CSSProperties } from 'react';
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { CloseIcon } from '../../../chrome/reader-icons';
 import type { ReaderSurface } from '../../../chrome/reader-surface-model';
 import { useReaderUiConfiguration } from '../../../configuration/context';
+import { placeMarkPopover } from '../../../overlays/mark-popover-position';
 import { ReaderSurfaceRendererSlot } from '../../../surfaces/ReaderSurfaceRendererSlot';
 import type { ReaderSurfaceRendererContext } from '../../../surfaces/model';
 import { useEpubReaderContext } from '../../context';
@@ -161,14 +167,17 @@ function SelectionSurfaceFrame({
 
 function MarkSurfaceFrame({
   surface,
+  compactLayout,
   onClose,
   showFeedback,
 }: FrameProps<'mark'>) {
   const reader = useEpubReaderContext();
   const { messages, surfaceRendererRegistry } = useReaderUiConfiguration();
+  const { activation } = surface;
+  const popoverRef = useRef<HTMLElement | null>(null);
+  useMarkPopoverPlacement(popoverRef, activation.anchor, compactLayout);
   const renderer = surfaceRendererRegistry.resolve('mark');
   if (!renderer) return null;
-  const { activation } = surface;
   const context: ReaderSurfaceRendererContext<'mark'> = {
     surface,
     reader,
@@ -176,11 +185,12 @@ function MarkSurfaceFrame({
     showFeedback: (message, tone) => showFeedback({ message, tone }),
   };
   const style = {
-    '--epub-mark-x': `${activation.anchor.x}px`,
-    '--epub-mark-y': `${activation.anchor.y}px`,
+    '--epub-mark-left': `${activation.anchor.x}px`,
+    '--epub-mark-top': `${activation.anchor.y}px`,
   } as CSSProperties;
   return (
     <aside
+      ref={popoverRef}
       className="epub-reader-mark-popover"
       style={style}
       role="dialog"
@@ -201,4 +211,46 @@ function MarkSurfaceFrame({
       />
     </aside>
   );
+}
+
+function useMarkPopoverPlacement(
+  popoverRef: { readonly current: HTMLElement | null },
+  anchor: { readonly x: number; readonly y: number },
+  compactLayout: boolean,
+): void {
+  const { x, y } = anchor;
+  useLayoutEffect(() => {
+    const popover = popoverRef.current;
+    if (!popover || compactLayout) return;
+    const bounds = popover.offsetParent as HTMLElement | null;
+    if (!bounds) return;
+
+    const update = () => {
+      const placement = placeMarkPopover(
+        { x, y },
+        { width: bounds.clientWidth, height: bounds.clientHeight },
+        { width: popover.offsetWidth, height: popover.scrollHeight },
+      );
+      popover.style.setProperty('--epub-mark-left', `${placement.left}px`);
+      popover.style.setProperty('--epub-mark-top', `${placement.top}px`);
+      popover.style.setProperty(
+        '--epub-mark-max-height',
+        `${placement.maxHeight}px`,
+      );
+      popover.dataset.placement = placement.side;
+    };
+
+    update();
+    const ownerWindow = popover.ownerDocument.defaultView;
+    const observer = ownerWindow?.ResizeObserver
+      ? new ownerWindow.ResizeObserver(update)
+      : null;
+    observer?.observe(popover);
+    observer?.observe(bounds);
+    ownerWindow?.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      ownerWindow?.removeEventListener('resize', update);
+    };
+  }, [compactLayout, popoverRef, x, y]);
 }

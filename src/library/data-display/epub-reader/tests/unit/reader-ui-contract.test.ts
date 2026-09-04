@@ -3,6 +3,7 @@ import {
   surfaceReturnFocus,
   type ReaderSurface,
 } from "../../react/chrome/reader-surface-model";
+import { placeMarkPopover } from "../../react/overlays/mark-popover-position";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Reader UI contract test failed: ${message}`);
@@ -91,6 +92,38 @@ assert(
 assert(
   surfaceReturnFocus({ kind: "none" }) === null,
   "an empty surface has no focus target",
+);
+
+const belowPlacement = placeMarkPopover(
+  { x: 190, y: 80 },
+  { width: 380, height: 520 },
+  { width: 336, height: 300 },
+);
+assert(
+  belowPlacement.side === "below" && belowPlacement.top === 90,
+  "a mark editor should open below its anchor when space is available",
+);
+const abovePlacement = placeMarkPopover(
+  { x: 370, y: 470 },
+  { width: 380, height: 520 },
+  { width: 336, height: 300 },
+);
+assert(
+  abovePlacement.side === "above" &&
+    abovePlacement.left === 32 &&
+    abovePlacement.top === 160,
+  "a mark editor should flip and remain inside the right and bottom edges",
+);
+const constrainedPlacement = placeMarkPopover(
+  { x: 8, y: 100 },
+  { width: 300, height: 220 },
+  { width: 276, height: 340 },
+);
+assert(
+  constrainedPlacement.left === 12 &&
+    constrainedPlacement.top === 12 &&
+    constrainedPlacement.maxHeight === 196,
+  "a tall mark editor should clamp to a short viewport and become scrollable",
 );
 
 console.log("Reader UI contract unit test: PASS");

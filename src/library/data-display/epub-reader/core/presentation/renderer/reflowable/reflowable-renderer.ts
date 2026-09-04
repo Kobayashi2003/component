@@ -165,6 +165,7 @@ export class ReflowableRenderer implements RendererInstance {
         this.applyPlan(plan);
         this.installNavigationGuard(loaded.document);
         this.installFormGuard(loaded.document);
+        this.installPaginatedSelectionBoundary(loaded.document);
         this.installLiveLayoutReporting(loaded.document);
       });
     } catch (error) {
@@ -469,6 +470,75 @@ export class ReflowableRenderer implements RendererInstance {
       },
       true,
     );
+  }
+
+  /**
+   * Native drag selection auto-scrolls an overflow container when the pointer
+   * reaches an edge. In a paginated document that overflow is page transport,
+   * so the browser otherwise selects through every following fragmentainer.
+   * Hold the current viewport only while a native pointer selection is active;
+   * scrolling renderers and ordinary page navigation remain untouched.
+   */
+  private installPaginatedSelectionBoundary(document: Document): void {
+    if (this.kind !== 'reflowable-paginated') return;
+    const win = document.defaultView;
+    const scrolling = document.scrollingElement as HTMLElement | null;
+    if (!win || !scrolling) return;
+
+    let pointerActive = false;
+    let selectionActive = false;
+    let lockedLeft = 0;
+    let lockedTop = 0;
+    let frame: number | null = null;
+
+    const restoreViewport = () => {
+      if (scrolling.scrollLeft !== lockedLeft)
+        scrolling.scrollLeft = lockedLeft;
+      if (scrolling.scrollTop !== lockedTop) scrolling.scrollTop = lockedTop;
+    };
+    const keepLocked = () => {
+      frame = null;
+      if (!pointerActive || !selectionActive || this.disposed) return;
+      restoreViewport();
+      frame = win.requestAnimationFrame(keepLocked);
+    };
+    const startLock = () => {
+      if (!pointerActive || selectionActive) return;
+      selectionActive = true;
+      restoreViewport();
+      frame = win.requestAnimationFrame(keepLocked);
+    };
+    const stopLock = () => {
+      if (selectionActive) restoreViewport();
+      pointerActive = false;
+      selectionActive = false;
+      if (frame != null) win.cancelAnimationFrame(frame);
+      frame = null;
+    };
+    const onPointerDown = (event: Event) => {
+      const pointer = event as PointerEvent;
+      if (pointer.button !== 0 || pointer.isPrimary === false) return;
+      stopLock();
+      pointerActive = true;
+      lockedLeft = scrolling.scrollLeft;
+      lockedTop = scrolling.scrollTop;
+    };
+    const onPointerMove = (event: Event) => {
+      if (pointerActive && (event as PointerEvent).buttons === 0) stopLock();
+    };
+    const onScroll = () => {
+      if (pointerActive && selectionActive) restoreViewport();
+    };
+
+    this.lifecycle.listen(document, 'pointerdown', onPointerDown, true);
+    this.lifecycle.listen(document, 'selectstart', startLock, true);
+    this.lifecycle.listen(document, 'pointermove', onPointerMove, true);
+    this.lifecycle.listen(document, 'pointerup', stopLock, true);
+    this.lifecycle.listen(document, 'pointercancel', stopLock, true);
+    this.lifecycle.listen(document, 'scroll', onScroll, true);
+    this.lifecycle.listen(win, 'pointerup', stopLock, true);
+    this.lifecycle.listen(win, 'blur', stopLock);
+    this.lifecycle.add(stopLock);
   }
 
   private assertPlan(plan: RenditionPlan): void {

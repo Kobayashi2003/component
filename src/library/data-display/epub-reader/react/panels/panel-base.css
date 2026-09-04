@@ -71,8 +71,10 @@
 
 .epub-reader-shell__panel-content {
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 14px;
   padding-bottom: max(var(--epub-space-4), env(safe-area-inset-bottom));
   background: color-mix(
@@ -147,7 +149,7 @@
 .epub-reader-panel select:focus-visible {
   outline: 0;
   border-color: var(--epub-color-accent);
-  box-shadow: var(--epub-focus);
+  box-shadow: var(--epub-field-focus);
 }
 
 /* Chromium's customizable select keeps native keyboard and assistive-technology

@@ -1,6 +1,6 @@
 # SVG Expression Patterns
 
-A compact selector for six hand-drawn expression studies stored as local SVG assets.
+Six hand-drawn SVG expression states with feature-level path morphing.
 
 ## Usage
 
@@ -12,11 +12,11 @@ import { SvgExpressionPatterns } from './svg-expression-patterns'
 
 ## Interaction
 
-- Choose a thumbnail to crossfade the main preview.
-- Use the up and down arrow keys while a selector is focused to move through the set.
+- Choose a thumbnail to switch expressions with a pattern-specific transition.
+- Use the arrow keys, Home, or End while a selector is focused to move through the set.
 
 ## Notes
 
-- SVGs are loaded as image assets instead of injected markup, keeping the DOM small and avoiding duplicate SVG IDs.
-- Reduced-motion mode disables the crossfade and selection transitions.
-- The assets use different path topologies, so the demo crossfades rather than attempting an unreliable path morph.
+- The original SVG assets stay untouched and remain the final visual states.
+- A normalized morph layer interpolates matching eye, upper-arc, and mouth silhouettes during transitions.
+- Reduced-motion mode switches states without animated transforms or morphing.

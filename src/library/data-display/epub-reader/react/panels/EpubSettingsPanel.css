@@ -148,7 +148,7 @@
   font-size: 0.73rem;
 }
 
-.epub-settings-panel__advanced-entry {
+.epub-reader-shell .epub-settings-panel__advanced-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -156,7 +156,7 @@
   width: 100%;
   min-height: 58px;
   padding: 11px 13px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 0;
   background: linear-gradient(
     135deg,
@@ -170,8 +170,8 @@
   text-align: left;
 }
 
-.epub-settings-panel__advanced-entry:hover:not(:disabled) {
-  border: 0;
+.epub-reader-shell .epub-settings-panel__advanced-entry:hover:not(:disabled) {
+  border-color: transparent;
   background: var(--epub-color-accent-soft);
 }
 

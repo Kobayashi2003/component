@@ -9,6 +9,7 @@ import type {
   AnnotationHighlightStyle,
   ReaderMarkActivation,
 } from '../../core';
+import { CloseIcon } from '../chrome/reader-icons';
 import { ANNOTATION_COLORS as COLORS } from './annotation-colors';
 import type { EpubReaderHandle } from '../state/model';
 
@@ -90,58 +91,60 @@ export function EpubMarkPopoverContent({
           aria-label="Close mark details"
           onClick={() => onClose(true)}
         >
-          ×
+          <CloseIcon />
         </button>
       </header>
       <form onSubmit={save}>
-        {mark.kind === 'annotation' ? (
-          <textarea
-            value={body}
-            maxLength={2_000}
-            rows={4}
-            aria-label="Note text"
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              setBody(event.currentTarget.value)
-            }
-          />
-        ) : mark.label ? (
-          <p className="epub-reader-mark-popover__excerpt">{mark.label}</p>
-        ) : null}
-        <fieldset className="epub-reader-mark-popover__field">
-          <legend>Color</legend>
-          <div
-            className="epub-reader-mark-popover__colors"
-            role="group"
-            aria-label="Mark color"
-          >
-            {COLORS.map((candidate) => (
-              <button
-                key={candidate}
-                type="button"
-                className={`is-${candidate}`}
-                aria-label={`${capitalize(candidate)} mark`}
-                aria-pressed={color === candidate}
-                onClick={() => setColor(candidate)}
-              />
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="epub-reader-mark-popover__field">
-          <legend>Style</legend>
-          <div className="epub-reader-mark-popover__styles">
-            {STYLES.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={highlight === option.value}
-                onClick={() => setHighlight(option.value)}
-              >
-                <span className={`is-${option.value}`}>Aa</span>
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <div className="epub-reader-mark-popover__body">
+          {mark.kind === 'annotation' ? (
+            <textarea
+              value={body}
+              maxLength={2_000}
+              rows={4}
+              aria-label="Note text"
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                setBody(event.currentTarget.value)
+              }
+            />
+          ) : mark.label ? (
+            <p className="epub-reader-mark-popover__excerpt">{mark.label}</p>
+          ) : null}
+          <fieldset className="epub-reader-mark-popover__field epub-reader-mark-popover__field--color">
+            <legend>Color</legend>
+            <div
+              className="epub-reader-mark-popover__colors"
+              role="group"
+              aria-label="Mark color"
+            >
+              {COLORS.map((candidate) => (
+                <button
+                  key={candidate}
+                  type="button"
+                  className={`is-${candidate}`}
+                  aria-label={`${capitalize(candidate)} mark`}
+                  aria-pressed={color === candidate}
+                  onClick={() => setColor(candidate)}
+                />
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="epub-reader-mark-popover__field">
+            <legend>Style</legend>
+            <div className="epub-reader-mark-popover__styles">
+              {STYLES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={highlight === option.value}
+                  onClick={() => setHighlight(option.value)}
+                >
+                  <span className={`is-${option.value}`}>Aa</span>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </div>
         {confirmDelete ? (
           <div
             className="epub-reader-mark-popover__delete-confirm"
@@ -168,7 +171,7 @@ export function EpubMarkPopoverContent({
               type="submit"
               disabled={mark.kind === 'annotation' && !body.trim()}
             >
-              Save
+              Save Change
             </button>
           </footer>
         )}

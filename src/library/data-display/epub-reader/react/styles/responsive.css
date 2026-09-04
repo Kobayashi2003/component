@@ -57,6 +57,9 @@
   bottom: 8px;
   left: 8px;
   width: auto;
+  max-height: calc(100% - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
   transform: none;
 }
 

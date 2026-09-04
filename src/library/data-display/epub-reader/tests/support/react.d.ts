@@ -61,6 +61,10 @@ declare module "react" {
     effect: () => void | (() => void),
     deps?: readonly unknown[],
   ): void;
+  export function useLayoutEffect(
+    effect: () => void | (() => void),
+    deps?: readonly unknown[],
+  ): void;
   export function useMemo<T>(factory: () => T, deps: readonly unknown[]): T;
   export interface MutableRefObject<T> {
     current: T;

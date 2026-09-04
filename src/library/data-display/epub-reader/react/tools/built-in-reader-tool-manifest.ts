@@ -31,9 +31,9 @@ export const BUILT_IN_READER_TOOL_MANIFEST = Object.freeze([
   },
   {
     id: 'marks',
-    label: 'Bookmarks and annotations',
+    label: 'Marks',
     shortLabel: 'Marks',
-    description: 'Saved places and selections',
+    description: 'Bookmarks, highlights and notes',
     placement: 'primary',
   },
   {

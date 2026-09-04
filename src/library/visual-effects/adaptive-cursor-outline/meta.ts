@@ -1,8 +1,8 @@
 import type { CatalogEntryMeta } from '../../../catalog/types'
 
 export default {
-  slug: 'cursor-focus-frame',
-  title: 'Cursor Focus Frame',
+  slug: 'adaptive-cursor-outline',
+  title: 'Adaptive Cursor Outline',
   category: 'visual-effects',
   kind: 'effect',
   status: 'experimental',

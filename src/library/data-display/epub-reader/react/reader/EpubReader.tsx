@@ -119,7 +119,9 @@ export function EpubReader({
   const shellChrome = useReaderShellChrome({
     shellRef,
     hasPublicationSnapshot: snapshot != null,
-    surfaceOpen: surfaces.open,
+    // Selection actions float over the publication and must not reveal or pin
+    // the edge chrome: it steals the exact top/bottom space users drag through.
+    surfaceOpen: surfaces.open && !surfaces.selection,
     onFullscreenError: () =>
       showFeedback({
         message: configuration.messages.fullscreenUnavailable,
@@ -217,7 +219,7 @@ export function EpubReader({
           <div
             className={`epub-reader-shell__body${panel ? ' has-panel' : ''}${compactLayout && (panel || footnote) ? ' has-compact-modal' : ''}`}
           >
-            {panel || footnote ? (
+            {panel || footnote || activeMark ? (
               <button
                 className={`epub-reader-shell__dismiss-layer${compactLayout ? ' is-modal' : ''}${surfaceClosing ? ' is-closing' : ''}`}
                 type="button"

@@ -5,6 +5,7 @@ import type {
   ReaderMark,
   ReaderMarkPatch,
 } from '../../../core';
+import { CloseIcon } from '../../chrome/reader-icons';
 import { ANNOTATION_COLORS } from '../../overlays/annotation-colors';
 
 const HIGHLIGHT_STYLES: readonly {
@@ -58,91 +59,111 @@ export function EpubMarkEditor({
       aria-label={`Edit ${mark.kind}`}
       onSubmit={submit}
     >
-      {mark.kind === 'annotation' ? (
-        <label>
-          <span>Note</span>
-          <textarea
-            value={body}
-            rows={4}
-            maxLength={2_000}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              setBody(event.currentTarget.value)
-            }
-          />
-        </label>
-      ) : (
-        <label>
-          <span>
-            {mark.kind === 'bookmark' ? 'Bookmark note' : 'Highlight label'}
-          </span>
-          <textarea
-            value={label}
-            rows={3}
-            maxLength={500}
-            placeholder={
-              mark.kind === 'bookmark'
-                ? 'Add a note about this place'
-                : 'Add a label'
-            }
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              setLabel(event.currentTarget.value)
-            }
-          />
-        </label>
-      )}
+      <header className="epub-mark-editor__header">
+        <div>
+          <strong>Edit {kindLabel(mark.kind).toLowerCase()}</strong>
+          <span>{editorDescription(mark.kind)}</span>
+        </div>
+        <button
+          type="button"
+          className="epub-mark-editor__close"
+          aria-label={`Close ${mark.kind} editor`}
+          onClick={onCancel}
+        >
+          <CloseIcon />
+        </button>
+      </header>
 
-      {mark.kind !== 'bookmark' ? (
-        <>
-          <fieldset>
-            <legend>Color</legend>
-            <div
-              className="epub-mark-editor__colors"
-              role="group"
-              aria-label="Mark color"
-            >
-              {ANNOTATION_COLORS.map((candidate) => (
-                <button
-                  key={candidate}
-                  type="button"
-                  className={`is-${candidate}`}
-                  aria-label={`${capitalize(candidate)} mark`}
-                  aria-pressed={color === candidate}
-                  onClick={() => setColor(candidate)}
-                />
-              ))}
-            </div>
-          </fieldset>
+      <div className="epub-mark-editor__body">
+        {mark.kind === 'annotation' ? (
           <label>
-            <span>Style</span>
-            <select
-              value={highlight}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setHighlight(
-                  event.currentTarget.value as AnnotationHighlightStyle,
-                )
+            <span>Note</span>
+            <textarea
+              value={body}
+              rows={3}
+              maxLength={2_000}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                setBody(event.currentTarget.value)
               }
-            >
-              {HIGHLIGHT_STYLES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            />
           </label>
-        </>
-      ) : null}
+        ) : (
+          <label>
+            <span>
+              {mark.kind === 'bookmark' ? 'Bookmark note' : 'Highlight label'}
+            </span>
+            <textarea
+              value={label}
+              rows={2}
+              maxLength={500}
+              placeholder={
+                mark.kind === 'bookmark'
+                  ? 'Add a note about this place'
+                  : 'Add a label'
+              }
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                setLabel(event.currentTarget.value)
+              }
+            />
+          </label>
+        )}
 
-      <label>
-        <span>Tags</span>
-        <input
-          value={tags}
-          maxLength={500}
-          placeholder="Separate tags with commas"
-          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-            setTags(event.currentTarget.value)
-          }
-        />
-      </label>
+        {mark.kind !== 'bookmark' ? (
+          <div className="epub-mark-editor__appearance">
+            <fieldset>
+              <legend>Color</legend>
+              <div
+                className="epub-mark-editor__colors"
+                role="group"
+                aria-label="Mark color"
+              >
+                {ANNOTATION_COLORS.map((candidate) => (
+                  <button
+                    key={candidate}
+                    type="button"
+                    className={`is-${candidate}`}
+                    aria-label={`${capitalize(candidate)} mark`}
+                    aria-pressed={color === candidate}
+                    onClick={() => setColor(candidate)}
+                  />
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Style</legend>
+              <div
+                className="epub-mark-editor__styles"
+                role="group"
+                aria-label="Mark style"
+              >
+                {HIGHLIGHT_STYLES.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={highlight === option.value}
+                    onClick={() => setHighlight(option.value)}
+                  >
+                    <span className={`is-${option.value}`}>Aa</span>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+        ) : null}
+
+        <label>
+          <span>Tags</span>
+          <input
+            value={tags}
+            maxLength={500}
+            placeholder="Separate tags with commas"
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              setTags(event.currentTarget.value)
+            }
+          />
+        </label>
+      </div>
 
       <footer>
         {confirmDelete ? (
@@ -193,4 +214,18 @@ function parseTags(value: string): readonly string[] {
 
 function capitalize(value: string): string {
   return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+}
+
+function kindLabel(kind: ReaderMark['kind']): string {
+  return kind === 'annotation'
+    ? 'Note'
+    : kind === 'highlight'
+      ? 'Highlight'
+      : 'Bookmark';
+}
+
+function editorDescription(kind: ReaderMark['kind']): string {
+  if (kind === 'bookmark') return 'Update its note and tags';
+  if (kind === 'annotation') return 'Update the note and its appearance';
+  return 'Update its label and appearance';
 }

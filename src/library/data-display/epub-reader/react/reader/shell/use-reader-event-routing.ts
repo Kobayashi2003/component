@@ -104,7 +104,6 @@ export function useReaderEventRouting(
         });
       } else if (event.type === 'selection-changed') {
         if (event.activation) {
-          chromeActionsRef.current?.show();
           showSurface({ kind: 'selection', activation: event.activation });
         } else if (surfaces.selection) {
           // A selection cleared while another surface is open must not close it.

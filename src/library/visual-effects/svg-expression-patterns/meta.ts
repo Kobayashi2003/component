@@ -6,11 +6,11 @@ export default {
   category: 'visual-effects',
   kind: 'effect',
   status: 'experimental',
-  summary: 'Six hand-drawn expression studies presented as lightweight, crossfading SVG states.',
+  summary: 'Six hand-drawn SVG expression states with feature-level path morphing and transition personalities.',
   style: 'hand-drawn illustration',
   tags: [
     { label: 'Selection', group: 'input' },
-    { label: 'Crossfade', group: 'feature' },
+    { label: 'Morph', group: 'feature' },
     { label: 'SVG', group: 'technology' },
     { label: 'Reduced motion', group: 'support' },
     { label: 'Hand-drawn', group: 'style' },

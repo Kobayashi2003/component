@@ -60,7 +60,7 @@
   stroke-width: var(--cursor-stroke);
   stroke-linejoin: round;
 }
-.focus-demo {
+.adaptive-outline-demo {
   min-height: 600px;
   color: #e9ecea;
   background: #0b0e0d;
@@ -142,7 +142,7 @@
   );
   font-size: 32px !important;
 }
-.focus-controls {
+.outline-controls {
   position: absolute;
   z-index: 25;
   top: 50%;
@@ -154,10 +154,10 @@
   cursor: auto;
   transform: translateY(-50%);
 }
-.focus-controls * {
+.outline-controls * {
   cursor: auto !important;
 }
-.focus-controls label {
+.outline-controls label {
   display: grid;
   grid-template-columns: 1fr auto;
   margin-bottom: 15px;
@@ -167,27 +167,27 @@
     monospace;
   text-transform: uppercase;
 }
-.focus-controls output {
+.outline-controls output {
   color: #dce2de;
 }
-.focus-controls input {
+.outline-controls input {
   grid-column: 1/-1;
   width: 100%;
   margin-top: 9px;
   accent-color: var(--cursor-color);
 }
-.focus-colors {
+.outline-colors {
   display: flex;
   gap: 9px;
 }
-.focus-colors button {
+.outline-colors button {
   width: 28px;
   height: 28px;
   border: 3px solid #111513;
   border-radius: 50%;
   cursor: pointer !important;
 }
-.focus-colors button[aria-pressed='true'] {
+.outline-colors button[aria-pressed='true'] {
   outline: 1px solid #fff;
   outline-offset: 2px;
 }
@@ -206,7 +206,7 @@
     width: 82vw;
     gap: 25px;
   }
-  .focus-controls {
+  .outline-controls {
     top: auto;
     right: 18px;
     bottom: 18px;

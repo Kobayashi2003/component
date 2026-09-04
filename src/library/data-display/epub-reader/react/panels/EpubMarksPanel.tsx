@@ -102,7 +102,7 @@ export function EpubMarksPanel({
   return (
     <section
       className="epub-reader-panel epub-marks-panel"
-      aria-label="Bookmarks and annotations"
+      aria-label="Marks"
     >
       <div className="epub-marks-panel__actions">
         <button type="button" onClick={() => void addBookmark()}>

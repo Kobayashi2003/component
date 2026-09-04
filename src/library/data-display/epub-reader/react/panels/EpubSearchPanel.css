@@ -56,14 +56,20 @@
   display: grid;
   gap: 6px;
   width: 100%;
-  max-height: 7.2em;
-  overflow: hidden;
   border-color: transparent;
   background: var(--epub-color-surface-muted);
   color: var(--epub-color-text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
   text-align: left;
+}
+
+.epub-search-result__excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .epub-search-result__context {

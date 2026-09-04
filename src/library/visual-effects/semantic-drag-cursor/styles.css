@@ -1,0 +1,243 @@
+.semantic-cursor-root {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+  cursor: none;
+}
+.semantic-cursor-root a,
+.semantic-cursor-root button,
+.semantic-cursor-root [data-cursor] {
+  cursor: none;
+}
+.semantic-cursor {
+  --semantic-cursor-x: 50%;
+  --semantic-cursor-y: 50%;
+  --semantic-cursor-angle: 0deg;
+  --semantic-cursor-stretch: 1;
+  position: absolute;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 8px;
+  height: 8px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--semantic-cursor-color);
+  border-radius: 999px;
+  opacity: 0;
+  color: #11130e;
+  background: var(--semantic-cursor-color);
+  box-shadow: 0 0 20px
+    color-mix(in srgb, var(--semantic-cursor-color) 16%, transparent);
+  pointer-events: none;
+  transform: translate(var(--semantic-cursor-x), var(--semantic-cursor-y))
+    translate(-50%, -50%);
+  transition:
+    width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 160ms,
+    opacity 100ms;
+  will-change: transform, width, height;
+}
+.semantic-cursor.is-visible {
+  opacity: 1;
+}
+.semantic-cursor__content {
+  opacity: 0;
+  white-space: pre;
+  font:
+    700 10px/1 'DM Mono',
+    monospace;
+  letter-spacing: 0.08em;
+  transition: opacity 100ms 40ms;
+}
+.semantic-cursor--link {
+  width: 42px;
+  height: 42px;
+}
+.semantic-cursor--view,
+.semantic-cursor--play {
+  width: 68px;
+  height: 68px;
+}
+.semantic-cursor--drag {
+  width: calc(108px * var(--semantic-cursor-stretch));
+  height: 44px;
+  transform: translate(var(--semantic-cursor-x), var(--semantic-cursor-y))
+    translate(-50%, -50%) rotate(var(--semantic-cursor-angle));
+}
+.semantic-cursor--drag .semantic-cursor__content {
+  transform: rotate(calc(var(--semantic-cursor-angle) * -1));
+}
+.semantic-cursor--link .semantic-cursor__content,
+.semantic-cursor--view .semantic-cursor__content,
+.semantic-cursor--play .semantic-cursor__content,
+.semantic-cursor--drag .semantic-cursor__content {
+  opacity: 1;
+}
+.semantic-cursor--drag.is-grabbing {
+  width: calc(68px * var(--semantic-cursor-stretch));
+  height: 42px;
+  background: #11130e;
+  color: var(--semantic-cursor-color);
+}
+.semantic-cursor-demo {
+  min-height: 600px;
+  color: #e9eae5;
+  background: #11120f;
+  font-family: Arial, sans-serif;
+}
+.semantic-demo__topline {
+  position: absolute;
+  top: 26px;
+  right: 30px;
+  left: 30px;
+  display: flex;
+  justify-content: space-between;
+  color: #686a64;
+  font:
+    9px/1 'DM Mono',
+    monospace;
+  letter-spacing: 0.12em;
+}
+.semantic-demo__topline a {
+  color: #a3a69d;
+  text-decoration: none;
+}
+.semantic-demo__intro {
+  position: absolute;
+  top: 82px;
+  right: 30px;
+  left: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #30322d;
+  padding-bottom: 20px;
+}
+.semantic-demo__intro span {
+  font-size: clamp(26px, 4vw, 48px);
+  letter-spacing: -0.04em;
+}
+.semantic-demo__intro button {
+  border: 1px solid #3c3e38;
+  border-radius: 999px;
+  padding: 11px 18px;
+  color: #b2b5ac;
+  background: transparent;
+  font:
+    9px/1 'DM Mono',
+    monospace;
+  text-transform: uppercase;
+}
+.semantic-project-rail {
+  position: absolute;
+  top: 178px;
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 0 30px 20px;
+  touch-action: pan-y;
+  user-select: none;
+}
+.semantic-project-track {
+  display: flex;
+  width: max-content;
+  gap: 16px;
+  padding-right: 30px;
+}
+.semantic-project {
+  width: 260px;
+}
+.semantic-project > span {
+  display: block;
+  margin-bottom: 8px;
+  color: #70736b;
+  font:
+    9px/1 'DM Mono',
+    monospace;
+}
+.semantic-project__visual {
+  position: relative;
+  height: 214px;
+  overflow: hidden;
+  border: 1px solid #32342f;
+  background: var(--project-tone);
+}
+.semantic-project__visual i {
+  position: absolute;
+  display: block;
+  border: 1px solid rgba(17, 18, 15, 0.72);
+}
+.semantic-project__visual i:nth-child(1) {
+  inset: 28px 52px;
+  border-radius: 50%;
+}
+.semantic-project__visual i:nth-child(2) {
+  top: 28px;
+  bottom: 28px;
+  left: 50%;
+}
+.semantic-project__visual i:nth-child(3) {
+  right: 28px;
+  bottom: 28px;
+  left: 28px;
+  height: 34px;
+  background: rgba(17, 18, 15, 0.12);
+}
+.semantic-project h2 {
+  margin: 10px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+.semantic-demo__legend {
+  position: absolute;
+  right: 30px;
+  bottom: 24px;
+  left: 30px;
+  display: flex;
+  gap: 10px;
+}
+.semantic-demo__legend > * {
+  border: 1px solid #343630;
+  border-radius: 999px;
+  padding: 9px 13px;
+  color: #858880;
+  background: transparent;
+  text-decoration: none;
+  font:
+    9px/1 'DM Mono',
+    monospace;
+}
+@media (max-width: 680px) {
+  .semantic-cursor-root,
+  .semantic-cursor-root * {
+    cursor: auto;
+  }
+  .semantic-cursor {
+    display: none;
+  }
+  .semantic-demo__intro {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .semantic-project-rail {
+    top: 190px;
+  }
+  .semantic-project {
+    width: 220px;
+  }
+  .semantic-project__visual {
+    height: 185px;
+  }
+  .semantic-demo__legend {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .semantic-cursor {
+    --semantic-cursor-stretch: 1 !important;
+    transition: opacity 100ms;
+  }
+}

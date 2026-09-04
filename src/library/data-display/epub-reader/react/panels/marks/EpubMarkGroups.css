@@ -72,6 +72,12 @@
   min-width: 0;
 }
 
+.epub-marks-panel__list
+  li:is([data-mark-kind='bookmark'], [data-mark-kind='highlight'])
+  .epub-marks-panel__item {
+  height: 72px;
+}
+
 .epub-marks-panel__item.is-selecting {
   grid-template-columns: auto minmax(0, 1fr);
 }
@@ -87,6 +93,7 @@
   gap: 5px;
   width: 100%;
   min-width: 0;
+  overflow: hidden;
   padding: 10px;
   border: 0;
   border-radius: 0;
@@ -101,11 +108,15 @@
 }
 
 .epub-marks-panel__location > strong {
+  display: -webkit-box;
   overflow: hidden;
   font-size: 0.76rem;
   font-weight: 650;
   line-height: 1.45;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .epub-marks-panel__meta {
@@ -128,7 +139,6 @@
   background: var(--epub-highlight);
 }
 
-.epub-marks-panel__meta i.is-yellow,
 .epub-marks-panel__note {
   display: -webkit-box;
   overflow: hidden;
