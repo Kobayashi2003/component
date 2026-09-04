@@ -12,7 +12,9 @@ export class BrowserDomXmlPlatform implements BrowserXmlPlatform {
   constructor(ownerDocument: Document) {
     const win = ownerDocument.defaultView;
     if (!win?.DOMParser || !win.XMLSerializer) {
-      throw new Error('The owner document does not expose DOMParser/XMLSerializer.');
+      throw new Error(
+        'The owner document does not expose DOMParser/XMLSerializer.',
+      );
     }
     this.Parser = win.DOMParser;
     this.Serializer = win.XMLSerializer;

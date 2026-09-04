@@ -71,7 +71,9 @@ export class RendererHost {
   /** Initial render, navigation to another spine item, or any relayout. */
   async present(
     plan: RenditionPlan,
-    reason: LayoutTransactionReason = this.currentState.plan ? 'content-change' : 'initial-render',
+    reason: LayoutTransactionReason = this.currentState.plan
+      ? 'content-change'
+      : 'initial-render',
     targetLocator?: Locator,
   ): Promise<RendererPresentationResult> {
     this.assertAlive();
@@ -83,12 +85,13 @@ export class RendererHost {
     });
 
     try {
-      const result = await this.coordinator.run(reason, async transaction => {
+      const result = await this.coordinator.run(reason, async (transaction) => {
         const previous = this.activeRenderer;
         const previousPlan = this.currentState.plan;
-        const sameContent = previousPlan != null
-          && previousPlan.spineIndex === plan.spineIndex
-          && previousPlan.href === plan.href;
+        const sameContent =
+          previousPlan != null &&
+          previousPlan.spineIndex === plan.spineIndex &&
+          previousPlan.href === plan.href;
         // A renderer instance owns one spine-document lifetime. Even if two
         // adjacent chapters use the same renderer kind, navigation replaces
         // the instance/surface so old load/font/image events cannot leak into
@@ -96,12 +99,15 @@ export class RendererHost {
         // Factory topology is part of renderer identity. A single-page
         // renderer and the cross-spine compositor can expose the same RendererKind,
         // so spread changes must replace the instance when they cross that boundary.
-        const sameTopology = previousPlan != null
-          && (previousPlan.spread.execution === 'cross-spine') === (plan.spread.execution === 'cross-spine');
-        const shouldReplace = previous == null
-          || previous.kind !== plan.renderer
-          || !sameContent
-          || !sameTopology;
+        const sameTopology =
+          previousPlan != null &&
+          (previousPlan.spread.execution === 'cross-spine') ===
+            (plan.spread.execution === 'cross-spine');
+        const shouldReplace =
+          previous == null ||
+          previous.kind !== plan.renderer ||
+          !sameContent ||
+          !sameTopology;
         let captured: Locator | null = null;
 
         // Locator preservation is a relayout concern. Never restore the old
@@ -120,10 +126,15 @@ export class RendererHost {
             transaction.throwIfSuperseded();
             const stability = await next.waitForLayoutStable(transaction);
             transaction.throwIfSuperseded();
-            const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan) ? targetLocator : captured;
+            const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan)
+              ? targetLocator
+              : captured;
             let restoredLocator: Locator | null = null;
             if (restoreTarget) {
-              restoredLocator = await next.restoreLocator(restoreTarget, transaction);
+              restoredLocator = await next.restoreLocator(
+                restoreTarget,
+                transaction,
+              );
               transaction.throwIfSuperseded();
             }
 
@@ -135,7 +146,13 @@ export class RendererHost {
               this.activeLayoutCleanup = this.observeLiveLayout(next);
               previous?.dispose();
               committed = true;
-              this.publishCommit(transaction.generation, reason, plan, layout, stability);
+              this.publishCommit(
+                transaction.generation,
+                reason,
+                plan,
+                layout,
+                stability,
+              );
             });
             return { state: this.currentState, locator: restoredLocator };
           } finally {
@@ -149,15 +166,26 @@ export class RendererHost {
         transaction.throwIfSuperseded();
         const stability = await previous!.waitForLayoutStable(transaction);
         transaction.throwIfSuperseded();
-        const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan) ? targetLocator : captured;
+        const restoreTarget = targetLocatorMatchesPlan(targetLocator, plan)
+          ? targetLocator
+          : captured;
         let restoredLocator: Locator | null = null;
         if (restoreTarget) {
-          restoredLocator = await previous!.restoreLocator(restoreTarget, transaction);
+          restoredLocator = await previous!.restoreLocator(
+            restoreTarget,
+            transaction,
+          );
           transaction.throwIfSuperseded();
         }
         const layout = previous!.snapshot();
         transaction.mutate(() => {
-          this.publishCommit(transaction.generation, reason, plan, layout, stability);
+          this.publishCommit(
+            transaction.generation,
+            reason,
+            plan,
+            layout,
+            stability,
+          );
         });
         return { state: this.currentState, locator: restoredLocator };
       });
@@ -167,7 +195,8 @@ export class RendererHost {
       if (result.status === 'committed') return result.value;
       return { state: this.currentState, locator: null };
     } catch (error) {
-      if (isAbortError(error)) return { state: this.currentState, locator: null };
+      if (isAbortError(error))
+        return { state: this.currentState, locator: null };
       if (!this.disposed) {
         this.setState({
           ...this.currentState,
@@ -180,17 +209,26 @@ export class RendererHost {
     }
   }
 
-
-  async navigateWithin(direction: ReadingDirection): Promise<RendererNavigationResult> {
+  async navigateWithin(
+    direction: ReadingDirection,
+  ): Promise<RendererNavigationResult> {
     this.assertAlive();
     const active = this.activeRenderer;
-    if (!active) return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
-    const result = await this.coordinator.run('navigation', async tx => {
+    if (!active)
+      return {
+        status: 'boundary',
+        edge: direction === 'forward' ? 'end' : 'start',
+      };
+    const result = await this.coordinator.run('navigation', async (tx) => {
       const navigation = await active.navigate(direction, tx);
       tx.throwIfSuperseded();
       if (navigation.status === 'moved') {
         tx.mutate(() => {
-          this.setState({ ...this.currentState, generation: tx.generation, layout: navigation.layout });
+          this.setState({
+            ...this.currentState,
+            generation: tx.generation,
+            layout: navigation.layout,
+          });
         });
       }
       return navigation;
@@ -204,9 +242,9 @@ export class RendererHost {
     this.assertAlive();
     const active = this.activeRenderer;
     if (!active) return Promise.resolve(null);
-    return this.coordinator.run('manual', tx => active.captureLocator(tx)).then(result =>
-      result.status === 'committed' ? result.value : null,
-    );
+    return this.coordinator
+      .run('manual', (tx) => active.captureLocator(tx))
+      .then((result) => (result.status === 'committed' ? result.value : null));
   }
 
   dispose(): void {
@@ -232,8 +270,13 @@ export class RendererHost {
 
   private observeLiveLayout(renderer: RendererInstance): (() => void) | null {
     if (!renderer.onLayoutChange) return null;
-    return renderer.onLayoutChange(layout => {
-      if (this.disposed || this.activeRenderer !== renderer || this.currentState.status === 'disposed') return;
+    return renderer.onLayoutChange((layout) => {
+      if (
+        this.disposed ||
+        this.activeRenderer !== renderer ||
+        this.currentState.status === 'disposed'
+      )
+        return;
       this.setState({ ...this.currentState, layout });
     });
   }
@@ -241,11 +284,14 @@ export class RendererHost {
   private createRenderer(plan: RenditionPlan): RendererInstance {
     const kind = plan.renderer;
     const factory = this.factories.get(kind);
-    if (!factory) throw new Error(`No renderer factory registered for ${kind}.`);
+    if (!factory)
+      throw new Error(`No renderer factory registered for ${kind}.`);
     const renderer = factory.create(plan);
     if (renderer.kind !== kind) {
       renderer.dispose();
-      throw new Error(`Renderer factory ${kind} created mismatched renderer ${renderer.kind}.`);
+      throw new Error(
+        `Renderer factory ${kind} created mismatched renderer ${renderer.kind}.`,
+      );
     }
     return renderer;
   }
@@ -266,7 +312,13 @@ export class RendererHost {
       stability,
       error: null,
     });
-    const event: RendererCommitEvent = { generation, reason, plan, layout, stability };
+    const event: RendererCommitEvent = {
+      generation,
+      reason,
+      plan,
+      layout,
+      stability,
+    };
     for (const listener of this.commitListeners) listener(event);
   }
 
@@ -280,6 +332,13 @@ export class RendererHost {
   }
 }
 
-function targetLocatorMatchesPlan(locator: Locator | undefined, plan: RenditionPlan): locator is Locator {
-  return locator != null && locator.spineIndex === plan.spineIndex && locator.href === plan.href;
+function targetLocatorMatchesPlan(
+  locator: Locator | undefined,
+  plan: RenditionPlan,
+): locator is Locator {
+  return (
+    locator != null &&
+    locator.spineIndex === plan.spineIndex &&
+    locator.href === plan.href
+  );
 }

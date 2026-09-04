@@ -2,8 +2,10 @@ import type { Locator, LocatorRange } from '../../epub/publication';
 
 export type ReaderMarkKind = 'bookmark' | 'highlight' | 'annotation';
 /** Semantic color names align with the current EPUB Annotations interchange draft. */
-export type AnnotationColor = 'pink' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple';
-export type AnnotationHighlightStyle = 'solid' | 'underline' | 'strikethrough' | 'outline';
+export type AnnotationColor =
+  'pink' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple';
+export type AnnotationHighlightStyle =
+  'solid' | 'underline' | 'strikethrough' | 'outline';
 
 export interface ReaderMarkBase {
   readonly id: string;

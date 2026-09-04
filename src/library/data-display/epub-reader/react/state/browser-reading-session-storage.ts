@@ -1,4 +1,8 @@
-import { parseReadingSessionRecord, type ReadingSessionRecord, type ReadingSessionStorage } from '../../core';
+import {
+  parseReadingSessionRecord,
+  type ReadingSessionRecord,
+  type ReadingSessionStorage,
+} from '../../core';
 
 /** Best-effort localStorage adapter for the framework-neutral session port. */
 export class BrowserReadingSessionStorage implements ReadingSessionStorage {
@@ -18,10 +22,18 @@ export class BrowserReadingSessionStorage implements ReadingSessionStorage {
   }
 
   save(key: string, record: ReadingSessionRecord): void {
-    try { this.storage.setItem(this.namespace + key, JSON.stringify(record)); } catch { /* storage is best effort */ }
+    try {
+      this.storage.setItem(this.namespace + key, JSON.stringify(record));
+    } catch {
+      /* storage is best effort */
+    }
   }
 
   remove(key: string): void {
-    try { this.storage.removeItem(this.namespace + key); } catch { /* storage is best effort */ }
+    try {
+      this.storage.removeItem(this.namespace + key);
+    } catch {
+      /* storage is best effort */
+    }
   }
 }

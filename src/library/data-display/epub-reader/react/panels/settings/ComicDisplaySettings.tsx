@@ -1,4 +1,7 @@
-import { DEFAULT_READER_PREFERENCES, type ReaderPreferences } from '../../../core';
+import {
+  DEFAULT_READER_PREFERENCES,
+  type ReaderPreferences,
+} from '../../../core';
 import type { EpubReaderHandle } from '../../state/model';
 import { ComicLayoutPreview } from './ReaderSettingsPreviews';
 
@@ -13,12 +16,19 @@ export function ComicDisplaySettings({
     <div className="epub-settings-panel__section epub-settings-panel__comic">
       <div className="epub-settings-panel__head">
         <h3>Comic display</h3>
-        <button type="button" onClick={() => void reader.setPreferences({
-          fixedLayoutFit: DEFAULT_READER_PREFERENCES.fixedLayoutFit,
-          fixedLayoutGutter: DEFAULT_READER_PREFERENCES.fixedLayoutGutter,
-          spread: DEFAULT_READER_PREFERENCES.spread,
-          pageProgression: DEFAULT_READER_PREFERENCES.pageProgression,
-        })}>Reset</button>
+        <button
+          type="button"
+          onClick={() =>
+            void reader.setPreferences({
+              fixedLayoutFit: DEFAULT_READER_PREFERENCES.fixedLayoutFit,
+              fixedLayoutGutter: DEFAULT_READER_PREFERENCES.fixedLayoutGutter,
+              spread: DEFAULT_READER_PREFERENCES.spread,
+              pageProgression: DEFAULT_READER_PREFERENCES.pageProgression,
+            })
+          }
+        >
+          Reset
+        </button>
       </div>
       <ComicLayoutPreview
         fit={preferences.fixedLayoutFit}
@@ -29,17 +39,21 @@ export function ComicDisplaySettings({
       <fieldset className="epub-settings-panel__segmented">
         <legend>Page fit</legend>
         <div>
-          {([
-            ['contain', 'Whole page'],
-            ['width', 'Fit width'],
-            ['height', 'Fit height'],
-            ['original', 'Original'],
-          ] as const).map(([value, label]) => (
+          {(
+            [
+              ['contain', 'Whole page'],
+              ['width', 'Fit width'],
+              ['height', 'Fit height'],
+              ['original', 'Original'],
+            ] as const
+          ).map(([value, label]) => (
             <button
               key={value}
               type="button"
               aria-pressed={preferences.fixedLayoutFit === value}
-              onClick={() => void reader.setPreferences({ fixedLayoutFit: value })}
+              onClick={() =>
+                void reader.setPreferences({ fixedLayoutFit: value })
+              }
             >
               {label}
             </button>
@@ -49,16 +63,20 @@ export function ComicDisplaySettings({
       <fieldset className="epub-settings-panel__segmented">
         <legend>Page gutter</legend>
         <div>
-          {([
-            ['none', 'None'],
-            ['normal', 'Normal'],
-          ] as const).map(([value, label]) => (
+          {(
+            [
+              ['none', 'None'],
+              ['normal', 'Normal'],
+            ] as const
+          ).map(([value, label]) => (
             <button
               key={value}
               type="button"
               disabled={preferences.spread === 'single'}
               aria-pressed={preferences.fixedLayoutGutter === value}
-              onClick={() => void reader.setPreferences({ fixedLayoutGutter: value })}
+              onClick={() =>
+                void reader.setPreferences({ fixedLayoutGutter: value })
+              }
             >
               {label}
             </button>

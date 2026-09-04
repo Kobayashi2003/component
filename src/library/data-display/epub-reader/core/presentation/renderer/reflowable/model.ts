@@ -1,7 +1,8 @@
 import type { TextDirection, WritingMode } from '../../../epub/publication';
 import type { RendererLayoutSnapshot } from '../model';
 
-export type ReflowableRendererKind = 'reflowable-paginated' | 'reflowable-scroll';
+export type ReflowableRendererKind =
+  'reflowable-paginated' | 'reflowable-scroll';
 export type PhysicalScrollAxis = 'horizontal' | 'vertical';
 export type HorizontalFlowDirection = 'left-to-right' | 'right-to-left';
 
@@ -14,11 +15,12 @@ export interface ReflowableRendererPolicy {
   readonly locatorTextLength: number;
 }
 
-export const DEFAULT_REFLOWABLE_RENDERER_POLICY: ReflowableRendererPolicy = Object.freeze({
-  pageGap: 32,
-  containReplacedElements: true,
-  locatorTextLength: 48,
-});
+export const DEFAULT_REFLOWABLE_RENDERER_POLICY: ReflowableRendererPolicy =
+  Object.freeze({
+    pageGap: 32,
+    containReplacedElements: true,
+    locatorTextLength: 48,
+  });
 
 export interface ReflowablePresentation {
   readonly writingMode: WritingMode;

@@ -62,28 +62,35 @@ export function normalizeProgression(value: number): number {
 export function normalizeReaderPreferences(
   value: ReaderPreferences,
 ): ReaderPreferences {
-  const compatibility = value.compatibility ?? DEFAULT_READER_COMPATIBILITY_PREFERENCES;
+  const compatibility =
+    value.compatibility ?? DEFAULT_READER_COMPATIBILITY_PREFERENCES;
   return {
     ...value,
     fontSizePercent: clamp(value.fontSizePercent, 50, 300),
     lineHeight:
       value.lineHeight == null ? null : clamp(value.lineHeight, 0.8, 3),
     pageMarginPercent: clamp(value.pageMarginPercent, 0, 18),
-    fixedLayoutFit: ['contain', 'width', 'height', 'original'].includes(value.fixedLayoutFit)
+    fixedLayoutFit: ['contain', 'width', 'height', 'original'].includes(
+      value.fixedLayoutFit,
+    )
       ? value.fixedLayoutFit
       : 'contain',
     fixedLayoutGutter: ['none', 'normal'].includes(value.fixedLayoutGutter)
       ? value.fixedLayoutGutter
       : 'none',
-    touchNavigation: ['both', 'tap', 'swipe', 'off'].includes(value.touchNavigation)
+    touchNavigation: ['both', 'tap', 'swipe', 'off'].includes(
+      value.touchNavigation,
+    )
       ? value.touchNavigation
       : 'both',
     pageTurnZonePercent: clamp(value.pageTurnZonePercent, 10, 40),
     compatibility: {
-      recoverContainerStructure: compatibility.recoverContainerStructure !== false,
+      recoverContainerStructure:
+        compatibility.recoverContainerStructure !== false,
       selectPreferredRootfile: compatibility.selectPreferredRootfile !== false,
       recoverMalformedXhtml: compatibility.recoverMalformedXhtml !== false,
-      useLegacyNavigationFallback: compatibility.useLegacyNavigationFallback !== false,
+      useLegacyNavigationFallback:
+        compatibility.useLegacyNavigationFallback !== false,
       normalizeLegacyCss: compatibility.normalizeLegacyCss !== false,
       fitSingleImagePages: compatibility.fitSingleImagePages !== false,
       deobfuscateIdpfFonts: compatibility.deobfuscateIdpfFonts !== false,

@@ -1,5 +1,8 @@
 import type { XmlElementNode, XmlNode } from '../xml';
-import { isSemanticBlockElementName, isSemanticExcludedElementName } from './policy';
+import {
+  isSemanticBlockElementName,
+  isSemanticExcludedElementName,
+} from './policy';
 
 /** Platform-neutral semantic text used by real-world corpus/conformance probes. */
 export function semanticXmlText(root: XmlElementNode): string {
@@ -23,7 +26,10 @@ export function semanticXmlText(root: XmlElementNode): string {
 }
 
 /** Return base/readings for ruby elements so corpus tests can assert projection semantics. */
-export function collectRubySamples(root: XmlElementNode, limit = 32): readonly { base: string; reading: string }[] {
+export function collectRubySamples(
+  root: XmlElementNode,
+  limit = 32,
+): readonly { base: string; reading: string }[] {
   const out: { base: string; reading: string }[] = [];
   const visit = (node: XmlElementNode): void => {
     if (out.length >= limit) return;
@@ -32,14 +38,16 @@ export function collectRubySamples(root: XmlElementNode, limit = 32): readonly {
       let reading = '';
       for (const child of node.children) {
         if (child.type === 'text') base += child.value;
-        else if (child.localName.toLowerCase() === 'rt') reading += rawText(child);
+        else if (child.localName.toLowerCase() === 'rt')
+          reading += rawText(child);
         else if (child.localName.toLowerCase() !== 'rp') base += rawText(child);
       }
       base = base.replace(/\s+/gu, '');
       reading = reading.replace(/\s+/gu, '');
       if (base || reading) out.push({ base, reading });
     }
-    for (const child of node.children) if (child.type === 'element') visit(child);
+    for (const child of node.children)
+      if (child.type === 'element') visit(child);
   };
   visit(root);
   return out;

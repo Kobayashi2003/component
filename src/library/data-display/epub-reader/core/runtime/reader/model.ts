@@ -1,25 +1,54 @@
 import type { ReaderAccessibilityDescription } from '../../features/accessibility';
-import type { ReaderMarkStore, ReaderMarkStoreSnapshot } from '../../features/annotations';
+import type {
+  ReaderMarkStore,
+  ReaderMarkStoreSnapshot,
+} from '../../features/annotations';
 import type { ReaderThemeDefinition } from '../../presentation/appearance';
-import type { PublicationDiagnostic, Locator, LocatorRange, Publication, PublicationLayoutProfile, ReaderPreferences, PublicationControlDocumentLimits, WritingMode } from '../../epub/publication';
-import type { ReaderHostCommand, ReaderInputMapDescription, ReaderInputPolicy } from '../../interaction/input';
+import type {
+  PublicationDiagnostic,
+  Locator,
+  LocatorRange,
+  Publication,
+  PublicationLayoutProfile,
+  ReaderPreferences,
+  PublicationControlDocumentLimits,
+  WritingMode,
+} from '../../epub/publication';
+import type {
+  ReaderHostCommand,
+  ReaderInputMapDescription,
+  ReaderInputPolicy,
+} from '../../interaction/input';
 import type { ReaderExtensionConfiguration } from '../configuration';
-import type { PublicationSearchCachePolicy, ReaderSearchState, SearchOptions, SearchHit } from '../../features/search';
+import type {
+  PublicationSearchCachePolicy,
+  ReaderSearchState,
+  SearchOptions,
+  SearchHit,
+} from '../../features/search';
 import type { RendererHostState } from '../../presentation/renderer';
-import type { RenditionPlannerPolicy, ViewportMetrics } from '../../presentation/rendition';
+import type {
+  RenditionPlannerPolicy,
+  ViewportMetrics,
+} from '../../presentation/rendition';
 import type { ResourceResolverOptions } from '../../epub/resources';
 import type { PublicationLinkRouterOptions } from '../../interaction/navigation';
 import type { ReaderNavigationHistorySnapshot } from '../../interaction/navigation';
 import type { ReaderFootnote } from '../../interaction/navigation';
-import type { ReaderSelection, ReaderSelectionActivation } from '../../interaction/selection';
+import type {
+  ReaderSelection,
+  ReaderSelectionActivation,
+} from '../../interaction/selection';
 import type { ReaderImageActivation } from '../../features/media';
 import type { OcfCompatibilityMode, OcfZipLimits } from '../../epub/archive';
 import type { CompatibilityReport } from '../../epub/compatibility';
 import type { PublicationContentDocumentCachePolicy } from '../../epub/content';
 
-export type BrowserEpubReaderStatus = 'opening' | 'ready' | 'error' | 'disposed';
+export type BrowserEpubReaderStatus =
+  'opening' | 'ready' | 'error' | 'disposed';
 
-export type BrowserEpubReaderOpenPhase = 'archive' | 'package' | 'preflight' | 'resources' | 'rendition';
+export type BrowserEpubReaderOpenPhase =
+  'archive' | 'package' | 'preflight' | 'resources' | 'rendition';
 
 export interface BrowserEpubReaderOpenProgress {
   readonly phase: BrowserEpubReaderOpenPhase;
@@ -31,7 +60,9 @@ export interface BrowserEpubReaderOpenProgress {
 }
 
 export interface ReaderMarkActivation {
-  readonly mark: import('../../features/annotations').Highlight | import('../../features/annotations').Annotation;
+  readonly mark:
+    | import('../../features/annotations').Highlight
+    | import('../../features/annotations').Annotation;
   readonly anchor: { readonly x: number; readonly y: number };
   readonly returnFocus: HTMLElement;
 }
@@ -39,10 +70,23 @@ export interface ReaderMarkActivation {
 export type ReaderEvent =
   | { readonly type: 'navigation-boundary'; readonly edge: 'start' | 'end' }
   | { readonly type: 'bookmark-added' }
-  | { readonly type: 'footnote-activated'; readonly footnote: ReaderFootnote; readonly trigger: HTMLElement }
-  | { readonly type: 'selection-changed'; readonly activation: ReaderSelectionActivation | null }
-  | { readonly type: 'mark-activated'; readonly activation: ReaderMarkActivation }
-  | { readonly type: 'image-activated'; readonly activation: ReaderImageActivation };
+  | {
+      readonly type: 'footnote-activated';
+      readonly footnote: ReaderFootnote;
+      readonly trigger: HTMLElement;
+    }
+  | {
+      readonly type: 'selection-changed';
+      readonly activation: ReaderSelectionActivation | null;
+    }
+  | {
+      readonly type: 'mark-activated';
+      readonly activation: ReaderMarkActivation;
+    }
+  | {
+      readonly type: 'image-activated';
+      readonly activation: ReaderImageActivation;
+    };
 
 /**
  * Presentation facts that belong to the publication, not to the active page.
@@ -98,8 +142,12 @@ export interface BrowserEpubReaderOptions extends PublicationLinkRouterOptions {
   readonly preferences?: import('../../epub/publication').ReaderPreferencesPatch;
   readonly initialLocator?: Locator;
   readonly initialSpineIndex?: number;
-  readonly plannerPolicy?: Partial<Omit<RenditionPlannerPolicy, 'syntheticSpreads'>> & {
-    readonly syntheticSpreads?: Partial<RenditionPlannerPolicy['syntheticSpreads']>;
+  readonly plannerPolicy?: Partial<
+    Omit<RenditionPlannerPolicy, 'syntheticSpreads'>
+  > & {
+    readonly syntheticSpreads?: Partial<
+      RenditionPlannerPolicy['syntheticSpreads']
+    >;
   };
   readonly resourcePolicy?: ResourceResolverOptions;
   readonly archiveLimits?: Partial<OcfZipLimits>;
@@ -115,11 +163,16 @@ export interface BrowserEpubReaderOptions extends PublicationLinkRouterOptions {
   readonly onCommand?: (command: ReaderHostCommand) => void;
   /** Reports semantic reader activity independently of product UI handling. */
   readonly onEvent?: (event: ReaderEvent) => void;
-  readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
+  readonly onDiagnostics?: (
+    diagnostics: readonly PublicationDiagnostic[],
+  ) => void;
 }
 
 export interface BrowserEpubReaderSearchApi {
-  run(query: string, options?: Partial<SearchOptions>): Promise<readonly SearchHit[]>;
+  run(
+    query: string,
+    options?: Partial<SearchOptions>,
+  ): Promise<readonly SearchHit[]>;
   clear(): void;
   /** Releases cached chapter indexes without clearing the visible result set. */
   clearCache(): void;
@@ -129,7 +182,11 @@ export interface BrowserEpubReaderSearchApi {
 }
 
 export interface BrowserEpubReaderMarksApi {
-  addBookmark(label?: string): ReturnType<import('../../features/annotations').ReaderMarkController['addBookmark']>;
+  addBookmark(
+    label?: string,
+  ): ReturnType<
+    import('../../features/annotations').ReaderMarkController['addBookmark']
+  >;
   addHighlight(
     range: LocatorRange,
     highlight?: import('../../features/annotations').AnnotationHighlightStyle,
@@ -147,7 +204,10 @@ export interface BrowserEpubReaderMarksApi {
   ): import('../../features/annotations').Annotation;
   remove(id: string): boolean;
   removeMany(ids: readonly string[]): number;
-  update(id: string, patch: import('../../features/annotations').ReaderMarkPatch): import('../../features/annotations').ReaderMark | null;
+  update(
+    id: string,
+    patch: import('../../features/annotations').ReaderMarkPatch,
+  ): import('../../features/annotations').ReaderMark | null;
   clear(): void;
   goTo(id: string): Promise<boolean>;
 }

@@ -13,8 +13,10 @@ export class PublicationDiagnosticCollector {
     return this.diagnostics;
   }
 
-  append(next: readonly PublicationDiagnostic[]): readonly PublicationDiagnostic[] {
-    const unique = next.filter(diagnostic => {
+  append(
+    next: readonly PublicationDiagnostic[],
+  ): readonly PublicationDiagnostic[] {
+    const unique = next.filter((diagnostic) => {
       const key = diagnosticKey(diagnostic);
       if (this.keys.has(key)) return false;
       this.keys.add(key);

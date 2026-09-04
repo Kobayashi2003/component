@@ -7,7 +7,10 @@ import type {
 } from '../../../core';
 import { ANNOTATION_COLORS } from '../../overlays/annotation-colors';
 
-const HIGHLIGHT_STYLES: readonly { readonly value: AnnotationHighlightStyle; readonly label: string }[] = [
+const HIGHLIGHT_STYLES: readonly {
+  readonly value: AnnotationHighlightStyle;
+  readonly label: string;
+}[] = [
   { value: 'solid', label: 'Highlight' },
   { value: 'underline', label: 'Underline' },
   { value: 'strikethrough', label: 'Strike through' },
@@ -21,11 +24,20 @@ interface EpubMarkEditorProps {
   readonly onCancel: () => void;
 }
 
-export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEditorProps) {
+export function EpubMarkEditor({
+  mark,
+  onSave,
+  onDelete,
+  onCancel,
+}: EpubMarkEditorProps) {
   const [label, setLabel] = useState(mark.label ?? '');
   const [body, setBody] = useState(mark.kind === 'annotation' ? mark.body : '');
-  const [color, setColor] = useState<AnnotationColor>(mark.kind === 'bookmark' ? 'yellow' : mark.color);
-  const [highlight, setHighlight] = useState<AnnotationHighlightStyle>(mark.kind === 'bookmark' ? 'solid' : mark.highlight);
+  const [color, setColor] = useState<AnnotationColor>(
+    mark.kind === 'bookmark' ? 'yellow' : mark.color,
+  );
+  const [highlight, setHighlight] = useState<AnnotationHighlightStyle>(
+    mark.kind === 'bookmark' ? 'solid' : mark.highlight,
+  );
   const [tags, setTags] = useState(mark.tags?.join(', ') ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -41,16 +53,41 @@ export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEdi
   };
 
   return (
-    <form className="epub-mark-editor" aria-label={`Edit ${mark.kind}`} onSubmit={submit}>
+    <form
+      className="epub-mark-editor"
+      aria-label={`Edit ${mark.kind}`}
+      onSubmit={submit}
+    >
       {mark.kind === 'annotation' ? (
         <label>
           <span>Note</span>
-          <textarea value={body} rows={4} maxLength={2_000} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setBody(event.currentTarget.value)} />
+          <textarea
+            value={body}
+            rows={4}
+            maxLength={2_000}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              setBody(event.currentTarget.value)
+            }
+          />
         </label>
       ) : (
         <label>
-          <span>{mark.kind === 'bookmark' ? 'Bookmark note' : 'Highlight label'}</span>
-          <textarea value={label} rows={3} maxLength={500} placeholder={mark.kind === 'bookmark' ? 'Add a note about this place' : 'Add a label'} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setLabel(event.currentTarget.value)} />
+          <span>
+            {mark.kind === 'bookmark' ? 'Bookmark note' : 'Highlight label'}
+          </span>
+          <textarea
+            value={label}
+            rows={3}
+            maxLength={500}
+            placeholder={
+              mark.kind === 'bookmark'
+                ? 'Add a note about this place'
+                : 'Add a label'
+            }
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              setLabel(event.currentTarget.value)
+            }
+          />
         </label>
       )}
 
@@ -58,8 +95,12 @@ export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEdi
         <>
           <fieldset>
             <legend>Color</legend>
-            <div className="epub-mark-editor__colors" role="group" aria-label="Mark color">
-              {ANNOTATION_COLORS.map(candidate => (
+            <div
+              className="epub-mark-editor__colors"
+              role="group"
+              aria-label="Mark color"
+            >
+              {ANNOTATION_COLORS.map((candidate) => (
                 <button
                   key={candidate}
                   type="button"
@@ -73,8 +114,19 @@ export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEdi
           </fieldset>
           <label>
             <span>Style</span>
-            <select value={highlight} onChange={(event: ChangeEvent<HTMLSelectElement>) => setHighlight(event.currentTarget.value as AnnotationHighlightStyle)}>
-              {HIGHLIGHT_STYLES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <select
+              value={highlight}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                setHighlight(
+                  event.currentTarget.value as AnnotationHighlightStyle,
+                )
+              }
+            >
+              {HIGHLIGHT_STYLES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
         </>
@@ -82,22 +134,46 @@ export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEdi
 
       <label>
         <span>Tags</span>
-        <input value={tags} maxLength={500} placeholder="Separate tags with commas" onChange={(event: ChangeEvent<HTMLInputElement>) => setTags(event.currentTarget.value)} />
+        <input
+          value={tags}
+          maxLength={500}
+          placeholder="Separate tags with commas"
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+            setTags(event.currentTarget.value)
+          }
+        />
       </label>
 
       <footer>
         {confirmDelete ? (
           <div className="epub-mark-editor__confirm" role="alert">
             <span>Delete this {mark.kind}?</span>
-            <button type="button" onClick={() => setConfirmDelete(false)}>Keep</button>
-            <button type="button" className="is-danger" onClick={onDelete}>Delete</button>
+            <button type="button" onClick={() => setConfirmDelete(false)}>
+              Keep
+            </button>
+            <button type="button" className="is-danger" onClick={onDelete}>
+              Delete
+            </button>
           </div>
         ) : (
-          <button type="button" className="is-danger-text" onClick={() => setConfirmDelete(true)}>Delete</button>
+          <button
+            type="button"
+            className="is-danger-text"
+            onClick={() => setConfirmDelete(true)}
+          >
+            Delete
+          </button>
         )}
         <div>
-          <button type="button" onClick={onCancel}>Cancel</button>
-          <button type="submit" disabled={mark.kind === 'annotation' && !body.trim()}>Save</button>
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={mark.kind === 'annotation' && !body.trim()}
+          >
+            Save
+          </button>
         </div>
       </footer>
     </form>
@@ -105,7 +181,14 @@ export function EpubMarkEditor({ mark, onSave, onDelete, onCancel }: EpubMarkEdi
 }
 
 function parseTags(value: string): readonly string[] {
-  return [...new Set(value.split(',').map(tag => tag.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function capitalize(value: string): string {

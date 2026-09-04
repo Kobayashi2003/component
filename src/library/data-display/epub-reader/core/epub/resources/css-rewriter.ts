@@ -18,7 +18,10 @@ export interface CssRewriteResult {
  */
 export async function rewriteCssReferences(
   css: string,
-  rewrite: (source: string, kind: CssReferenceKind) => Promise<string | null> | string | null,
+  rewrite: (
+    source: string,
+    kind: CssReferenceKind,
+  ) => Promise<string | null> | string | null,
 ): Promise<CssRewriteResult> {
   const out: string[] = [];
   const references: CssReference[] = [];
@@ -93,7 +96,10 @@ function isUrlFunction(css: string, index: number): boolean {
   return css[cursor] === '(';
 }
 
-function readUrlFunction(css: string, index: number): { value: string; end: number } {
+function readUrlFunction(
+  css: string,
+  index: number,
+): { value: string; end: number } {
   let cursor = index + 3;
   while (/\s/.test(css[cursor] ?? '')) cursor += 1;
   if (css[cursor] !== '(') return { value: '', end: index + 3 };
@@ -131,7 +137,10 @@ function readUrlFunction(css: string, index: number): { value: string; end: numb
   return { value: css.slice(start).trimEnd(), end: css.length };
 }
 
-function readCssString(css: string, index: number): { raw: string; value: string; end: number } {
+function readCssString(
+  css: string,
+  index: number,
+): { raw: string; value: string; end: number } {
   const quote = css[index]!;
   let cursor = index + 1;
   let escaped = false;
@@ -156,7 +165,11 @@ function readCssString(css: string, index: number): { raw: string; value: string
     }
     cursor += 1;
   }
-  return { raw: css.slice(index), value: css.slice(index + 1), end: css.length };
+  return {
+    raw: css.slice(index),
+    value: css.slice(index + 1),
+    end: css.length,
+  };
 }
 
 function quoteCssString(value: string, quote: string): string {
@@ -170,11 +183,23 @@ function quoteCssString(value: string, quote: string): string {
 
 function unescapeCss(value: string): string {
   return value
-    .replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[ \n\r\t\f])?/g, (_match, hex: string) => {
-      const codePoint = Number.parseInt(hex, 16);
-      if (!Number.isFinite(codePoint) || codePoint === 0 || codePoint > 0x10ffff) return '\uFFFD';
-      try { return String.fromCodePoint(codePoint); } catch { return '\uFFFD'; }
-    })
+    .replace(
+      /\\([0-9a-fA-F]{1,6})(?:\r\n|[ \n\r\t\f])?/g,
+      (_match, hex: string) => {
+        const codePoint = Number.parseInt(hex, 16);
+        if (
+          !Number.isFinite(codePoint) ||
+          codePoint === 0 ||
+          codePoint > 0x10ffff
+        )
+          return '\uFFFD';
+        try {
+          return String.fromCodePoint(codePoint);
+        } catch {
+          return '\uFFFD';
+        }
+      },
+    )
     .replace(/\\\r?\n/g, '')
     .replace(/\\([\s\S])/g, '$1');
 }

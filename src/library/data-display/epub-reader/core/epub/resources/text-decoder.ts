@@ -3,8 +3,16 @@
  * UTF-8. EPUB 3 strongly favors Unicode encodings, but old/invalid books exist.
  * BOMs win; CSS @charset is honored when present; otherwise UTF-8 is used.
  */
-export function decodePublicationText(bytes: Uint8Array, mediaType: string): string {
-  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+export function decodePublicationText(
+  bytes: Uint8Array,
+  mediaType: string,
+): string {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf
+  ) {
     return new TextDecoder('utf-8').decode(bytes.subarray(3));
   }
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
@@ -27,7 +35,9 @@ export function decodePublicationText(bytes: Uint8Array, mediaType: string): str
   }
 
   if (mediaType.split(';', 1)[0]!.trim().toLowerCase() === 'text/css') {
-    const asciiPrefix = new TextDecoder('ascii').decode(bytes.subarray(0, Math.min(bytes.length, 256)));
+    const asciiPrefix = new TextDecoder('ascii').decode(
+      bytes.subarray(0, Math.min(bytes.length, 256)),
+    );
     const match = /^\s*@charset\s+["']([^"']+)["']\s*;/i.exec(asciiPrefix);
     if (match?.[1]) {
       try {

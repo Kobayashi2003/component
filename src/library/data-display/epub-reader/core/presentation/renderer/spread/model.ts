@@ -15,9 +15,10 @@ export interface SpreadRendererPolicy {
   readonly pageGap: number;
 }
 
-export const DEFAULT_SPREAD_RENDERER_POLICY: SpreadRendererPolicy = Object.freeze({
-  pageGap: 24,
-});
+export const DEFAULT_SPREAD_RENDERER_POLICY: SpreadRendererPolicy =
+  Object.freeze({
+    pageGap: 24,
+  });
 
 export interface SpreadChildSnapshot {
   readonly spineIndex: number;

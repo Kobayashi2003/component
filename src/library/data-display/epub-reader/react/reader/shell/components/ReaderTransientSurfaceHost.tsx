@@ -19,14 +19,22 @@ interface ReaderTransientSurfaceHostProps {
 }
 
 /** Selects content providers while retaining each transient surface's fixed Shell frame. */
-export function ReaderTransientSurfaceHost(props: ReaderTransientSurfaceHostProps) {
-  if (props.surface.kind === 'footnote') return <FootnoteSurfaceFrame {...props} surface={props.surface} />;
-  if (props.surface.kind === 'selection') return <SelectionSurfaceFrame {...props} surface={props.surface} />;
-  if (props.surface.kind === 'mark') return <MarkSurfaceFrame {...props} surface={props.surface} />;
+export function ReaderTransientSurfaceHost(
+  props: ReaderTransientSurfaceHostProps,
+) {
+  if (props.surface.kind === 'footnote')
+    return <FootnoteSurfaceFrame {...props} surface={props.surface} />;
+  if (props.surface.kind === 'selection')
+    return <SelectionSurfaceFrame {...props} surface={props.surface} />;
+  if (props.surface.kind === 'mark')
+    return <MarkSurfaceFrame {...props} surface={props.surface} />;
   return null;
 }
 
-type FrameProps<K extends 'footnote' | 'selection' | 'mark'> = Omit<ReaderTransientSurfaceHostProps, 'surface'> & {
+type FrameProps<K extends 'footnote' | 'selection' | 'mark'> = Omit<
+  ReaderTransientSurfaceHostProps,
+  'surface'
+> & {
   readonly surface: Extract<ReaderSurface, { readonly kind: K }>;
 };
 
@@ -61,13 +69,22 @@ function FootnoteSurfaceFrame({
       <header>
         <div>
           <span>{surface.footnote.label}</span>
-          <strong id={`${instanceId}-footnote-title`}>{surface.footnote.title}</strong>
+          <strong id={`${instanceId}-footnote-title`}>
+            {surface.footnote.title}
+          </strong>
         </div>
-        <button type="button" onClick={() => onClose()} aria-label={messages.closeFootnote}>
+        <button
+          type="button"
+          onClick={() => onClose()}
+          aria-label={messages.closeFootnote}
+        >
           <CloseIcon />
         </button>
       </header>
-      <div id={`${instanceId}-footnote-content`} className="epub-reader-footnote__content">
+      <div
+        id={`${instanceId}-footnote-content`}
+        className="epub-reader-footnote__content"
+      >
         <ReaderSurfaceRendererSlot
           renderer={renderer}
           context={context}
@@ -90,7 +107,11 @@ function FootnoteSurfaceFrame({
   );
 }
 
-function SelectionSurfaceFrame({ surface, onClose, showFeedback }: FrameProps<'selection'>) {
+function SelectionSurfaceFrame({
+  surface,
+  onClose,
+  showFeedback,
+}: FrameProps<'selection'>) {
   const reader = useEpubReaderContext();
   const { messages, surfaceRendererRegistry } = useReaderUiConfiguration();
   const [mode, setMode] = useState<'toolbar' | 'dialog'>('toolbar');
@@ -108,29 +129,41 @@ function SelectionSurfaceFrame({ surface, onClose, showFeedback }: FrameProps<'s
     close: onClose,
     showFeedback: (message, tone) => showFeedback({ message, tone }),
     setMode,
-    showSaved: kind => showFeedback({
-      message: kind === 'highlight' ? messages.highlightSaved : messages.noteSaved,
-      tone: 'success',
-    }),
+    showSaved: (kind) =>
+      showFeedback({
+        message:
+          kind === 'highlight' ? messages.highlightSaved : messages.noteSaved,
+        tone: 'success',
+      }),
   };
   return (
     <aside
       className={`epub-reader-selection-tool${below ? ' is-below' : ''}${mode === 'dialog' ? ' is-editing' : ''}`}
       style={style}
       role={mode}
-      aria-label={mode === 'dialog' ? 'Add note to selection' : 'Text selection actions'}
+      aria-label={
+        mode === 'dialog' ? 'Add note to selection' : 'Text selection actions'
+      }
     >
       <ReaderSurfaceRendererSlot
         renderer={renderer}
         context={context}
         resetKey={`${anchor.left}:${anchor.top}:${surface.activation.selection.text}`}
-        fallback={<button type="button" onClick={() => onClose(true)}>{messages.actionFailed}</button>}
+        fallback={
+          <button type="button" onClick={() => onClose(true)}>
+            {messages.actionFailed}
+          </button>
+        }
       />
     </aside>
   );
 }
 
-function MarkSurfaceFrame({ surface, onClose, showFeedback }: FrameProps<'mark'>) {
+function MarkSurfaceFrame({
+  surface,
+  onClose,
+  showFeedback,
+}: FrameProps<'mark'>) {
   const reader = useEpubReaderContext();
   const { messages, surfaceRendererRegistry } = useReaderUiConfiguration();
   const renderer = surfaceRendererRegistry.resolve('mark');
@@ -152,13 +185,19 @@ function MarkSurfaceFrame({ surface, onClose, showFeedback }: FrameProps<'mark'>
       style={style}
       role="dialog"
       aria-modal="false"
-      aria-label={activation.mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'}
+      aria-label={
+        activation.mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'
+      }
     >
       <ReaderSurfaceRendererSlot
         renderer={renderer}
         context={context}
         resetKey={activation.mark.id}
-        fallback={<button type="button" onClick={() => onClose(true)}>{messages.actionFailed}</button>}
+        fallback={
+          <button type="button" onClick={() => onClose(true)}>
+            {messages.actionFailed}
+          </button>
+        }
       />
     </aside>
   );

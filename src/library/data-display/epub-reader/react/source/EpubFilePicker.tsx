@@ -55,11 +55,19 @@ export function EpubFilePicker({
         dragging ? 'is-dragging' : '',
         disabled ? 'is-disabled' : '',
         className ?? '',
-      ].filter(Boolean).join(' ')}
-      onDragEnter={(event: DragEvent<HTMLLabelElement>) => { event.preventDefault(); setDragging(true); }}
-      onDragOver={(event: DragEvent<HTMLLabelElement>) => event.preventDefault()}
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onDragEnter={(event: DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragOver={(event: DragEvent<HTMLLabelElement>) =>
+        event.preventDefault()
+      }
       onDragLeave={(event: DragEvent<HTMLLabelElement>) => {
-        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        if (event.currentTarget.contains(event.relatedTarget as Node | null))
+          return;
         setDragging(false);
       }}
       onDrop={onDrop}
@@ -72,11 +80,21 @@ export function EpubFilePicker({
         onChange={onChange}
       />
       <span className="epub-file-picker__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+        </svg>
       </span>
       <span className="epub-file-picker__copy">
-        <strong>{currentFileName ? (compact ? 'Change book' : 'Choose another EPUB') : 'Open an EPUB'}</strong>
-        {!compact ? <small>Drop a local .epub here or choose a file</small> : null}
+        <strong>
+          {currentFileName
+            ? compact
+              ? 'Change book'
+              : 'Choose another EPUB'
+            : 'Open an EPUB'}
+        </strong>
+        {!compact ? (
+          <small>Drop a local .epub here or choose a file</small>
+        ) : null}
       </span>
     </label>
   );

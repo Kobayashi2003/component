@@ -30,7 +30,9 @@ const PROPERTY_ALIASES: Readonly<Record<string, string>> = Object.freeze({
  * deleting publisher CSS. Modern browsers therefore receive the standard
  * property while older engines can still use the authored declaration.
  */
-export function normalizeLegacyEpubCss(css: string): LegacyCssNormalizationResult {
+export function normalizeLegacyEpubCss(
+  css: string,
+): LegacyCssNormalizationResult {
   const normalized = new Set<string>();
   const output = css.replace(/\{([^{}]*)\}/gu, (whole, body: string) => {
     const declarations = parseDeclarationNames(body);
@@ -52,21 +54,30 @@ export function normalizeLegacyEpubCss(css: string): LegacyCssNormalizationResul
 }
 
 /** Inline style attributes have no braces, so use a synthetic declaration block. */
-export function normalizeLegacyInlineCss(css: string): LegacyCssNormalizationResult {
+export function normalizeLegacyInlineCss(
+  css: string,
+): LegacyCssNormalizationResult {
   const wrapped = normalizeLegacyEpubCss(`x{${css}}`);
   const start = wrapped.css.indexOf('{');
   const end = wrapped.css.lastIndexOf('}');
-  return { css: wrapped.css.slice(start + 1, end), normalizedProperties: wrapped.normalizedProperties };
+  return {
+    css: wrapped.css.slice(start + 1, end),
+    normalizedProperties: wrapped.normalizedProperties,
+  };
 }
 
 function parseDeclarationNames(body: string): Set<string> {
   const names = new Set<string>();
-  for (const match of body.matchAll(/(?:^|;)\s*([\w-]+)\s*:/gu)) names.add(match[1]!.toLowerCase());
+  for (const match of body.matchAll(/(?:^|;)\s*([\w-]+)\s*:/gu))
+    names.add(match[1]!.toLowerCase());
   return names;
 }
 
 function lastDeclarationValue(body: string, property: string): string | null {
-  const pattern = new RegExp(`(?:^|;)\\s*${escapeRegExp(property)}\\s*:\\s*([^;}]*)`, 'giu');
+  const pattern = new RegExp(
+    `(?:^|;)\\s*${escapeRegExp(property)}\\s*:\\s*([^;}]*)`,
+    'giu',
+  );
   let value: string | null = null;
   for (const match of body.matchAll(pattern)) value = match[1]?.trim() ?? null;
   return value;
@@ -74,9 +85,13 @@ function lastDeclarationValue(body: string, property: string): string | null {
 
 function mapLegacyValue(standard: string, value: string): string | null {
   if (standard !== 'text-combine-upright') return value;
-  const normalized = value.replace(/!important\s*$/iu, '').trim().toLowerCase();
+  const normalized = value
+    .replace(/!important\s*$/iu, '')
+    .trim()
+    .toLowerCase();
   const important = /!important\s*$/iu.test(value) ? ' !important' : '';
-  if (normalized === 'horizontal' || normalized === 'all') return `all${important}`;
+  if (normalized === 'horizontal' || normalized === 'all')
+    return `all${important}`;
   if (normalized === 'none') return `none${important}`;
   const digits = /^digits\s+(\d+)$/u.exec(normalized)?.[1];
   if (digits) return `digits ${digits}${important}`;

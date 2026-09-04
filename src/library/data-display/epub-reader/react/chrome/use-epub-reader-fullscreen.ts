@@ -31,9 +31,9 @@ export function useEpubReaderFullscreen(
     const update = () => {
       setActive(owner.fullscreenElement === target);
       setSupported(
-        owner.fullscreenEnabled !== false
-        && typeof target.requestFullscreen === 'function'
-        && typeof owner.exitFullscreen === 'function',
+        owner.fullscreenEnabled !== false &&
+          typeof target.requestFullscreen === 'function' &&
+          typeof owner.exitFullscreen === 'function',
       );
     };
     owner.addEventListener('fullscreenchange', update);
@@ -61,7 +61,8 @@ export function useEpubReaderFullscreen(
 
   const exit = useCallback(async () => {
     const owner = targetRef.current?.ownerDocument;
-    if (!owner?.fullscreenElement || typeof owner.exitFullscreen !== 'function') return false;
+    if (!owner?.fullscreenElement || typeof owner.exitFullscreen !== 'function')
+      return false;
     try {
       await owner.exitFullscreen();
       setActive(false);
@@ -72,9 +73,16 @@ export function useEpubReaderFullscreen(
     }
   }, [onError, targetRef]);
 
-  const toggle = useCallback(async () => (
-    targetRef.current?.ownerDocument.fullscreenElement === targetRef.current ? exit() : enter()
-  ), [enter, exit, targetRef]);
+  const toggle = useCallback(
+    async () =>
+      targetRef.current?.ownerDocument.fullscreenElement === targetRef.current
+        ? exit()
+        : enter(),
+    [enter, exit, targetRef],
+  );
 
-  return useMemo(() => ({ active, supported, enter, exit, toggle }), [active, enter, exit, supported, toggle]);
+  return useMemo(
+    () => ({ active, supported, enter, exit, toggle }),
+    [active, enter, exit, supported, toggle],
+  );
 }

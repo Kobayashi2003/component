@@ -9,31 +9,38 @@ export class BrowserDocumentLayoutTarget implements LayoutStabilityTarget {
     throwIfAborted(signal);
     const fonts = this.document.fonts;
     if (!fonts) return;
-    await raceWithAbort(fonts.ready.then(() => undefined), signal);
+    await raceWithAbort(
+      fonts.ready.then(() => undefined),
+      signal,
+    );
   }
 
-  async decodeImages(signal: AbortSignal): Promise<{ decoded: number; failed: number; total: number }> {
+  async decodeImages(
+    signal: AbortSignal,
+  ): Promise<{ decoded: number; failed: number; total: number }> {
     throwIfAborted(signal);
     const images = Array.from(this.document.images);
     let decoded = 0;
     let failed = 0;
 
-    await Promise.all(images.map(async image => {
-      throwIfAborted(signal);
-      try {
-        if (typeof image.decode === 'function') {
-          await raceWithAbort(image.decode(), signal);
-        } else if (!image.complete) {
-          await waitForImage(image, signal);
+    await Promise.all(
+      images.map(async (image) => {
+        throwIfAborted(signal);
+        try {
+          if (typeof image.decode === 'function') {
+            await raceWithAbort(image.decode(), signal);
+          } else if (!image.complete) {
+            await waitForImage(image, signal);
+          }
+          decoded += 1;
+        } catch (error) {
+          if (signal.aborted) throw error;
+          // Broken images are a content/resource diagnostic, not a reason to make
+          // layout stability itself reject forever.
+          failed += 1;
         }
-        decoded += 1;
-      } catch (error) {
-        if (signal.aborted) throw error;
-        // Broken images are a content/resource diagnostic, not a reason to make
-        // layout stability itself reject forever.
-        failed += 1;
-      }
-    }));
+      }),
+    );
 
     return { decoded, failed, total: images.length };
   }
@@ -68,7 +75,8 @@ export class BrowserDocumentLayoutTarget implements LayoutStabilityTarget {
     if (!ResizeObserverCtor) return () => {};
 
     const observer = new ResizeObserverCtor(callback);
-    if (this.document.documentElement) observer.observe(this.document.documentElement);
+    if (this.document.documentElement)
+      observer.observe(this.document.documentElement);
     if (this.document.body) observer.observe(this.document.body);
     return () => observer.disconnect();
   }
@@ -103,7 +111,10 @@ function measureContentBounds(
   return { contentWidth: right - left, contentHeight: bottom - top };
 }
 
-function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+function raceWithAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
   throwIfAborted(signal);
   return new Promise<T>((resolve, reject) => {
     let finished = false;
@@ -111,18 +122,20 @@ function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> 
       if (finished) return;
       finished = true;
       signal.removeEventListener('abort', onAbort);
-      reject(signal.reason instanceof Error ? signal.reason : createAbortError());
+      reject(
+        signal.reason instanceof Error ? signal.reason : createAbortError(),
+      );
     };
 
     signal.addEventListener('abort', onAbort, { once: true });
     promise.then(
-      value => {
+      (value) => {
         if (finished) return;
         finished = true;
         signal.removeEventListener('abort', onAbort);
         resolve(value);
       },
-      error => {
+      (error) => {
         if (finished) return;
         finished = true;
         signal.removeEventListener('abort', onAbort);
@@ -132,7 +145,10 @@ function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> 
   });
 }
 
-function waitForImage(image: HTMLImageElement, signal: AbortSignal): Promise<void> {
+function waitForImage(
+  image: HTMLImageElement,
+  signal: AbortSignal,
+): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let finished = false;
     const cleanup = () => {
@@ -148,8 +164,14 @@ function waitForImage(image: HTMLImageElement, signal: AbortSignal): Promise<voi
       else resolve();
     };
     const onLoad = () => finish();
-    const onError = () => finish(new Error(`Image failed to load: ${image.currentSrc || image.src}`));
-    const onAbort = () => finish(signal.reason instanceof Error ? signal.reason : createAbortError());
+    const onError = () =>
+      finish(
+        new Error(`Image failed to load: ${image.currentSrc || image.src}`),
+      );
+    const onAbort = () =>
+      finish(
+        signal.reason instanceof Error ? signal.reason : createAbortError(),
+      );
 
     image.addEventListener('load', onLoad, { once: true });
     image.addEventListener('error', onError, { once: true });

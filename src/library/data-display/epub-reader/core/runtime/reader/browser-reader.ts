@@ -1,53 +1,135 @@
-import { describeReaderPosition } from '../../features/accessibility';
-import { MemoryReaderMarkStore, ReaderMarkController, type ReaderMark, type ReaderMarkStore } from '../../features/annotations';
-import { ReaderThemeRegistry } from '../../presentation/appearance';
 import { OcfZipArchive } from '../../epub/archive';
 import {
-  createReaderCompatibilityProfile,
   createCompatibilityReport,
+  createReaderCompatibilityProfile,
   runRenditionCompatibilityPolicies,
   type CompatibilityProfile,
 } from '../../epub/compatibility';
-import { BrowserDomXmlPlatform, PublicationContentDocumentCache, PublicationContentDocumentPipeline, PublicationContentPreflightSession, type PublicationContentPreflightResult } from '../../epub/content';
-import { ReaderDecorationController } from '../../features/decorations';
-import { BrowserReaderInputRouter, ReaderInputController, type ReaderInputMap } from '../../interaction/input';
-import { locatorAtResourceStart } from '../../interaction/locator';
-import { BrowserPublicationMediaRouter } from '../../features/media';
-import { loadPublicationFootnote, locatorFromCfi, locatorFromHref, PublicationLinkRouter, ReaderNavigationHistory, ReaderNavigator, type NavigationPlanProvider, type NavigationTarget, type ReaderNavigationResult } from '../../interaction/navigation';
+import {
+  BrowserDomXmlPlatform,
+  PublicationContentDocumentCache,
+  PublicationContentDocumentPipeline,
+  PublicationContentPreflightSession,
+  type PublicationContentPreflightResult,
+} from '../../epub/content';
 import {
   DEFAULT_READER_PREFERENCES,
   loadPublicationFromArchive,
   normalizeReaderPreferences,
-  resolvePublicationLayoutProfile,
-  resolveSpineRendition,
   type ContentPresentationHints,
   type Locator,
   type Publication,
   type PublicationDiagnostic,
   type ReaderPreferences,
-  type WritingMode,
+  type ReaderPreferencesPatch,
 } from '../../epub/publication';
-import { createReadingRendererFactories, RendererHost } from '../../presentation/renderer';
 import {
-  DEFAULT_RENDITION_PLANNER_POLICY,
+  BrowserObjectUrlFactory,
+  PublicationResourceSession,
+  ResourceResolver,
+} from '../../epub/resources';
+import { describeReaderPosition } from '../../features/accessibility';
+import {
+  MemoryReaderMarkStore,
+  ReaderMarkController,
+  type AnnotationColor,
+  type AnnotationHighlightStyle,
+  type Highlight,
+  type ReaderMark,
+  type ReaderMarkStore,
+} from '../../features/annotations';
+import {
+  ReaderDecorationController,
+  type ReaderDecorationActivation,
+} from '../../features/decorations';
+import {
+  BrowserPublicationMediaRouter,
+  type ReaderImageActivation,
+} from '../../features/media';
+import {
+  BrowserPublicationSearchProvider,
+  PublicationSearch,
+  ReaderSearchController,
+  type ReaderSearchNavigationResult,
+  type ReaderSearchState,
+  type SearchHit,
+  type SearchOptions,
+} from '../../features/search';
+import {
+  BrowserReaderInputRouter,
+  ReaderInputController,
+  type ReaderInputMap,
+  type ReaderInputState,
+} from '../../interaction/input';
+import {
+  loadPublicationFootnote,
+  locatorFromCfi,
+  locatorFromHref,
+  PublicationLinkRouter,
+  ReaderNavigationHistory,
+  ReaderNavigator,
+  type FootnoteLinkActivation,
+  type NavigationPlanProvider,
+  type NavigationTarget,
+  type ReaderNavigationResult,
+} from '../../interaction/navigation';
+import {
+  BrowserReaderSelectionRouter,
+  captureSelectionFromDocuments,
+  getDocumentSelection,
+  type ReaderSelection,
+  type ReaderSelectionActivation,
+} from '../../interaction/selection';
+import {
+  ReaderThemeRegistry,
+  type ReaderThemeDefinition,
+} from '../../presentation/appearance';
+import {
+  createReadingRendererFactories,
+  RendererHost,
+  type RendererHostState,
+} from '../../presentation/renderer';
+import {
   planRendition,
   type RenditionPlannerPolicy,
   type ViewportMetrics,
 } from '../../presentation/rendition';
-import { BrowserObjectUrlFactory, PublicationResourceSession, ResourceResolver } from '../../epub/resources';
-import { BrowserPublicationSearchProvider, PublicationSearch, ReaderSearchController, type SearchOptions } from '../../features/search';
-import { BrowserReaderSelectionRouter, captureSelectionFromDocuments, getDocumentSelection, type ReaderSelection } from '../../interaction/selection';
+import {
+  configureReaderExtensions,
+  type ReaderExtensionConfiguration,
+} from '../configuration';
+import { addBookmarkAndNotify } from './bookmark-event';
+import {
+  assertUsableContainer,
+  isAbortError,
+  measureViewport,
+  normalizeViewport,
+  preflightWindowIndexes,
+  reportOpenProgress,
+  resolveInitialLocator,
+  throwIfAborted,
+} from './browser-reader/open';
+import {
+  emptyRendererState,
+  emptySearchState,
+  mergeApproximateLocator,
+  mergeHints,
+  mergePlannerPolicy,
+  renderPreferencesChanged,
+  resolvePublicationPresentation,
+  sameContentHints,
+  samePreferences,
+  sameViewport,
+  spreadChanged,
+} from './browser-reader/state';
+import { PublicationDiagnosticCollector } from './diagnostic-collector';
 import type {
   BrowserEpubReaderMarksApi,
-  BrowserEpubReaderOpenProgress,
   BrowserEpubReaderOptions,
   BrowserEpubReaderSearchApi,
   BrowserEpubReaderSnapshot,
   ReaderPublicationPresentation,
 } from './model';
-import { PublicationDiagnosticCollector } from './diagnostic-collector';
-import { addBookmarkAndNotify } from './bookmark-event';
-import { configureReaderExtensions, type ReaderExtensionConfiguration } from '../configuration';
 
 type SnapshotListener = () => void;
 
@@ -113,7 +195,7 @@ export class BrowserEpubReader {
   readonly marks: BrowserEpubReaderMarksApi;
 
   private constructor(
-    readonly publication: import('../../epub/publication').Publication,
+    readonly publication: Publication,
     private readonly container: HTMLElement,
     resources: PublicationResourceSession,
     contentPreflight: PublicationContentPreflightSession,
@@ -131,7 +213,10 @@ export class BrowserEpubReader {
     // Built from preflight hints only. Renderer feedback keeps refining
     // `this.hints` per spine item, but the publication-level answer must not
     // move underneath the UI once reading has started.
-    this.presentation = resolvePublicationPresentation(publication, initialHints);
+    this.presentation = resolvePublicationPresentation(
+      publication,
+      initialHints,
+    );
     this.diagnostics = new PublicationDiagnosticCollector(diagnostics);
     this.preferences = preferences;
     this.compatibilityProfile = compatibilityProfile;
@@ -140,32 +225,48 @@ export class BrowserEpubReader {
     this.readerEvent = options.onEvent;
     // Copy the catalog so one reader owns later dynamic registrations without
     // mutating the application-level configuration shared by other readers.
-    this.themeRegistry = new ReaderThemeRegistry(extensions.themeCatalog.list());
+    this.themeRegistry = new ReaderThemeRegistry(
+      extensions.themeCatalog.list(),
+    );
     this.inputMap = extensions.inputMap;
     this.markStore = options.markStore ?? new MemoryReaderMarkStore();
 
     const xmlPlatform = new BrowserDomXmlPlatform(container.ownerDocument);
-    const contentPipeline = new PublicationContentDocumentPipeline(resources, xmlPlatform);
-    this.contentDocumentCache = new PublicationContentDocumentCache(contentPipeline, {
-      policy: options.contentDocumentCachePolicy,
-      preferredSpineIndex: () => this.pendingNavigationLocator?.spineIndex ?? this.locator?.spineIndex ?? null,
-    });
-
-    this.host = new RendererHost(createReadingRendererFactories({
-      container,
-      publication,
-      contentDocumentCache: this.contentDocumentCache,
-      plannerPolicy: this.plannerPolicy,
-      themeResolver: this.themeRegistry,
-      onDiagnostics: next => this.appendDiagnostics(next, this.options),
-      contentHintsForSpine: spineIndex => this.hints.get(spineIndex),
-      onPresentationHints: (spineIndex, hints) => {
-        this.hints.set(spineIndex, mergeHints(this.hints.get(spineIndex), hints));
+    const contentPipeline = new PublicationContentDocumentPipeline(
+      resources,
+      xmlPlatform,
+    );
+    this.contentDocumentCache = new PublicationContentDocumentCache(
+      contentPipeline,
+      {
+        policy: options.contentDocumentCachePolicy,
+        preferredSpineIndex: () =>
+          this.pendingNavigationLocator?.spineIndex ??
+          this.locator?.spineIndex ??
+          null,
       },
-    }));
+    );
+
+    this.host = new RendererHost(
+      createReadingRendererFactories({
+        container,
+        publication,
+        contentDocumentCache: this.contentDocumentCache,
+        plannerPolicy: this.plannerPolicy,
+        themeResolver: this.themeRegistry,
+        onDiagnostics: (next) => this.appendDiagnostics(next, this.options),
+        contentHintsForSpine: (spineIndex) => this.hints.get(spineIndex),
+        onPresentationHints: (spineIndex, hints) => {
+          this.hints.set(
+            spineIndex,
+            mergeHints(this.hints.get(spineIndex), hints),
+          );
+        },
+      }),
+    );
 
     const plans: NavigationPlanProvider = {
-      planForSpine: spineIndex => this.planForSpine(spineIndex),
+      planForSpine: (spineIndex) => this.planForSpine(spineIndex),
     };
     this.navigator = new ReaderNavigator(publication, this.host, plans);
 
@@ -173,36 +274,32 @@ export class BrowserEpubReader {
       publication,
       contentPipeline,
     );
-    const publicationSearch = new PublicationSearch(publication, searchProvider, {
-      cache: options.searchCachePolicy,
-      cacheVariant: contentPipeline.analysisSignature,
-      preferredSpineIndex: () => this.locator?.spineIndex ?? this.host.state.plan?.spineIndex ?? null,
-    });
+    const publicationSearch = new PublicationSearch(
+      publication,
+      searchProvider,
+      {
+        cache: options.searchCachePolicy,
+        cacheVariant: contentPipeline.analysisSignature,
+        preferredSpineIndex: () =>
+          this.locator?.spineIndex ?? this.host.state.plan?.spineIndex ?? null,
+      },
+    );
     this.searchController = new ReaderSearchController(
       publicationSearch,
       this.navigator,
     );
-    this.markController = new ReaderMarkController(this.markStore, this.host, this.navigator);
-    this.decorations = new ReaderDecorationController(publication, this.host, this.markStore, undefined, activation => {
-      const mark = this.markStore.snapshot().marks.find(candidate => candidate.id === activation.decoration.id);
-      if (!mark || mark.kind === 'bookmark' || !this.readerEvent) return false;
-      const surfaceRect = activation.context.surfaceElement.getBoundingClientRect();
-      const containerRect = this.container.getBoundingClientRect();
-      const viewportWidth = activation.context.document.defaultView?.innerWidth || activation.context.surfaceElement.clientWidth || surfaceRect.width;
-      const viewportHeight = activation.context.document.defaultView?.innerHeight || activation.context.surfaceElement.clientHeight || surfaceRect.height;
-      this.readerEvent({
-        type: 'mark-activated',
-        activation: {
-          mark,
-          anchor: {
-            x: surfaceRect.left - containerRect.left + activation.clientX * surfaceRect.width / Math.max(1, viewportWidth),
-            y: surfaceRect.top - containerRect.top + activation.clientY * surfaceRect.height / Math.max(1, viewportHeight),
-          },
-          returnFocus: activation.context.surfaceElement,
-        },
-      });
-      return true;
-    });
+    this.markController = new ReaderMarkController(
+      this.markStore,
+      this.host,
+      this.navigator,
+    );
+    this.decorations = new ReaderDecorationController(
+      publication,
+      this.host,
+      this.markStore,
+      undefined,
+      (activation) => this.handleDecorationActivation(activation),
+    );
 
     const inputController = new ReaderInputController({
       // Keys, taps and the wheel go through the reader's own navigation, not
@@ -213,120 +310,72 @@ export class BrowserEpubReader {
         next: () => this.next(),
         previous: () => this.previous(),
       },
-      hostCommand: command => {
+      hostCommand: (command) => {
         if (this.selection) this.clearSelection();
         options.onCommand?.(command);
       },
-      historyBack: async () => { await this.back(); },
-      historyForward: async () => { await this.forward(); },
-      stepFont: delta => this.stepFont(delta),
+      historyBack: async () => {
+        await this.back();
+      },
+      historyForward: async () => {
+        await this.forward();
+      },
+      stepFont: (delta) => this.stepFont(delta),
     });
     this.inputRouter = new BrowserReaderInputRouter(
       container,
       () => this.inputState(),
       inputController,
       options.inputPolicy,
-      error => this.publishError(error),
+      (error) => this.publishError(error),
       this.inputMap,
     );
-    this.linkRouter = new PublicationLinkRouter(publication, this.navigator, {
-      onExternalLink: options.onExternalLink,
-      onUnresolvedPublicationLink: options.onUnresolvedPublicationLink,
-      onFootnoteLink: async activation => {
-        if (!this.readerEvent) return false;
-        const footnote = await loadPublicationFootnote(
-          this.resources.resolver,
-          this.container.ownerDocument,
-          activation.href,
-          activation.label,
-        );
-        if (!footnote || this.disposed) return false;
-        this.readerEvent({ type: 'footnote-activated', footnote, trigger: activation.trigger });
-        return true;
+    this.linkRouter = new PublicationLinkRouter(
+      publication,
+      this.navigator,
+      {
+        onExternalLink: options.onExternalLink,
+        onUnresolvedPublicationLink: options.onUnresolvedPublicationLink,
+        onFootnoteLink: (activation) => this.handleFootnoteLink(activation),
       },
-    }, href => this.goToWithHistory({ kind: 'href', href }));
+      (href) => this.goToWithHistory({ kind: 'href', href }),
+    );
     this.selectionRouter = new BrowserReaderSelectionRouter(
       publication,
       container,
-      activation => {
-        this.selection = activation?.selection ?? null;
-        this.readerEvent?.({ type: 'selection-changed', activation });
-      },
+      (activation) => this.handleSelectionChange(activation),
     );
-    this.mediaRouter = new BrowserPublicationMediaRouter(activation => {
-      if (this.readerEvent) this.readerEvent({ type: 'image-activated', activation });
-    });
-    this.selectionPollTimer = container.ownerDocument.defaultView?.setInterval(() => {
-      if (!this.disposed && container.ownerDocument.visibilityState !== 'hidden') {
-        this.selectionRouter.pollDocuments(this.host.contentDocuments);
-      }
-    }, 400) ?? null;
+    this.mediaRouter = new BrowserPublicationMediaRouter((activation) =>
+      this.handleImageActivation(activation),
+    );
+    this.selectionPollTimer =
+      container.ownerDocument.defaultView?.setInterval(() => {
+        if (
+          !this.disposed &&
+          container.ownerDocument.visibilityState !== 'hidden'
+        ) {
+          this.selectionRouter.pollDocuments(this.host.contentDocuments);
+        }
+      }, 400) ?? null;
 
     this.snapshotValue = this.buildSnapshot('opening', null);
 
-    this.cleanups.push(this.host.onStateChange(state => {
-      this.syncLiveDocuments();
-      if (state.plan) {
-        const progression = state.layout?.progression;
-        if (progression != null) {
-          const pending = this.pendingNavigationLocator;
-          this.locator = pending?.spineIndex === state.plan.spineIndex && pending.href === state.plan.href
-            ? { ...pending, locations: { ...pending.locations, progression } }
-            : mergeApproximateLocator(this.locator, state.plan.spineIndex, state.plan.href, progression);
-        }
-      }
-      this.publish(state.status === 'error' ? 'error' : state.status === 'disposed' ? 'disposed' : state.status === 'ready' ? 'ready' : 'opening', state.error);
-    }));
-    this.cleanups.push(this.searchController.onChange(state => {
-      const current = state.index >= 0 ? state.hits[state.index]?.id ?? null : null;
-      this.decorations.setSearchHits(state.hits, current);
-      this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    }));
-    this.cleanups.push(this.markStore.subscribe(() => {
-      this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    }));
-
-    this.search = Object.freeze<BrowserEpubReaderSearchApi>({
-      run: async (query: string, searchOptions: Partial<SearchOptions> = {}) => {
-        const result = await this.searchController.run(query, searchOptions);
-        return result.hits;
-      },
-      clear: () => this.searchController.clear(),
-      clearCache: () => this.searchController.clearCache(),
-      goTo: async index => {
-        return this.searchWithHistory(() => this.searchController.goToHit(index));
-      },
-      next: async () => {
-        return this.searchWithHistory(() => this.searchController.next());
-      },
-      previous: async () => {
-        return this.searchWithHistory(() => this.searchController.previous());
-      },
-    });
-
-    this.marks = Object.freeze<BrowserEpubReaderMarksApi>({
-      addBookmark: label => addBookmarkAndNotify(
-        nextLabel => this.markController.addBookmark(nextLabel),
-        label,
-        options.onEvent,
+    this.cleanups.push(
+      this.host.onStateChange((state) => this.handleRendererStateChange(state)),
+    );
+    this.cleanups.push(
+      this.searchController.onChange((state) =>
+        this.handleSearchStateChange(state),
       ),
-      addHighlight: (range, highlight, color, label, tags) => this.markController.addHighlight(range, highlight, color, label, tags),
-      addAnnotation: (range, body, highlight, color, label, tags) => this.markController.addAnnotation(range, body, highlight, color, label, tags),
-      remove: id => this.markStore.remove(id),
-      removeMany: ids => this.markStore.removeMany(ids),
-      update: (id, patch) => this.markController.update(id, patch),
-      clear: () => this.markStore.clear(),
-      goTo: async id => {
-        const mark = this.markStore.snapshot().marks.find(candidate => candidate.id === id);
-        if (!mark) return false;
-        const origin = await this.currentHistoryLocator();
-        const restored = await this.markController.goToMark(mark as ReaderMark);
-        this.locator = restored ?? (mark.kind === 'bookmark' ? mark.locator : mark.range.start);
-        this.navigationHistory.record(origin, this.locator);
+    );
+    this.cleanups.push(
+      this.markStore.subscribe(() => {
         this.publish(this.snapshotValue.status, this.snapshotValue.error);
-        return true;
-      },
-    });
+      }),
+    );
+
+    this.search = this.createSearchApi();
+    this.marks = this.createMarksApi();
   }
 
   static async open(
@@ -353,20 +402,33 @@ export class BrowserEpubReader {
     const opened = await OcfZipArchive.open(
       source,
       options.archiveLimits,
-      options.compatibilityMode ?? (preferences.compatibility.recoverContainerStructure ? 'compatible' : 'strict'),
+      options.compatibilityMode ??
+        (preferences.compatibility.recoverContainerStructure
+          ? 'compatible'
+          : 'strict'),
     );
     throwIfAborted(options.signal);
     if (!opened.archive) {
-      throw new BrowserEpubReaderOpenError('The EPUB container could not be opened.', opened.diagnostics);
+      throw new BrowserEpubReaderOpenError(
+        'The EPUB container could not be opened.',
+        opened.diagnostics,
+      );
     }
     reportOpenProgress(options, 'package', 'Reading publication metadata', 2);
-    const loaded = await loadPublicationFromArchive(opened.archive, opened.diagnostics, {
-      controlDocumentLimits: options.controlDocumentLimits,
-      compatibilityProfile,
-    });
+    const loaded = await loadPublicationFromArchive(
+      opened.archive,
+      opened.diagnostics,
+      {
+        controlDocumentLimits: options.controlDocumentLimits,
+        compatibilityProfile,
+      },
+    );
     throwIfAborted(options.signal);
     if (!loaded.publication) {
-      throw new BrowserEpubReaderOpenError('The EPUB package could not be parsed.', loaded.diagnostics);
+      throw new BrowserEpubReaderOpenError(
+        'The EPUB package could not be parsed.',
+        loaded.diagnostics,
+      );
     }
     const initial = resolveInitialLocator(loaded.publication, options);
     const contentPreflight = new PublicationContentPreflightSession(
@@ -377,11 +439,24 @@ export class BrowserEpubReader {
     );
     let reader: BrowserEpubReader | null = null;
     try {
-      const initialWindow = preflightWindowIndexes(loaded.publication, initial.spineIndex);
-      reportOpenProgress(options, 'preflight', `Inspecting ${initialWindow.length} render-critical reading sections`, 3);
+      const initialWindow = preflightWindowIndexes(
+        loaded.publication,
+        initial.spineIndex,
+      );
+      reportOpenProgress(
+        options,
+        'preflight',
+        `Inspecting ${initialWindow.length} render-critical reading sections`,
+        3,
+      );
       const preflight = await contentPreflight.inspect(initialWindow);
       throwIfAborted(options.signal);
-      reportOpenProgress(options, 'resources', 'Preparing publication resources', 4);
+      reportOpenProgress(
+        options,
+        'resources',
+        'Preparing publication resources',
+        4,
+      );
       const resource = await ResourceResolver.create(
         opened.archive,
         loaded.publication,
@@ -389,8 +464,15 @@ export class BrowserEpubReader {
         options.resourcePolicy,
       );
       throwIfAborted(options.signal);
-      const resources = new PublicationResourceSession(resource.resolver, new BrowserObjectUrlFactory());
-      const diagnostics = [...loaded.diagnostics, ...preflight.diagnostics, ...resource.diagnostics];
+      const resources = new PublicationResourceSession(
+        resource.resolver,
+        new BrowserObjectUrlFactory(),
+      );
+      const diagnostics = [
+        ...loaded.diagnostics,
+        ...preflight.diagnostics,
+        ...resource.diagnostics,
+      ];
       const viewport = measureViewport(container);
       reader = new BrowserEpubReader(
         loaded.publication,
@@ -406,7 +488,12 @@ export class BrowserEpubReader {
         options,
       );
 
-      reportOpenProgress(options, 'rendition', 'Laying out the first section', 5);
+      reportOpenProgress(
+        options,
+        'rendition',
+        'Laying out the first section',
+        5,
+      );
       await reader.goToLocator(initial);
       throwIfAborted(options.signal);
       contentPreflight.detachParentSignal();
@@ -435,7 +522,8 @@ export class BrowserEpubReader {
     const result = await this.navigator.next();
     if (result.status === 'moved') this.locator = result.locator;
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    if (result.status === 'boundary') this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
+    if (result.status === 'boundary')
+      this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
     return result;
   }
 
@@ -444,7 +532,8 @@ export class BrowserEpubReader {
     const result = await this.navigator.previous();
     if (result.status === 'moved') this.locator = result.locator;
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
-    if (result.status === 'boundary') this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
+    if (result.status === 'boundary')
+      this.readerEvent?.({ type: 'navigation-boundary', edge: result.edge });
     return result;
   }
 
@@ -473,7 +562,7 @@ export class BrowserEpubReader {
     });
   }
 
-  async setPreferences(patch: import('../../epub/publication').ReaderPreferencesPatch): Promise<void> {
+  async setPreferences(patch: ReaderPreferencesPatch): Promise<void> {
     this.assertAlive();
     const next = normalizeReaderPreferences({
       ...this.preferences,
@@ -488,7 +577,9 @@ export class BrowserEpubReader {
     this.preferences = next;
     try {
       if (this.host.state.plan && renderPreferencesChanged(previous, next)) {
-        await this.navigator.relayout(spreadChanged(previous, next) ? 'spread-change' : 'preferences');
+        await this.navigator.relayout(
+          spreadChanged(previous, next) ? 'spread-change' : 'preferences',
+        );
       }
     } catch (error) {
       // The public snapshot must never claim a preference was applied when the
@@ -528,24 +619,33 @@ export class BrowserEpubReader {
 
   captureSelection(): ReaderSelection | null {
     this.assertAlive();
-    this.selection = captureSelectionFromDocuments(this.host.contentDocuments, this.publication);
+    this.selection = captureSelectionFromDocuments(
+      this.host.contentDocuments,
+      this.publication,
+    );
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
     return this.selection;
   }
 
   clearSelection(): void {
     this.selection = null;
-    for (const context of this.host.contentDocuments) getDocumentSelection(context.document)?.removeAllRanges();
+    for (const context of this.host.contentDocuments)
+      getDocumentSelection(context.document)?.removeAllRanges();
     this.publish(this.snapshotValue.status, this.snapshotValue.error);
   }
 
   async addHighlightFromSelection(
-    highlight: import('../../features/annotations').AnnotationHighlightStyle = 'solid',
-    color: import('../../features/annotations').AnnotationColor = 'yellow',
-  ): Promise<import('../../features/annotations').Highlight | null> {
+    highlight: AnnotationHighlightStyle = 'solid',
+    color: AnnotationColor = 'yellow',
+  ): Promise<Highlight | null> {
     const selection = this.captureSelection();
-    if (!selection || selection.collapsed || !selection.text.trim()) return null;
-    const mark = this.markController.addHighlight(selection.range, highlight, color);
+    if (!selection || selection.collapsed || !selection.text.trim())
+      return null;
+    const mark = this.markController.addHighlight(
+      selection.range,
+      highlight,
+      color,
+    );
     this.clearSelection();
     return mark;
   }
@@ -560,7 +660,7 @@ export class BrowserEpubReader {
     return locator;
   }
 
-  async registerTheme(theme: import('../../presentation/appearance').ReaderThemeDefinition): Promise<void> {
+  async registerTheme(theme: ReaderThemeDefinition): Promise<void> {
     this.assertAlive();
     const unregister = this.themeRegistry.register(theme);
     try {
@@ -583,7 +683,10 @@ export class BrowserEpubReader {
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     this.inputRouter.dispose();
     this.linkRouter.dispose();
-    if (this.selectionPollTimer != null) this.container.ownerDocument.defaultView?.clearInterval(this.selectionPollTimer);
+    if (this.selectionPollTimer != null)
+      this.container.ownerDocument.defaultView?.clearInterval(
+        this.selectionPollTimer,
+      );
     this.selectionRouter.dispose();
     this.mediaRouter.dispose();
     this.decorations.dispose();
@@ -596,15 +699,189 @@ export class BrowserEpubReader {
     this.listeners.clear();
   }
 
+  private handleDecorationActivation(
+    activation: ReaderDecorationActivation,
+  ): boolean {
+    const mark = this.markStore
+      .snapshot()
+      .marks.find((candidate) => candidate.id === activation.decoration.id);
+    if (!mark || mark.kind === 'bookmark' || !this.readerEvent) return false;
+
+    const surface = activation.context.surfaceElement;
+    const surfaceRect = surface.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+    const viewportWidth =
+      activation.context.document.defaultView?.innerWidth ||
+      surface.clientWidth ||
+      surfaceRect.width;
+    const viewportHeight =
+      activation.context.document.defaultView?.innerHeight ||
+      surface.clientHeight ||
+      surfaceRect.height;
+
+    this.readerEvent({
+      type: 'mark-activated',
+      activation: {
+        mark,
+        anchor: {
+          x:
+            surfaceRect.left -
+            containerRect.left +
+            (activation.clientX * surfaceRect.width) /
+              Math.max(1, viewportWidth),
+          y:
+            surfaceRect.top -
+            containerRect.top +
+            (activation.clientY * surfaceRect.height) /
+              Math.max(1, viewportHeight),
+        },
+        returnFocus: surface,
+      },
+    });
+    return true;
+  }
+
+  private async handleFootnoteLink(
+    activation: FootnoteLinkActivation,
+  ): Promise<boolean> {
+    if (!this.readerEvent) return false;
+    const footnote = await loadPublicationFootnote(
+      this.resources.resolver,
+      this.container.ownerDocument,
+      activation.href,
+      activation.label,
+    );
+    if (!footnote || this.disposed) return false;
+
+    this.readerEvent({
+      type: 'footnote-activated',
+      footnote,
+      trigger: activation.trigger,
+    });
+    return true;
+  }
+
+  private handleSelectionChange(
+    activation: ReaderSelectionActivation | null,
+  ): void {
+    this.selection = activation?.selection ?? null;
+    this.readerEvent?.({ type: 'selection-changed', activation });
+  }
+
+  private handleImageActivation(activation: ReaderImageActivation): void {
+    this.readerEvent?.({ type: 'image-activated', activation });
+  }
+
+  private handleRendererStateChange(state: RendererHostState): void {
+    this.syncLiveDocuments();
+    if (state.plan && state.layout?.progression != null) {
+      const progression = state.layout.progression;
+      const pending = this.pendingNavigationLocator;
+      this.locator =
+        pending?.spineIndex === state.plan.spineIndex &&
+        pending.href === state.plan.href
+          ? { ...pending, locations: { ...pending.locations, progression } }
+          : mergeApproximateLocator(
+              this.locator,
+              state.plan.spineIndex,
+              state.plan.href,
+              progression,
+            );
+    }
+
+    const status =
+      state.status === 'error'
+        ? 'error'
+        : state.status === 'disposed'
+          ? 'disposed'
+          : state.status === 'ready'
+            ? 'ready'
+            : 'opening';
+    this.publish(status, state.error);
+  }
+
+  private handleSearchStateChange(state: ReaderSearchState): void {
+    const currentHitId =
+      state.index >= 0 ? (state.hits[state.index]?.id ?? null) : null;
+    this.decorations.setSearchHits(state.hits, currentHitId);
+    this.publish(this.snapshotValue.status, this.snapshotValue.error);
+  }
+
+  private createSearchApi(): BrowserEpubReaderSearchApi {
+    return Object.freeze<BrowserEpubReaderSearchApi>({
+      run: async (
+        query: string,
+        searchOptions: Partial<SearchOptions> = {},
+      ) => {
+        const result = await this.searchController.run(query, searchOptions);
+        return result.hits;
+      },
+      clear: () => this.searchController.clear(),
+      clearCache: () => this.searchController.clearCache(),
+      goTo: (index) =>
+        this.searchWithHistory(() => this.searchController.goToHit(index)),
+      next: () => this.searchWithHistory(() => this.searchController.next()),
+      previous: () =>
+        this.searchWithHistory(() => this.searchController.previous()),
+    });
+  }
+
+  private createMarksApi(): BrowserEpubReaderMarksApi {
+    return Object.freeze<BrowserEpubReaderMarksApi>({
+      addBookmark: (label) =>
+        addBookmarkAndNotify(
+          (nextLabel) => this.markController.addBookmark(nextLabel),
+          label,
+          this.options.onEvent,
+        ),
+      addHighlight: (range, highlight, color, label, tags) =>
+        this.markController.addHighlight(range, highlight, color, label, tags),
+      addAnnotation: (range, body, highlight, color, label, tags) =>
+        this.markController.addAnnotation(
+          range,
+          body,
+          highlight,
+          color,
+          label,
+          tags,
+        ),
+      remove: (id) => this.markStore.remove(id),
+      removeMany: (ids) => this.markStore.removeMany(ids),
+      update: (id, patch) => this.markController.update(id, patch),
+      clear: () => this.markStore.clear(),
+      goTo: (id) => this.goToMark(id),
+    });
+  }
+
+  private async goToMark(id: string): Promise<boolean> {
+    const mark = this.markStore
+      .snapshot()
+      .marks.find((candidate) => candidate.id === id);
+    if (!mark) return false;
+
+    const origin = await this.currentHistoryLocator();
+    const restored = await this.markController.goToMark(mark as ReaderMark);
+    this.locator =
+      restored ?? (mark.kind === 'bookmark' ? mark.locator : mark.range.start);
+    this.navigationHistory.record(origin, this.locator);
+    this.publish(this.snapshotValue.status, this.snapshotValue.error);
+    return true;
+  }
+
   private async planForSpine(spineIndex: number) {
-    const preflight = await this.contentPreflight.inspect(preflightWindowIndexes(this.publication, spineIndex));
+    const preflight = await this.contentPreflight.inspect(
+      preflightWindowIndexes(this.publication, spineIndex),
+    );
     this.applyContentPreflight(preflight, false);
     return this.buildPlanForSpine(spineIndex);
   }
 
   private buildPlanForSpine(spineIndex: number) {
     const spineItem = this.publication.spine[spineIndex];
-    if (!spineItem) throw new RangeError(`Spine index ${spineIndex} is outside the publication reading order.`);
+    if (!spineItem)
+      throw new RangeError(
+        `Spine index ${spineIndex} is outside the publication reading order.`,
+      );
     const contentHints = this.hints.get(spineIndex);
     const compatibility = runRenditionCompatibilityPolicies(
       this.compatibilityProfile.renditionPolicies,
@@ -628,15 +905,19 @@ export class BrowserEpubReader {
     });
   }
 
-  private inputState(): import('../../interaction/input').ReaderInputState {
+  private inputState(): ReaderInputState {
     const plan = this.host.state.plan;
     return {
       enabled: !this.disposed && this.host.state.status === 'ready',
       pageProgression: plan?.pageProgression.value ?? 'ltr',
-      contentKind: plan?.renderer === 'fixed-layout' ? 'fixed-layout' : 'reflowable',
-      presentation: plan && (plan.overflow.value === 'scrolled-doc' || plan.overflow.value === 'scrolled-continuous')
-        ? 'scrolled'
-        : 'paginated',
+      contentKind:
+        plan?.renderer === 'fixed-layout' ? 'fixed-layout' : 'reflowable',
+      presentation:
+        plan &&
+        (plan.overflow.value === 'scrolled-doc' ||
+          plan.overflow.value === 'scrolled-continuous')
+          ? 'scrolled'
+          : 'paginated',
       wheelBoundaryNavigation: plan?.renderer === 'fixed-layout',
       touchNavigation: this.preferences.touchNavigation,
       pageTurnZonePercent: this.preferences.pageTurnZonePercent,
@@ -648,14 +929,25 @@ export class BrowserEpubReader {
     this.inputRouter?.syncDocuments(documents);
     this.linkRouter?.syncDocuments(documents);
     this.selectionRouter?.syncDocuments(documents);
-    this.mediaRouter?.syncDocuments(documents.filter(context => this.buildPlanForSpine(context.spineIndex).renderer !== 'fixed-layout'));
+    this.mediaRouter?.syncDocuments(
+      documents.filter(
+        (context) =>
+          this.buildPlanForSpine(context.spineIndex).renderer !==
+          'fixed-layout',
+      ),
+    );
   }
 
-  private async goToWithHistory(target: NavigationTarget): Promise<Locator | null> {
+  private async goToWithHistory(
+    target: NavigationTarget,
+  ): Promise<Locator | null> {
     const origin = await this.currentHistoryLocator();
-    const requested = 'kind' in target
-      ? target.kind === 'href' ? locatorFromHref(this.publication, target.href) : locatorFromCfi(this.publication, target.cfi)
-      : target;
+    const requested =
+      'kind' in target
+        ? target.kind === 'href'
+          ? locatorFromHref(this.publication, target.href)
+          : locatorFromCfi(this.publication, target.cfi)
+        : target;
     return this.withPendingNavigation(requested, async () => {
       const locator = await this.navigator.goTo(target);
       this.locator = locator;
@@ -665,16 +957,22 @@ export class BrowserEpubReader {
     });
   }
 
-  private async withPendingNavigation<T>(locator: Locator, operation: () => Promise<T>): Promise<T> {
+  private async withPendingNavigation<T>(
+    locator: Locator,
+    operation: () => Promise<T>,
+  ): Promise<T> {
     this.pendingNavigationLocator = locator;
     try {
       return await operation();
     } finally {
-      if (this.pendingNavigationLocator === locator) this.pendingNavigationLocator = null;
+      if (this.pendingNavigationLocator === locator)
+        this.pendingNavigationLocator = null;
     }
   }
 
-  private async searchWithHistory(operation: () => Promise<import('../../features/search').ReaderSearchNavigationResult | null>): Promise<import('../../features/search').SearchHit | null> {
+  private async searchWithHistory(
+    operation: () => Promise<ReaderSearchNavigationResult | null>,
+  ): Promise<SearchHit | null> {
     const origin = await this.currentHistoryLocator();
     const navigation = await operation();
     if (navigation) {
@@ -685,10 +983,13 @@ export class BrowserEpubReader {
     return navigation?.hit ?? null;
   }
 
-  private async restoreHistory(direction: 'back' | 'forward'): Promise<Locator | null> {
-    const target = direction === 'back'
-      ? this.navigationHistory.peekBack()
-      : this.navigationHistory.peekForward();
+  private async restoreHistory(
+    direction: 'back' | 'forward',
+  ): Promise<Locator | null> {
+    const target =
+      direction === 'back'
+        ? this.navigationHistory.peekBack()
+        : this.navigationHistory.peekForward();
     if (!target) return null;
     const current = await this.currentHistoryLocator();
     const restored = await this.navigator.goToLocator(target);
@@ -699,8 +1000,12 @@ export class BrowserEpubReader {
     return this.locator;
   }
 
-  private async restoreHistorySteps(direction: 'back' | 'forward', steps: number): Promise<Locator | null> {
-    if (!Number.isInteger(steps) || steps < 1) throw new RangeError('History steps must be a positive integer.');
+  private async restoreHistorySteps(
+    direction: 'back' | 'forward',
+    steps: number,
+  ): Promise<Locator | null> {
+    if (!Number.isInteger(steps) || steps < 1)
+      throw new RangeError('History steps must be a positive integer.');
     let restored: Locator | null = null;
     for (let step = 0; step < steps; step += 1) {
       const next = await this.restoreHistory(direction);
@@ -711,15 +1016,20 @@ export class BrowserEpubReader {
   }
 
   private async currentHistoryLocator(): Promise<Locator | null> {
-    return await this.host.captureLocator() ?? this.locator;
+    return (await this.host.captureLocator()) ?? this.locator;
   }
 
   private stepFont(delta: 1 | -1): Promise<void> {
     const step = delta > 0 ? 10 : -10;
-    return this.setPreferences({ fontSizePercent: this.preferences.fontSizePercent + step });
+    return this.setPreferences({
+      fontSizePercent: this.preferences.fontSizePercent + step,
+    });
   }
 
-  private appendDiagnostics(next: readonly PublicationDiagnostic[], options: BrowserEpubReaderOptions): void {
+  private appendDiagnostics(
+    next: readonly PublicationDiagnostic[],
+    options: BrowserEpubReaderOptions,
+  ): void {
     if (next.length === 0) return;
     const unique = this.diagnostics.append(next);
     if (unique.length === 0) return;
@@ -732,18 +1042,24 @@ export class BrowserEpubReader {
     const run = () => {
       this.cancelBackgroundPreflight = null;
       void this.contentPreflight.inspect().then(
-        result => {
+        (result) => {
           if (!this.disposed) this.applyContentPreflight(result, true);
         },
-        error => {
+        (error) => {
           if (this.disposed || isAbortError(error)) return;
-          this.appendDiagnostics([{
-            code: 'CONTENT_PREFLIGHT_BACKGROUND_FAILED',
-            severity: 'warning',
-            phase: 'content',
-            message: 'Background content preflight stopped unexpectedly; renderer-side inspection remains available.',
-            cause: error,
-          }], this.options);
+          this.appendDiagnostics(
+            [
+              {
+                code: 'CONTENT_PREFLIGHT_BACKGROUND_FAILED',
+                severity: 'warning',
+                phase: 'content',
+                message:
+                  'Background content preflight stopped unexpectedly; renderer-side inspection remains available.',
+                cause: error,
+              },
+            ],
+            this.options,
+          );
         },
       );
     };
@@ -761,7 +1077,10 @@ export class BrowserEpubReader {
     this.cancelBackgroundPreflight = () => view.clearTimeout(handle);
   }
 
-  private applyContentPreflight(result: PublicationContentPreflightResult, complete: boolean): void {
+  private applyContentPreflight(
+    result: PublicationContentPreflightResult,
+    complete: boolean,
+  ): void {
     let hintsChanged = false;
     for (const [spineIndex, hints] of result.hints) {
       const current = this.hints.get(spineIndex);
@@ -773,10 +1092,18 @@ export class BrowserEpubReader {
       this.hints.set(spineIndex, merged);
     }
     const previousPresentation = this.presentation;
-    if (complete) this.presentation = resolvePublicationPresentation(this.publication, this.hints);
+    if (complete)
+      this.presentation = resolvePublicationPresentation(
+        this.publication,
+        this.hints,
+      );
     const unique = this.diagnostics.append(result.diagnostics);
     if (unique.length > 0) this.options.onDiagnostics?.(unique);
-    if (hintsChanged || unique.length > 0 || previousPresentation !== this.presentation) {
+    if (
+      hintsChanged ||
+      unique.length > 0 ||
+      previousPresentation !== this.presentation
+    ) {
       this.publish(this.snapshotValue.status, this.snapshotValue.error);
     }
   }
@@ -787,15 +1114,24 @@ export class BrowserEpubReader {
     this.publish(this.snapshotValue.status, error);
   }
 
-  private publish(status: BrowserEpubReaderSnapshot['status'], error: unknown | null): void {
+  private publish(
+    status: BrowserEpubReaderSnapshot['status'],
+    error: unknown | null,
+  ): void {
     if (this.disposed && status !== 'disposed') return;
     this.snapshotValue = this.buildSnapshot(status, error);
     for (const listener of this.listeners) listener();
   }
 
-  private buildSnapshot(status: BrowserEpubReaderSnapshot['status'], error: unknown | null): BrowserEpubReaderSnapshot {
+  private buildSnapshot(
+    status: BrowserEpubReaderSnapshot['status'],
+    error: unknown | null,
+  ): BrowserEpubReaderSnapshot {
     const renderer = this.host?.state ?? emptyRendererState();
-    const accessibility = describeReaderPosition(this.publication, { locator: this.locator, layout: renderer.layout });
+    const accessibility = describeReaderPosition(this.publication, {
+      locator: this.locator,
+      layout: renderer.layout,
+    });
     return Object.freeze({
       status,
       publication: this.publication,
@@ -820,211 +1156,4 @@ export class BrowserEpubReader {
   private assertAlive(): void {
     if (this.disposed) throw new Error('BrowserEpubReader has been disposed.');
   }
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (!signal?.aborted) return;
-  throw signal.reason instanceof Error ? signal.reason : new DOMException('EPUB open aborted.', 'AbortError');
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError';
-}
-
-function preflightWindowIndexes(publication: Publication, spineIndex: number): readonly number[] {
-  const indexes: number[] = [];
-  for (let index = spineIndex - 1; index <= spineIndex + 1; index += 1) {
-    if (publication.spine[index]) indexes.push(index);
-  }
-  return indexes;
-}
-
-function sameContentHints(a: ContentPresentationHints | undefined, b: ContentPresentationHints): boolean {
-  return JSON.stringify(a ?? null) === JSON.stringify(b);
-}
-
-function reportOpenProgress(
-  options: BrowserEpubReaderOptions,
-  phase: BrowserEpubReaderOpenProgress['phase'],
-  label: string,
-  completed: number,
-): void {
-  options.onOpenProgress?.({ phase, label, completed, total: 5 });
-}
-
-function resolveInitialLocator(
-  publication: import('../../epub/publication').Publication,
-  options: BrowserEpubReaderOptions,
-): Locator {
-  if (options.initialLocator) return options.initialLocator;
-  let index = options.initialSpineIndex;
-  if (index == null) index = publication.spine.find(item => item.linear)?.index ?? 0;
-  if (!publication.spine[index]) throw new RangeError(`Initial spine index ${index} is outside the publication.`);
-  return locatorAtResourceStart(publication, index);
-}
-
-/**
- * Measured viewports are floored to whole pixels.
- *
- * `getBoundingClientRect()` reports sub-pixel sizes, but the page geometry
- * derived from it is written into the content document as literal pixel widths
- * and multiplied by the page index to reach page N. A fractional page extent
- * therefore drifts against the browser's own integer-rounded iframe viewport,
- * a little more with every page, until the trailing column of a page is sliced.
- *
- * Flooring rather than rounding keeps the declared page no wider than the space
- * that actually exists, so the error can only ever leave a sliver unused; a page
- * one pixel too wide would clip its own last column instead.
- */
-function measureViewport(container: HTMLElement): ViewportMetrics {
-  const rect = container.getBoundingClientRect();
-  return normalizeViewport({
-    width: Math.max(1, Math.floor(rect.width || container.clientWidth)),
-    height: Math.max(1, Math.floor(rect.height || container.clientHeight)),
-  });
-}
-
-function normalizeViewport(viewport: ViewportMetrics): ViewportMetrics {
-  if (!Number.isFinite(viewport.width) || viewport.width <= 0 || !Number.isFinite(viewport.height) || viewport.height <= 0) {
-    throw new RangeError('Reader viewport width and height must both be positive finite numbers.');
-  }
-  return Object.freeze({ width: viewport.width, height: viewport.height });
-}
-
-function assertUsableContainer(container: HTMLElement): void {
-  if (!container?.ownerDocument) throw new TypeError('BrowserEpubReader requires a live HTMLElement container.');
-  measureViewport(container);
-}
-
-function mergePlannerPolicy(input: BrowserEpubReaderOptions['plannerPolicy']): RenditionPlannerPolicy {
-  return {
-    ...DEFAULT_RENDITION_PLANNER_POLICY,
-    ...input,
-    syntheticSpreads: {
-      ...DEFAULT_RENDITION_PLANNER_POLICY.syntheticSpreads,
-      ...input?.syntheticSpreads,
-    },
-  };
-}
-
-function mergeHints(previous: ContentPresentationHints | undefined, next: ContentPresentationHints): ContentPresentationHints {
-  return { ...previous, ...next };
-}
-
-/**
- * Publication-level presentation. Only fully pre-paginated publications get the
- * immersive treatment: a mixed publication that switched chrome on its
- * illustration pages would restyle its whole interface several times per
- * chapter, which reads as the reader itself changing rather than the book.
- */
-function resolvePublicationPresentation(
-  publication: Publication,
-  hints: ReadonlyMap<number, ContentPresentationHints>,
-): ReaderPublicationPresentation {
-  const layout = resolvePublicationLayoutProfile(publication);
-  return Object.freeze({
-    layout,
-    writingMode: dominantWritingMode(publication, hints),
-    chrome: layout === 'fixed-layout' ? 'immersive' : 'standard',
-  });
-}
-
-/**
- * Vertical publications routinely leave a horizontal colophon or copyright page
- * in the spine, so a single dissenting document must not decide the answer.
- */
-function dominantWritingMode(
-  publication: Publication,
-  hints: ReadonlyMap<number, ContentPresentationHints>,
-): WritingMode {
-  const tally = new Map<WritingMode, number>();
-  for (const item of publication.spine) {
-    if (resolveSpineRendition(publication, item).layout === 'pre-paginated') continue;
-    const mode = hints.get(item.index)?.writingMode;
-    if (mode) tally.set(mode, (tally.get(mode) ?? 0) + 1);
-  }
-
-  let best: WritingMode = 'horizontal-tb';
-  let bestCount = 0;
-  for (const [mode, count] of tally) {
-    if (count > bestCount) {
-      best = mode;
-      bestCount = count;
-    }
-  }
-  return best;
-}
-
-function sameViewport(a: ViewportMetrics, b: ViewportMetrics): boolean {
-  return a.width === b.width && a.height === b.height;
-}
-
-function samePreferences(a: ReaderPreferences, b: ReaderPreferences): boolean {
-  return a.flow === b.flow
-    && a.spread === b.spread
-    && a.pageProgression === b.pageProgression
-    && a.fontSizePercent === b.fontSizePercent
-    && a.fontFamily === b.fontFamily
-    && a.lineHeight === b.lineHeight
-    && a.pageMarginPercent === b.pageMarginPercent
-    && a.fixedLayoutFit === b.fixedLayoutFit
-    && a.fixedLayoutGutter === b.fixedLayoutGutter
-    && a.touchNavigation === b.touchNavigation
-    && a.pageTurnZonePercent === b.pageTurnZonePercent
-    && sameCompatibilityPreferences(a, b)
-    && a.theme === b.theme;
-}
-
-function renderPreferencesChanged(a: ReaderPreferences, b: ReaderPreferences): boolean {
-  return a.flow !== b.flow
-    || a.spread !== b.spread
-    || a.pageProgression !== b.pageProgression
-    || a.fontSizePercent !== b.fontSizePercent
-    || a.fontFamily !== b.fontFamily
-    || a.lineHeight !== b.lineHeight
-    || a.pageMarginPercent !== b.pageMarginPercent
-    || a.fixedLayoutFit !== b.fixedLayoutFit
-    || a.fixedLayoutGutter !== b.fixedLayoutGutter
-    || a.theme !== b.theme;
-}
-
-function sameCompatibilityPreferences(a: ReaderPreferences, b: ReaderPreferences): boolean {
-  return a.compatibility.recoverContainerStructure === b.compatibility.recoverContainerStructure
-    && a.compatibility.selectPreferredRootfile === b.compatibility.selectPreferredRootfile
-    && a.compatibility.recoverMalformedXhtml === b.compatibility.recoverMalformedXhtml
-    && a.compatibility.useLegacyNavigationFallback === b.compatibility.useLegacyNavigationFallback
-    && a.compatibility.normalizeLegacyCss === b.compatibility.normalizeLegacyCss
-    && a.compatibility.fitSingleImagePages === b.compatibility.fitSingleImagePages
-    && a.compatibility.deobfuscateIdpfFonts === b.compatibility.deobfuscateIdpfFonts;
-}
-
-function spreadChanged(a: ReaderPreferences, b: ReaderPreferences): boolean {
-  return a.spread !== b.spread;
-}
-
-function mergeApproximateLocator(
-  previous: Locator | null,
-  spineIndex: number,
-  href: string,
-  progression: number,
-): Locator {
-  if (
-    previous?.spineIndex === spineIndex
-    && previous.href === href
-    && Math.abs((previous.locations.progression ?? progression) - progression) < 0.001
-  ) {
-    return { ...previous, locations: { ...previous.locations, progression } };
-  }
-  // A live layout report knows the physical progression but not the new DOM
-  // anchor. Keeping an older CFI here would make the composite locator
-  // contradictory and precise restoration could jump back to the old page.
-  return { spineIndex, href, locations: { progression } };
-}
-
-function emptyRendererState(): import('../../presentation/renderer').RendererHostState {
-  return { status: 'idle', generation: 0, plan: null, rendererKind: null, layout: null, stability: null, error: null };
-}
-
-function emptySearchState(): import('../../features/search').ReaderSearchState {
-  return { query: '', hits: [], index: -1, searching: false, truncated: false, diagnostics: [], error: null };
 }

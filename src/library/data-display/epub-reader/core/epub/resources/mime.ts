@@ -45,13 +45,15 @@ export function inferMediaType(path: PublicationPath): string | undefined {
 
 export function isTextualMediaType(mediaType: string): boolean {
   const essence = mediaType.split(';', 1)[0]!.trim().toLowerCase();
-  return essence.startsWith('text/')
-    || essence.endsWith('+xml')
-    || essence === 'application/xml'
-    || essence === 'application/xhtml+xml'
-    || essence === 'application/javascript'
-    || essence === 'application/json'
-    || essence === 'application/smil+xml';
+  return (
+    essence.startsWith('text/') ||
+    essence.endsWith('+xml') ||
+    essence === 'application/xml' ||
+    essence === 'application/xhtml+xml' ||
+    essence === 'application/javascript' ||
+    essence === 'application/json' ||
+    essence === 'application/smil+xml'
+  );
 }
 
 export function isCssMediaType(mediaType: string): boolean {

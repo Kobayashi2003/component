@@ -51,7 +51,10 @@ export function resolveOverflow(
   }
 
   if (preferences.flow === 'paginated') {
-    return { overflow: { value: 'paginated', source: 'user' }, diagnostics: [] };
+    return {
+      overflow: { value: 'paginated', source: 'user' },
+      diagnostics: [],
+    };
   }
 
   if (preferences.flow === 'scrolled') {
@@ -71,7 +74,10 @@ export function resolveOverflow(
     };
   }
 
-  if (rendition.flow === 'scrolled-doc' || rendition.flow === 'scrolled-continuous') {
+  if (
+    rendition.flow === 'scrolled-doc' ||
+    rendition.flow === 'scrolled-continuous'
+  ) {
     return {
       overflow: {
         value: rendition.flow,
@@ -82,7 +88,10 @@ export function resolveOverflow(
   }
 
   return {
-    overflow: { value: policy.defaultReflowableFlow, source: 'reading-system-default' },
+    overflow: {
+      value: policy.defaultReflowableFlow,
+      source: 'reading-system-default',
+    },
     diagnostics: [],
   };
 }

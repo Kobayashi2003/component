@@ -1,4 +1,10 @@
-import type { Locator, ReaderMark, ReaderMarkKind, SearchHit, TocItem } from '../../core';
+import type {
+  Locator,
+  ReaderMark,
+  ReaderMarkKind,
+  SearchHit,
+  TocItem,
+} from '../../core';
 
 export type MarkFilter = 'all' | ReaderMarkKind;
 
@@ -35,10 +41,18 @@ export function chapterContext(
 ): ChapterContext {
   const match = findTocMatch(toc, href);
   const path = match?.path ?? [`Section ${spineIndex + 1}`];
-  return { label: path[path.length - 1]!, path, spineIndex, href: match?.item.href };
+  return {
+    label: path[path.length - 1]!,
+    path,
+    spineIndex,
+    href: match?.item.href,
+  };
 }
 
-export function tocItemForHref(toc: readonly TocItem[], href?: string): TocItem | null {
+export function tocItemForHref(
+  toc: readonly TocItem[],
+  href?: string,
+): TocItem | null {
   return findTocMatch(toc, href)?.item ?? null;
 }
 
@@ -46,17 +60,27 @@ export function groupMarksByChapter(
   marks: readonly ReaderMark[],
   toc: readonly TocItem[],
 ): readonly MarkChapterGroup[] {
-  const groups = new Map<string, { chapter: ChapterContext; marks: ReaderMark[] }>();
+  const groups = new Map<
+    string,
+    { chapter: ChapterContext; marks: ReaderMark[] }
+  >();
   for (const mark of marks) {
     const locator = mark.kind === 'bookmark' ? mark.locator : mark.range.start;
-    const chapter = chapterContext(toc, locatorHref(locator), locator.spineIndex);
+    const chapter = chapterContext(
+      toc,
+      locatorHref(locator),
+      locator.spineIndex,
+    );
     const key = `${chapter.spineIndex}:${chapter.href ?? documentHref(locator.href)}`;
     const group = groups.get(key) ?? { chapter, marks: [] };
     group.marks.push(mark);
     groups.set(key, group);
   }
   return [...groups.entries()]
-    .sort(([, left], [, right]) => left.chapter.spineIndex - right.chapter.spineIndex)
+    .sort(
+      ([, left], [, right]) =>
+        left.chapter.spineIndex - right.chapter.spineIndex,
+    )
     .map(([key, group]) => ({ key, ...group }));
 }
 
@@ -64,7 +88,10 @@ export function groupSearchHitsByChapter(
   hits: readonly SearchHit[],
   toc: readonly TocItem[],
 ): readonly SearchChapterGroup[] {
-  const groups = new Map<string, { chapter: ChapterContext; results: { hit: SearchHit; index: number }[] }>();
+  const groups = new Map<
+    string,
+    { chapter: ChapterContext; results: { hit: SearchHit; index: number }[] }
+  >();
   hits.forEach((hit, index) => {
     const locator = hit.range.start;
     const chapter = chapterContext(toc, locatorHref(locator), hit.spineIndex);
@@ -76,8 +103,13 @@ export function groupSearchHitsByChapter(
   return [...groups.entries()].map(([key, group]) => ({ key, ...group }));
 }
 
-export function filterMarks(marks: readonly ReaderMark[], filter: MarkFilter): readonly ReaderMark[] {
-  return filter === 'all' ? marks : marks.filter(mark => mark.kind === filter);
+export function filterMarks(
+  marks: readonly ReaderMark[],
+  filter: MarkFilter,
+): readonly ReaderMark[] {
+  return filter === 'all'
+    ? marks
+    : marks.filter((mark) => mark.kind === filter);
 }
 
 export function markLocator(mark: ReaderMark): Locator {
@@ -86,15 +118,24 @@ export function markLocator(mark: ReaderMark): Locator {
 
 export function markPreview(mark: ReaderMark, maximum = 140): string {
   const locator = markLocator(mark);
-  const source = mark.kind === 'bookmark'
-    ? locator.text?.highlight || `Saved position ${Math.round((locator.locations.progression ?? 0) * 100)}%`
-    : mark.label || locator.text?.highlight || (mark.kind === 'annotation' ? mark.body : 'Highlighted passage');
+  const source =
+    mark.kind === 'bookmark'
+      ? locator.text?.highlight ||
+        `Saved position ${Math.round((locator.locations.progression ?? 0) * 100)}%`
+      : mark.label ||
+        locator.text?.highlight ||
+        (mark.kind === 'annotation' ? mark.body : 'Highlighted passage');
   const normalized = source.replace(/\s+/gu, ' ').trim();
-  return normalized.length > maximum ? `${normalized.slice(0, maximum - 1).trimEnd()}…` : normalized;
+  return normalized.length > maximum
+    ? `${normalized.slice(0, maximum - 1).trimEnd()}…`
+    : normalized;
 }
 
 export function tocItemCount(items: readonly TocItem[]): number {
-  return items.reduce((count, item) => count + 1 + tocItemCount(item.children), 0);
+  return items.reduce(
+    (count, item) => count + 1 + tocItemCount(item.children),
+    0,
+  );
 }
 
 export function locatorHref(locator: Locator): string {
@@ -117,7 +158,11 @@ function findTocMatch(toc: readonly TocItem[], href?: string): TocMatch | null {
     for (const item of items) {
       const path = [...parents, item.label];
       if (item.href === href && !exact) exact = { item, path };
-      if (item.href && documentHref(item.href) === targetDocument && !documentFallback) {
+      if (
+        item.href &&
+        documentHref(item.href) === targetDocument &&
+        !documentFallback
+      ) {
         documentFallback = { item, path };
       }
       visit(item.children, path);

@@ -1,10 +1,22 @@
-import { splitResolvedHref, type Locator, type Publication, type PublicationHref } from '../../epub/publication';
+import {
+  splitResolvedHref,
+  type Locator,
+  type Publication,
+  type PublicationHref,
+} from '../../epub/publication';
 import { parseEpubCfi, resolveCfiSpineItem } from '../locator';
 
-export function locatorFromHref(publication: Publication, href: PublicationHref): Locator {
+export function locatorFromHref(
+  publication: Publication,
+  href: PublicationHref,
+): Locator {
   const split = splitResolvedHref(href);
-  const item = publication.spine.find(candidate => splitResolvedHref(candidate.href).resource === split.resource);
-  if (!item) throw new RangeError(`Publication href is not in the spine: ${href}`);
+  const item = publication.spine.find(
+    (candidate) =>
+      splitResolvedHref(candidate.href).resource === split.resource,
+  );
+  if (!item)
+    throw new RangeError(`Publication href is not in the spine: ${href}`);
   return {
     href: item.href,
     spineIndex: item.index,

@@ -1,12 +1,21 @@
-import type { ReaderMark, ReaderMarkStore, ReaderMarkStoreSnapshot } from './model';
+import type {
+  ReaderMark,
+  ReaderMarkStore,
+  ReaderMarkStoreSnapshot,
+} from './model';
 
 export class MemoryReaderMarkStore implements ReaderMarkStore {
   private readonly marks = new Map<string, ReaderMark>();
-  private readonly listeners = new Set<(snapshot: ReaderMarkStoreSnapshot) => void>();
+  private readonly listeners = new Set<
+    (snapshot: ReaderMarkStoreSnapshot) => void
+  >();
   private revision = 0;
 
   snapshot(): ReaderMarkStoreSnapshot {
-    return { revision: this.revision, marks: [...this.marks.values()].sort(compareMarks) };
+    return {
+      revision: this.revision,
+      marks: [...this.marks.values()].sort(compareMarks),
+    };
   }
 
   put(mark: ReaderMark): void {
@@ -60,13 +69,17 @@ createMarkId.counter = 0;
 function compareMarks(a: ReaderMark, b: ReaderMark): number {
   const aLocator = a.kind === 'bookmark' ? a.locator : a.range.start;
   const bLocator = b.kind === 'bookmark' ? b.locator : b.range.start;
-  return aLocator.spineIndex - bLocator.spineIndex
-    || progression(aLocator) - progression(bLocator)
-    || a.createdAt.localeCompare(b.createdAt)
-    || a.id.localeCompare(b.id);
+  return (
+    aLocator.spineIndex - bLocator.spineIndex ||
+    progression(aLocator) - progression(bLocator) ||
+    a.createdAt.localeCompare(b.createdAt) ||
+    a.id.localeCompare(b.id)
+  );
 }
 
-function progression(locator: import('../../epub/publication').Locator): number {
+function progression(
+  locator: import('../../epub/publication').Locator,
+): number {
   return locator.locations.progression ?? 0;
 }
 
@@ -75,17 +88,20 @@ function freezeMark<T extends ReaderMark>(mark: T): T {
 }
 
 function clonePlain<T>(value: T): T {
-  if (Array.isArray(value)) return value.map(item => clonePlain(item)) as T;
+  if (Array.isArray(value)) return value.map((item) => clonePlain(item)) as T;
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) out[key] = clonePlain(child);
+    for (const [key, child] of Object.entries(value as Record<string, unknown>))
+      out[key] = clonePlain(child);
     return out as T;
   }
   return value;
 }
 
 function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  if (!value || typeof value !== 'object' || Object.isFrozen(value))
+    return value;
+  for (const child of Object.values(value as Record<string, unknown>))
+    deepFreeze(child);
   return Object.freeze(value);
 }

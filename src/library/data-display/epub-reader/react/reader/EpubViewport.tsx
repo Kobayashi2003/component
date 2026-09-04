@@ -12,12 +12,25 @@ const DEFAULT_STYLE: CSSProperties = {
   overflow: 'hidden',
 };
 
-export function EpubViewport({ reader: explicit, className, style, ariaLabel, ariaDescribedBy, id, tabIndex, children }: EpubViewportProps) {
+export function EpubViewport({
+  reader: explicit,
+  className,
+  style,
+  ariaLabel,
+  ariaDescribedBy,
+  id,
+  tabIndex,
+  children,
+}: EpubViewportProps) {
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
-  if (!reader) throw new Error('<EpubViewport> requires a reader prop or EpubReaderProvider.');
+  if (!reader)
+    throw new Error(
+      '<EpubViewport> requires a reader prop or EpubReaderProvider.',
+    );
   const snapshot = reader.state.reader;
-  const label = ariaLabel ?? snapshot?.publication.metadata.title ?? 'EPUB reader';
+  const label =
+    ariaLabel ?? snapshot?.publication.metadata.title ?? 'EPUB reader';
 
   return (
     <div
@@ -33,11 +46,7 @@ export function EpubViewport({ reader: explicit, className, style, ariaLabel, ar
       data-epub-reader-status={reader.state.status}
     >
       {children}
-      <span
-        aria-live="polite"
-        aria-atomic="true"
-        style={VISUALLY_HIDDEN}
-      >
+      <span aria-live="polite" aria-atomic="true" style={VISUALLY_HIDDEN}>
         {snapshot?.accessibility.announcement ?? ''}
       </span>
     </div>

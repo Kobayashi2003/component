@@ -1,10 +1,16 @@
-import { MemoryPublicationArchive } from '../../core/epub/archive/publication-archive';
-import { __zipTestUtils } from '../../core/epub/archive/ocf-zip';
-import { loadEpub, loadPublicationFromArchive } from '../../core/epub/publication/loader';
-import { hasMixedLayout, resolveSpineRendition } from '../../core/epub/publication/resolve-rendition';
-import { resolvePublicationReference } from '../../core/epub/publication/path';
-import { createBuiltInCompatibilityProfile } from '../../core/epub/compatibility';
-import { DEFAULT_READER_COMPATIBILITY_PREFERENCES } from '../../core/epub/publication';
+import { MemoryPublicationArchive } from "../../core/epub/archive/publication-archive";
+import { __zipTestUtils } from "../../core/epub/archive/ocf-zip";
+import {
+  loadEpub,
+  loadPublicationFromArchive,
+} from "../../core/epub/publication/loader";
+import {
+  hasMixedLayout,
+  resolveSpineRendition,
+} from "../../core/epub/publication/resolve-rendition";
+import { resolvePublicationReference } from "../../core/epub/publication/path";
+import { createBuiltInCompatibilityProfile } from "../../core/epub/compatibility";
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES } from "../../core/epub/publication";
 
 const containerXml = `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -52,8 +58,6 @@ const navXml = `<?xml version="1.0" encoding="UTF-8"?>
 <nav epub:type="landmarks"><ol><li><a epub:type="bodymatter" href="text/ch1.xhtml">Start</a></li><li><a epub:type="bodymatter" href="https://example.com/start">remote</a></li></ol></nav>
 </body></html>`;
 
-
-
 const epub2PackageXml = `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -79,7 +83,6 @@ const ncxXml = `<?xml version="1.0"?>
   <pageList><pageTarget id="p1" type="normal" value="1" playOrder="2"><navLabel><text>1</text></navLabel><content src="chapter.xhtml#page1"/></pageTarget></pageList>
 </ncx>`;
 
-
 const conflictingOverridePackageXml = `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -92,12 +95,12 @@ const conflictingOverridePackageXml = `<?xml version="1.0"?>
 </package>`;
 
 const archive = new MemoryPublicationArchive({
-  'mimetype': 'application/epub+zip',
-  'META-INF/container.xml': containerXml,
-  'EPUB/package.opf': packageXml,
-  'EPUB/nav.xhtml': navXml,
-  'EPUB/text/ch1.xhtml': '<html/>',
-  'EPUB/pages/p1.xhtml': '<html/>',
+  mimetype: "application/epub+zip",
+  "META-INF/container.xml": containerXml,
+  "EPUB/package.opf": packageXml,
+  "EPUB/nav.xhtml": navXml,
+  "EPUB/text/ch1.xhtml": "<html/>",
+  "EPUB/pages/p1.xhtml": "<html/>",
 });
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -105,100 +108,217 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 async function main() {
-  assert(resolvePublicationReference('EPUB/nav.xhtml', '#toc').href === 'EPUB/nav.xhtml#toc', 'fragment-only href must resolve against the current document');
+  assert(
+    resolvePublicationReference("EPUB/nav.xhtml", "#toc").href ===
+      "EPUB/nav.xhtml#toc",
+    "fragment-only href must resolve against the current document",
+  );
 
   const loaded = await loadPublicationFromArchive(archive);
-  assert(loaded.publication, 'publication should load from memory archive');
+  assert(loaded.publication, "publication should load from memory archive");
   const book = loaded.publication;
-  assert(book.version === '3.3', 'package version should be preserved');
-  assert(book.metadata.title === 'Reader Fixture', 'title should parse');
-  assert(book.metadata.subtitle === 'A subtitle', 'title refinement should produce subtitle');
-  assert(book.metadata.creators[0]?.role === 'aut', 'creator role refinement should parse');
-  assert(book.pageProgressionDirection === 'rtl', 'spine progression should parse independently');
-  assert(hasMixedLayout(book), 'per-spine layout override must produce mixed layout');
-  assert(book.spine[0]?.cfiBase === '/6/2!', 'parser should preserve the package CFI base for the first spine item');
-  assert(book.spine[1]?.cfiBase === '/6/4!', 'parser should preserve package-relative itemref position in the CFI base');
-  assert(resolveSpineRendition(book, book.spine[1]!).pageSpread === 'right', 'page spread override should survive parsing');
-  assert(book.navigation.source === 'epub3-nav', 'EPUB 3 nav should be authoritative');
-  assert(book.navigation.toc[1]?.href === undefined, 'span TOC group must remain unlinked');
-  assert(book.navigation.toc[1]?.children[0]?.label === 'Plate One', 'image alt should contribute to navigation label');
-  assert(book.navigation.toc[2]?.label === 'Publisher website' && book.navigation.toc[2]?.href === undefined, 'remote TOC entries must remain readable but not become internal navigation targets');
-  assert(book.navigation.pageList.length === 1, 'remote page-list entries must not enter the publication location model');
-  assert(book.navigation.landmarks.length === 1, 'remote landmarks must not enter internal navigation');
-  assert(book.navigation.landmarks[0]?.types.includes('bodymatter'), 'landmark semantic should parse');
-  assert(book.manifest.find(item => item.id === 'remote')?.remote === true, 'remote manifest resources must be preserved');
+  assert(book.version === "3.3", "package version should be preserved");
+  assert(book.metadata.title === "Reader Fixture", "title should parse");
+  assert(
+    book.metadata.subtitle === "A subtitle",
+    "title refinement should produce subtitle",
+  );
+  assert(
+    book.metadata.creators[0]?.role === "aut",
+    "creator role refinement should parse",
+  );
+  assert(
+    book.pageProgressionDirection === "rtl",
+    "spine progression should parse independently",
+  );
+  assert(
+    hasMixedLayout(book),
+    "per-spine layout override must produce mixed layout",
+  );
+  assert(
+    book.spine[0]?.cfiBase === "/6/2!",
+    "parser should preserve the package CFI base for the first spine item",
+  );
+  assert(
+    book.spine[1]?.cfiBase === "/6/4!",
+    "parser should preserve package-relative itemref position in the CFI base",
+  );
+  assert(
+    resolveSpineRendition(book, book.spine[1]!).pageSpread === "right",
+    "page spread override should survive parsing",
+  );
+  assert(
+    book.navigation.source === "epub3-nav",
+    "EPUB 3 nav should be authoritative",
+  );
+  assert(
+    book.navigation.toc[1]?.href === undefined,
+    "span TOC group must remain unlinked",
+  );
+  assert(
+    book.navigation.toc[1]?.children[0]?.label === "Plate One",
+    "image alt should contribute to navigation label",
+  );
+  assert(
+    book.navigation.toc[2]?.label === "Publisher website" &&
+      book.navigation.toc[2]?.href === undefined,
+    "remote TOC entries must remain readable but not become internal navigation targets",
+  );
+  assert(
+    book.navigation.pageList.length === 1,
+    "remote page-list entries must not enter the publication location model",
+  );
+  assert(
+    book.navigation.landmarks.length === 1,
+    "remote landmarks must not enter internal navigation",
+  );
+  assert(
+    book.navigation.landmarks[0]?.types.includes("bodymatter"),
+    "landmark semantic should parse",
+  );
+  assert(
+    book.manifest.find((item) => item.id === "remote")?.remote === true,
+    "remote manifest resources must be preserved",
+  );
 
   const multipleRootfiles = new MemoryPublicationArchive({
-    'META-INF/container.xml': `<?xml version="1.0"?>
+    "META-INF/container.xml": `<?xml version="1.0"?>
       <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>
         <rootfile full-path="ALT/package.opf" media-type="application/xml"/>
         <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
       </rootfiles></container>`,
-    'ALT/package.opf': packageXml.replace('Reader Fixture', 'Publisher First Package'),
-    'EPUB/package.opf': packageXml,
-    'ALT/nav.xhtml': navXml,
-    'EPUB/nav.xhtml': navXml,
+    "ALT/package.opf": packageXml.replace(
+      "Reader Fixture",
+      "Publisher First Package",
+    ),
+    "EPUB/package.opf": packageXml,
+    "ALT/nav.xhtml": navXml,
+    "EPUB/nav.xhtml": navXml,
   });
   const preferredRootfile = await loadPublicationFromArchive(multipleRootfiles);
-  assert(preferredRootfile.publication?.metadata.title === 'Reader Fixture', 'default rootfile recovery should prefer the standard OPF package');
-  const publisherRootfile = await loadPublicationFromArchive(multipleRootfiles, [], {
-    compatibilityProfile: createBuiltInCompatibilityProfile({
-      ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
-      selectPreferredRootfile: false,
+  assert(
+    preferredRootfile.publication?.metadata.title === "Reader Fixture",
+    "default rootfile recovery should prefer the standard OPF package",
+  );
+  const publisherRootfile = await loadPublicationFromArchive(
+    multipleRootfiles,
+    [],
+    {
+      compatibilityProfile: createBuiltInCompatibilityProfile({
+        ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+        selectPreferredRootfile: false,
+      }),
+    },
+  );
+  assert(
+    publisherRootfile.publication?.metadata.title === "Publisher First Package",
+    "disabling rootfile recovery should preserve publisher declaration order",
+  );
+
+  const epub2 = await loadPublicationFromArchive(
+    new MemoryPublicationArchive({
+      "META-INF/container.xml": containerXml,
+      "EPUB/package.opf": epub2PackageXml,
+      "EPUB/toc.ncx": ncxXml,
+      "EPUB/chapter.xhtml": "<html/>",
     }),
-  });
-  assert(publisherRootfile.publication?.metadata.title === 'Publisher First Package', 'disabling rootfile recovery should preserve publisher declaration order');
+  );
+  assert(
+    epub2.publication?.version === "2.0",
+    "EPUB 2 package version should be preserved",
+  );
+  assert(
+    epub2.publication?.navigation.source === "ncx",
+    "EPUB 2 should use NCX navigation",
+  );
+  assert(
+    epub2.publication?.navigation.toc[0]?.label === "Legacy Chapter",
+    "NCX navMap should parse",
+  );
+  assert(
+    epub2.publication?.navigation.pageList[0]?.fragment === "page1",
+    "NCX pageList should parse",
+  );
+  assert(
+    epub2.publication?.navigation.landmarks[0]?.types[0] === "text",
+    "EPUB 2 guide should supply fallback landmarks",
+  );
+  assert(
+    epub2.publication?.metadata.creators[0]?.fileAs === "Author, Legacy",
+    "EPUB 2 opf:file-as should parse",
+  );
 
-  const epub2 = await loadPublicationFromArchive(new MemoryPublicationArchive({
-    'META-INF/container.xml': containerXml,
-    'EPUB/package.opf': epub2PackageXml,
-    'EPUB/toc.ncx': ncxXml,
-    'EPUB/chapter.xhtml': '<html/>',
-  }));
-  assert(epub2.publication?.version === '2.0', 'EPUB 2 package version should be preserved');
-  assert(epub2.publication?.navigation.source === 'ncx', 'EPUB 2 should use NCX navigation');
-  assert(epub2.publication?.navigation.toc[0]?.label === 'Legacy Chapter', 'NCX navMap should parse');
-  assert(epub2.publication?.navigation.pageList[0]?.fragment === 'page1', 'NCX pageList should parse');
-  assert(epub2.publication?.navigation.landmarks[0]?.types[0] === 'text', 'EPUB 2 guide should supply fallback landmarks');
-  assert(epub2.publication?.metadata.creators[0]?.fileAs === 'Author, Legacy', 'EPUB 2 opf:file-as should parse');
-
-  const epub2WithoutFallback = await loadPublicationFromArchive(new MemoryPublicationArchive({
-    'META-INF/container.xml': containerXml,
-    'EPUB/package.opf': epub2PackageXml,
-    'EPUB/toc.ncx': ncxXml,
-    'EPUB/chapter.xhtml': '<html/>',
-  }), [], {
-    compatibilityProfile: createBuiltInCompatibilityProfile({
-      ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
-      useLegacyNavigationFallback: false,
+  const epub2WithoutFallback = await loadPublicationFromArchive(
+    new MemoryPublicationArchive({
+      "META-INF/container.xml": containerXml,
+      "EPUB/package.opf": epub2PackageXml,
+      "EPUB/toc.ncx": ncxXml,
+      "EPUB/chapter.xhtml": "<html/>",
     }),
-  });
-  assert(epub2WithoutFallback.publication?.navigation.source === 'none', 'disabling legacy navigation must not parse NCX as the active navigation model');
-  assert(epub2WithoutFallback.publication?.navigation.landmarks.length === 0, 'disabling legacy navigation must not import EPUB 2 Guide landmarks');
+    [],
+    {
+      compatibilityProfile: createBuiltInCompatibilityProfile({
+        ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+        useLegacyNavigationFallback: false,
+      }),
+    },
+  );
+  assert(
+    epub2WithoutFallback.publication?.navigation.source === "none",
+    "disabling legacy navigation must not parse NCX as the active navigation model",
+  );
+  assert(
+    epub2WithoutFallback.publication?.navigation.landmarks.length === 0,
+    "disabling legacy navigation must not import EPUB 2 Guide landmarks",
+  );
 
-  const conflict = await loadPublicationFromArchive(new MemoryPublicationArchive({
-    'META-INF/container.xml': containerXml,
-    'EPUB/package.opf': conflictingOverridePackageXml,
-    'EPUB/chapter.xhtml': '<html/>',
-  }));
-  assert(conflict.publication?.spine[0]?.rendition.flow === 'scrolled-doc', 'conflicting rendition overrides must recover using the first authored value');
-  assert(conflict.publication?.spine[0]?.rendition.pageSpread === 'right', 'conflicting page-spread properties must recover using the first authored value');
-  assert(conflict.diagnostics.some(d => d.code === 'PACKAGE_SPINE_RENDITION_CONFLICT'), 'conflicting rendition overrides must still be diagnosed');
-  assert(conflict.diagnostics.some(d => d.code === 'PACKAGE_SPINE_PAGE_SPREAD_CONFLICT'), 'conflicting page-spread declarations must still be diagnosed');
+  const conflict = await loadPublicationFromArchive(
+    new MemoryPublicationArchive({
+      "META-INF/container.xml": containerXml,
+      "EPUB/package.opf": conflictingOverridePackageXml,
+      "EPUB/chapter.xhtml": "<html/>",
+    }),
+  );
+  assert(
+    conflict.publication?.spine[0]?.rendition.flow === "scrolled-doc",
+    "conflicting rendition overrides must recover using the first authored value",
+  );
+  assert(
+    conflict.publication?.spine[0]?.rendition.pageSpread === "right",
+    "conflicting page-spread properties must recover using the first authored value",
+  );
+  assert(
+    conflict.diagnostics.some(
+      (d) => d.code === "PACKAGE_SPINE_RENDITION_CONFLICT",
+    ),
+    "conflicting rendition overrides must still be diagnosed",
+  );
+  assert(
+    conflict.diagnostics.some(
+      (d) => d.code === "PACKAGE_SPINE_PAGE_SPREAD_CONFLICT",
+    ),
+    "conflicting page-spread declarations must still be diagnosed",
+  );
 
   const zipBytes = buildStoredZip({
-    'mimetype': 'application/epub+zip',
-    'META-INF/container.xml': containerXml,
-    'EPUB/package.opf': packageXml,
-    'EPUB/nav.xhtml': navXml,
-    'EPUB/text/ch1.xhtml': '<html/>',
-    'EPUB/pages/p1.xhtml': '<html/>',
+    mimetype: "application/epub+zip",
+    "META-INF/container.xml": containerXml,
+    "EPUB/package.opf": packageXml,
+    "EPUB/nav.xhtml": navXml,
+    "EPUB/text/ch1.xhtml": "<html/>",
+    "EPUB/pages/p1.xhtml": "<html/>",
   });
   const zipped = await loadEpub(zipBytes);
-  assert(zipped.publication?.metadata.title === 'Reader Fixture', 'OCF ZIP -> Publication should work end-to-end');
-  assert(!zipped.diagnostics.some(d => d.severity === 'fatal'), 'valid fixture should not produce fatal diagnostics');
+  assert(
+    zipped.publication?.metadata.title === "Reader Fixture",
+    "OCF ZIP -> Publication should work end-to-end",
+  );
+  assert(
+    !zipped.diagnostics.some((d) => d.severity === "fatal"),
+    "valid fixture should not produce fatal diagnostics",
+  );
 
-  console.log('Publication loading integration test: PASS');
+  console.log("Publication loading integration test: PASS");
   console.log(`Diagnostics: ${zipped.diagnostics.length}`);
 }
 

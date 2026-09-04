@@ -1,5 +1,10 @@
 import type { ReaderNavigator } from '../../interaction/navigation';
-import type { ReaderSearchState, SearchHit, SearchOptions, SearchResultSet } from './model';
+import type {
+  ReaderSearchState,
+  SearchHit,
+  SearchOptions,
+  SearchResultSet,
+} from './model';
 import { PublicationSearch } from './search';
 
 type SearchListener = (state: ReaderSearchState) => void;
@@ -13,7 +18,13 @@ export class ReaderSearchController {
   private active: AbortController | null = null;
   private readonly listeners = new Set<SearchListener>();
   private stateValue: ReaderSearchState = {
-    query: '', hits: [], index: -1, searching: false, truncated: false, diagnostics: [], error: null,
+    query: '',
+    hits: [],
+    index: -1,
+    searching: false,
+    truncated: false,
+    diagnostics: [],
+    error: null,
   };
 
   constructor(
@@ -21,7 +32,9 @@ export class ReaderSearchController {
     private readonly navigator: Pick<ReaderNavigator, 'goToLocator'>,
   ) {}
 
-  get state(): ReaderSearchState { return this.stateValue; }
+  get state(): ReaderSearchState {
+    return this.stateValue;
+  }
 
   onChange(listener: SearchListener): () => void {
     this.listeners.add(listener);
@@ -29,13 +42,28 @@ export class ReaderSearchController {
     return () => this.listeners.delete(listener);
   }
 
-  async run(query: string, options: Partial<SearchOptions> = {}): Promise<SearchResultSet> {
+  async run(
+    query: string,
+    options: Partial<SearchOptions> = {},
+  ): Promise<SearchResultSet> {
     this.active?.abort(new DOMException('Superseded search.', 'AbortError'));
     const controller = new AbortController();
     this.active = controller;
-    this.setState({ query, hits: [], index: -1, searching: true, truncated: false, diagnostics: [], error: null });
+    this.setState({
+      query,
+      hits: [],
+      index: -1,
+      searching: true,
+      truncated: false,
+      diagnostics: [],
+      error: null,
+    });
     try {
-      const result = await this.searchEngine.search(query, options, controller.signal);
+      const result = await this.searchEngine.search(
+        query,
+        options,
+        controller.signal,
+      );
       if (this.active === controller) {
         this.setState({
           query: result.query,
@@ -50,9 +78,15 @@ export class ReaderSearchController {
       return result;
     } catch (error) {
       if (controller.signal.aborted) {
-        return { query: query.trim(), hits: [], truncated: false, diagnostics: [] };
+        return {
+          query: query.trim(),
+          hits: [],
+          truncated: false,
+          diagnostics: [],
+        };
       }
-      if (this.active === controller) this.setState({ ...this.stateValue, searching: false, error });
+      if (this.active === controller)
+        this.setState({ ...this.stateValue, searching: false, error });
       throw error;
     } finally {
       if (this.active === controller) this.active = null;
@@ -70,17 +104,31 @@ export class ReaderSearchController {
   }
 
   next(): Promise<ReaderSearchNavigationResult | null> {
-    return this.goToHit(this.stateValue.index < 0 ? 0 : this.stateValue.index + 1);
+    return this.goToHit(
+      this.stateValue.index < 0 ? 0 : this.stateValue.index + 1,
+    );
   }
 
   previous(): Promise<ReaderSearchNavigationResult | null> {
-    return this.goToHit(this.stateValue.index < 0 ? this.stateValue.hits.length - 1 : this.stateValue.index - 1);
+    return this.goToHit(
+      this.stateValue.index < 0
+        ? this.stateValue.hits.length - 1
+        : this.stateValue.index - 1,
+    );
   }
 
   clear(): void {
     this.active?.abort(new DOMException('Search cleared.', 'AbortError'));
     this.active = null;
-    this.setState({ query: '', hits: [], index: -1, searching: false, truncated: false, diagnostics: [], error: null });
+    this.setState({
+      query: '',
+      hits: [],
+      index: -1,
+      searching: false,
+      truncated: false,
+      diagnostics: [],
+      error: null,
+    });
   }
 
   /** Release indexes independently from the visible search result set. */
@@ -88,7 +136,8 @@ export class ReaderSearchController {
     this.active?.abort(new DOMException('Search cache cleared.', 'AbortError'));
     this.active = null;
     this.searchEngine.clearCache();
-    if (this.stateValue.searching) this.setState({ ...this.stateValue, searching: false, error: null });
+    if (this.stateValue.searching)
+      this.setState({ ...this.stateValue, searching: false, error: null });
   }
 
   dispose(): void {

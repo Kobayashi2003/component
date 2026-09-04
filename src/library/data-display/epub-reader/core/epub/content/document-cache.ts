@@ -9,10 +9,11 @@ export interface PublicationContentDocumentCachePolicy {
   readonly maxBytes: number;
 }
 
-export const DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY: PublicationContentDocumentCachePolicy = Object.freeze({
-  maxDocuments: 8,
-  maxBytes: 8 * 1024 * 1024,
-});
+export const DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY: PublicationContentDocumentCachePolicy =
+  Object.freeze({
+    maxDocuments: 8,
+    maxBytes: 8 * 1024 * 1024,
+  });
 
 export interface PublicationContentDocumentCacheOptions {
   readonly policy?: Partial<PublicationContentDocumentCachePolicy>;
@@ -94,7 +95,11 @@ export class PublicationContentDocumentCache {
 
     try {
       const document = await promise;
-      if (!this.disposed && generation === this.generation && this.entries.get(key) === pending) {
+      if (
+        !this.disposed &&
+        generation === this.generation &&
+        this.entries.get(key) === pending
+      ) {
         const bytes = approximateDocumentBytes(document);
         this.entries.set(key, {
           state: 'ready',
@@ -141,11 +146,16 @@ export class PublicationContentDocumentCache {
   }
 
   private load(item: SpineItem): Promise<MaterializedContentDocument> {
-    return this.materializer?.(item) ?? this.pipeline.materializeForRender(item);
+    return (
+      this.materializer?.(item) ?? this.pipeline.materializeForRender(item)
+    );
   }
 
   private trim(): void {
-    while (this.readyCount() > this.policy.maxDocuments || this.approximateBytes > this.policy.maxBytes) {
+    while (
+      this.readyCount() > this.policy.maxDocuments ||
+      this.approximateBytes > this.policy.maxBytes
+    ) {
       const candidate = this.evictionCandidate();
       if (!candidate) break;
       const [key, entry] = candidate;
@@ -169,9 +179,14 @@ export class PublicationContentDocumentCache {
 
     for (const [key, entry] of this.entries) {
       if (entry.state !== 'ready') continue;
-      if (!fallback || entry.lastAccess < fallback[1].lastAccess) fallback = [key, entry];
-      const protectedByProximity = preferred != null && Math.abs(entry.spineIndex - preferred) <= 1;
-      if (!protectedByProximity && (!unpreferred || entry.lastAccess < unpreferred[1].lastAccess)) {
+      if (!fallback || entry.lastAccess < fallback[1].lastAccess)
+        fallback = [key, entry];
+      const protectedByProximity =
+        preferred != null && Math.abs(entry.spineIndex - preferred) <= 1;
+      if (
+        !protectedByProximity &&
+        (!unpreferred || entry.lastAccess < unpreferred[1].lastAccess)
+      ) {
         unpreferred = [key, entry];
       }
     }
@@ -179,11 +194,15 @@ export class PublicationContentDocumentCache {
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('PublicationContentDocumentCache has been disposed.');
+    if (this.disposed)
+      throw new Error('PublicationContentDocumentCache has been disposed.');
   }
 }
 
-function contentDocumentCacheKey(item: SpineItem, profileSignature: string): string {
+function contentDocumentCacheKey(
+  item: SpineItem,
+  profileSignature: string,
+): string {
   const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
   const variant = mediaType === 'image/svg+xml' ? 'svg' : 'xhtml';
   return `${item.index}:${item.path ?? item.href}:${variant}:${profileSignature}`;
@@ -196,7 +215,10 @@ function normalizePolicy(
     input?.maxDocuments,
     DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY.maxDocuments,
   );
-  const maxBytes = normalizeLimit(input?.maxBytes, DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY.maxBytes);
+  const maxBytes = normalizeLimit(
+    input?.maxBytes,
+    DEFAULT_PUBLICATION_CONTENT_DOCUMENT_CACHE_POLICY.maxBytes,
+  );
   return Object.freeze({ maxDocuments, maxBytes });
 }
 
@@ -205,7 +227,9 @@ function normalizeLimit(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : fallback;
 }
 
-function freezeMaterializedDocument(document: MaterializedContentDocument): MaterializedContentDocument {
+function freezeMaterializedDocument(
+  document: MaterializedContentDocument,
+): MaterializedContentDocument {
   return Object.freeze({
     ...document,
     hints: Object.freeze({ ...document.hints }),
@@ -213,6 +237,8 @@ function freezeMaterializedDocument(document: MaterializedContentDocument): Mate
   });
 }
 
-function approximateDocumentBytes(document: MaterializedContentDocument): number {
+function approximateDocumentBytes(
+  document: MaterializedContentDocument,
+): number {
   return Math.max(1, document.markup.length * 2);
 }

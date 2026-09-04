@@ -1,7 +1,17 @@
 import type { ReaderChromeControls } from '../../chrome/use-reader-chrome';
-import { feedbackForReaderEvent, type ReaderFeedbackSpec } from '../../chrome/feedback-model';
-import type { ReaderSurface, ReaderSurfaces } from '../../chrome/reader-surfaces';
-import type { EpubReaderHandle, EpubSource, UseEpubReaderOptions } from '../../state/model';
+import {
+  feedbackForReaderEvent,
+  type ReaderFeedbackSpec,
+} from '../../chrome/feedback-model';
+import type {
+  ReaderSurface,
+  ReaderSurfaces,
+} from '../../chrome/reader-surfaces';
+import type {
+  EpubReaderHandle,
+  EpubSource,
+  UseEpubReaderOptions,
+} from '../../state/model';
 import { useEpubReader } from '../../state/use-epub-reader';
 import type { ReaderUiMessages } from '../../configuration/model';
 import type { ReaderToolRegistry } from '../../tools/model';
@@ -13,38 +23,68 @@ interface ReaderEventRoutingOptions {
   readonly tools: ReaderToolRegistry;
   readonly surfaces: ReaderSurfaces;
   readonly showSurface: (surface: ReaderSurface) => void;
-  readonly closeSurface: (restoreFocus?: boolean, focusTarget?: HTMLElement | null) => void;
+  readonly closeSurface: (
+    restoreFocus?: boolean,
+    focusTarget?: HTMLElement | null,
+  ) => void;
   readonly activeElement: () => HTMLElement | null;
   readonly showFeedback: (feedback: ReaderFeedbackSpec) => void;
-  readonly chromeActionsRef: { current: Pick<ReaderChromeControls, 'show' | 'toggle'> | null };
+  readonly chromeActionsRef: {
+    current: Pick<ReaderChromeControls, 'show' | 'toggle'> | null;
+  };
 }
 
 /** Routes Core callbacks into fixed Shell semantics before notifying the host. */
-export function useReaderEventRouting(options: ReaderEventRoutingOptions): EpubReaderHandle {
-  const { source, readerOptions, messages, tools, surfaces, showSurface, closeSurface, activeElement, showFeedback, chromeActionsRef } = options;
+export function useReaderEventRouting(
+  options: ReaderEventRoutingOptions,
+): EpubReaderHandle {
+  const {
+    source,
+    readerOptions,
+    messages,
+    tools,
+    surfaces,
+    showSurface,
+    closeSurface,
+    activeElement,
+    showFeedback,
+    chromeActionsRef,
+  } = options;
   return useEpubReader(source, {
     ...readerOptions,
-    onError: error => {
+    onError: (error) => {
       showFeedback({ message: messages.actionFailed, tone: 'boundary' });
       readerOptions?.onError?.(error);
     },
-    onExternalLink: target => {
+    onExternalLink: (target) => {
       if (readerOptions?.onExternalLink) readerOptions.onExternalLink(target);
       else {
         chromeActionsRef.current?.show();
-        showSurface({ kind: 'external-link', source, target, returnFocus: activeElement() });
+        showSurface({
+          kind: 'external-link',
+          source,
+          target,
+          returnFocus: activeElement(),
+        });
       }
     },
-    onUnresolvedPublicationLink: href => {
-      showFeedback({ message: messages.unresolvedPublicationLink, tone: 'boundary' });
+    onUnresolvedPublicationLink: (href) => {
+      showFeedback({
+        message: messages.unresolvedPublicationLink,
+        tone: 'boundary',
+      });
       readerOptions?.onUnresolvedPublicationLink?.(href);
     },
-    onCommand: command => {
+    onCommand: (command) => {
       if (command.type === 'open-search' || command.type === 'open-help') {
         const tool = tools.forCommand(command.type);
         if (tool) {
           chromeActionsRef.current?.show();
-          showSurface({ kind: 'panel', panel: tool.id, returnFocus: activeElement() });
+          showSurface({
+            kind: 'panel',
+            panel: tool.id,
+            returnFocus: activeElement(),
+          });
         }
       } else if (command.type === 'toggle-chrome') {
         if (!surfaces.open) chromeActionsRef.current?.toggle();
@@ -53,10 +93,15 @@ export function useReaderEventRouting(options: ReaderEventRoutingOptions): EpubR
       }
       readerOptions?.onCommand?.(command);
     },
-    onEvent: event => {
+    onEvent: (event) => {
       if (event.type === 'footnote-activated') {
         chromeActionsRef.current?.show();
-        showSurface({ kind: 'footnote', source, footnote: event.footnote, returnFocus: event.trigger });
+        showSurface({
+          kind: 'footnote',
+          source,
+          footnote: event.footnote,
+          returnFocus: event.trigger,
+        });
       } else if (event.type === 'selection-changed') {
         if (event.activation) {
           chromeActionsRef.current?.show();

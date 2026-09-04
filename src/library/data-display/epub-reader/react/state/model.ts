@@ -1,10 +1,24 @@
-import type { CSSProperties, RefCallback } from 'react';
+import type { CSSProperties, ReactNode, RefCallback } from 'react';
 import type {
+  Annotation,
+  AnnotationColor,
+  AnnotationHighlightStyle,
+  BrowserEpubReaderOpenProgress,
   BrowserEpubReaderOptions,
   BrowserEpubReaderSnapshot,
+  Highlight,
   Locator,
   LocatorRange,
   NavigationTarget,
+  PublicationDiagnostic,
+  ReaderMark,
+  ReaderMarkController,
+  ReaderMarkPatch,
+  ReaderNavigationResult,
+  ReaderPreferences,
+  ReaderPreferencesPatch,
+  ReaderSelection,
+  ReaderThemeDefinition,
   SearchHit,
   SearchOptions,
 } from '../../core';
@@ -12,16 +26,17 @@ import type { ReadingSessionOptions } from './reading-session';
 
 export type EpubSource = Uint8Array | ArrayBuffer | Blob;
 
-export type ReactEpubReaderStatus = 'idle' | 'loading' | 'ready' | 'error' | 'disposed';
+export type ReactEpubReaderStatus =
+  'idle' | 'loading' | 'ready' | 'error' | 'disposed';
 
 export interface ReactEpubReaderSnapshot {
   readonly status: ReactEpubReaderStatus;
   readonly reader: BrowserEpubReaderSnapshot | null;
   /** Last active or attempted preferences, retained so a failed compatibility experiment can be undone. */
-  readonly preferences?: import('../../core').ReaderPreferences;
-  readonly diagnostics: readonly import('../../core').PublicationDiagnostic[];
+  readonly preferences?: ReaderPreferences;
+  readonly diagnostics: readonly PublicationDiagnostic[];
   readonly error: unknown | null;
-  readonly openProgress?: import('../../core').BrowserEpubReaderOpenProgress;
+  readonly openProgress?: BrowserEpubReaderOpenProgress;
 }
 
 export interface UseEpubReaderOptions extends BrowserEpubReaderOptions {
@@ -37,26 +52,29 @@ export interface EpubReaderHandle {
   readonly viewportRef: RefCallback<HTMLDivElement>;
   retry(): Promise<void>;
   /** Resolves to null when the command failed; the failure is reported through onError. */
-  next(): Promise<import('../../core').ReaderNavigationResult | null>;
-  previous(): Promise<import('../../core').ReaderNavigationResult | null>;
+  next(): Promise<ReaderNavigationResult | null>;
+  previous(): Promise<ReaderNavigationResult | null>;
   goTo(target: NavigationTarget): Promise<Locator | null>;
   goToLocator(locator: Locator): Promise<Locator | null>;
   history: {
     back(steps?: number): Promise<Locator | null>;
     forward(steps?: number): Promise<Locator | null>;
   };
-  setPreferences(patch: import('../../core').ReaderPreferencesPatch): Promise<void>;
+  setPreferences(patch: ReaderPreferencesPatch): Promise<void>;
   captureLocator(): Promise<Locator | null>;
-  registerTheme(theme: import('../../core').ReaderThemeDefinition): Promise<void>;
-  captureSelection(): import('../../core').ReaderSelection | null;
+  registerTheme(theme: ReaderThemeDefinition): Promise<void>;
+  captureSelection(): ReaderSelection | null;
   clearSelection(): void;
   clearReadingSession(): void;
   addHighlightFromSelection(
-    highlight?: import('../../core').AnnotationHighlightStyle,
-    color?: import('../../core').AnnotationColor,
-  ): Promise<import('../../core').Highlight | null>;
+    highlight?: AnnotationHighlightStyle,
+    color?: AnnotationColor,
+  ): Promise<Highlight | null>;
   search: {
-    run(query: string, options?: Partial<SearchOptions>): Promise<readonly SearchHit[]>;
+    run(
+      query: string,
+      options?: Partial<SearchOptions>,
+    ): Promise<readonly SearchHit[]>;
     clear(): void;
     clearCache(): void;
     goTo(index: number): Promise<SearchHit | null>;
@@ -64,25 +82,27 @@ export interface EpubReaderHandle {
     previous(): Promise<SearchHit | null>;
   };
   marks: {
-    addBookmark(label?: string): ReturnType<import('../../core').ReaderMarkController['addBookmark']>;
+    addBookmark(
+      label?: string,
+    ): ReturnType<ReaderMarkController['addBookmark']>;
     addHighlight(
       range: LocatorRange,
-      highlight?: import('../../core').AnnotationHighlightStyle,
-      color?: import('../../core').AnnotationColor,
+      highlight?: AnnotationHighlightStyle,
+      color?: AnnotationColor,
       label?: string,
       tags?: readonly string[],
-    ): import('../../core').Highlight;
+    ): Highlight;
     addAnnotation(
       range: LocatorRange,
       body: string,
-      highlight?: import('../../core').AnnotationHighlightStyle,
-      color?: import('../../core').AnnotationColor,
+      highlight?: AnnotationHighlightStyle,
+      color?: AnnotationColor,
       label?: string,
       tags?: readonly string[],
-    ): import('../../core').Annotation;
+    ): Annotation;
     remove(id: string): boolean;
     removeMany(ids: readonly string[]): number;
-    update(id: string, patch: import('../../core').ReaderMarkPatch): import('../../core').ReaderMark | null;
+    update(id: string, patch: ReaderMarkPatch): ReaderMark | null;
     clear(): void;
     goTo(id: string): Promise<boolean | null>;
   };
@@ -105,5 +125,5 @@ export interface EpubViewportProps {
    */
   readonly id?: string;
   readonly tabIndex?: number;
-  readonly children?: import('react').ReactNode;
+  readonly children?: ReactNode;
 }

@@ -1,6 +1,9 @@
 import type { SemanticTextProjection, SemanticTextSegment } from './model';
 
-import { isSemanticBlockElementName, isSemanticExcludedElementName } from './policy';
+import {
+  isSemanticBlockElementName,
+  isSemanticExcludedElementName,
+} from './policy';
 
 /**
  * Project publisher DOM into the semantic reading text used by search and
@@ -28,7 +31,12 @@ export function buildSemanticTextProjection(
       if (!normalized.text) return;
       const start = text.length;
       text += normalized.text;
-      segments.push({ start, end: text.length, node: value, sourceBoundaries: normalized.sourceBoundaries });
+      segments.push({
+        start,
+        end: text.length,
+        node: value,
+        sourceBoundaries: normalized.sourceBoundaries,
+      });
       return;
     }
     if (node.nodeType !== 1) return;
@@ -60,7 +68,7 @@ export function isSemanticTextNode(node: Text): boolean {
 }
 
 export function isRubyAnnotationNode(node: Node): boolean {
-  let element = node.nodeType === 1 ? node as Element : node.parentElement;
+  let element = node.nodeType === 1 ? (node as Element) : node.parentElement;
   while (element) {
     const local = element.localName.toLowerCase();
     if (local === 'rt' || local === 'rp') return true;
@@ -72,10 +80,16 @@ export function isRubyAnnotationNode(node: Node): boolean {
 function isElementExcluded(element: Element): boolean {
   const local = element.localName.toLowerCase();
   if (isSemanticExcludedElementName(local)) return true;
-  return element.hasAttribute('hidden') || element.getAttribute('aria-hidden') === 'true';
+  return (
+    element.hasAttribute('hidden') ||
+    element.getAttribute('aria-hidden') === 'true'
+  );
 }
 
-function normalizeTextNode(source: string): { text: string; sourceBoundaries: number[] } {
+function normalizeTextNode(source: string): {
+  text: string;
+  sourceBoundaries: number[];
+} {
   let text = '';
   const sourceBoundaries: number[] = [0];
   let inWhitespace = false;

@@ -9,16 +9,25 @@ import { ThemeSettings } from './settings/ThemeSettings';
 import { TouchNavigationSettings } from './settings/TouchNavigationSettings';
 import { TypographySettings } from './settings/TypographySettings';
 
-export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: EpubReaderHandle }) {
+export function EpubSettingsPanel({
+  reader: explicit,
+}: {
+  readonly reader?: EpubReaderHandle;
+}) {
   const [advanced, setAdvanced] = useState(false);
   const rootRef = useRef<HTMLElement | null>(null);
   const contextual = useOptionalEpubReaderContext();
   const reader = explicit ?? contextual;
-  if (!reader) throw new Error('<EpubSettingsPanel> requires a reader prop or EpubReaderProvider.');
+  if (!reader)
+    throw new Error(
+      '<EpubSettingsPanel> requires a reader prop or EpubReaderProvider.',
+    );
   const snapshot = reader.state.reader;
   const preferences = snapshot?.preferences ?? reader.state.preferences;
   const navigateToAdvanced = (next: boolean) => {
-    const scroller = rootRef.current?.closest<HTMLElement>('.epub-reader-shell__panel-content');
+    const scroller = rootRef.current?.closest<HTMLElement>(
+      '.epub-reader-shell__panel-content',
+    );
     if (scroller) scroller.scrollTop = 0;
     setAdvanced(next);
   };
@@ -34,10 +43,24 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
   }
   if (!snapshot || !preferences) {
     return (
-      <section ref={rootRef} className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
+      <section
+        ref={rootRef}
+        className="epub-reader-panel epub-settings-panel"
+        aria-label="Reader settings"
+      >
         {preferences ? (
-          <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => navigateToAdvanced(true)}>
-            <span><strong>Advanced settings</strong><small>Recover from a compatibility setting that prevented the book from opening.</small></span>
+          <button
+            className="epub-settings-panel__advanced-entry"
+            type="button"
+            onClick={() => navigateToAdvanced(true)}
+          >
+            <span>
+              <strong>Advanced settings</strong>
+              <small>
+                Recover from a compatibility setting that prevented the book
+                from opening.
+              </small>
+            </span>
             <span aria-hidden="true">›</span>
           </button>
         ) : null}
@@ -52,11 +75,21 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
   });
 
   return (
-    <section ref={rootRef} className="epub-reader-panel epub-settings-panel" aria-label="Reader settings">
-      {visibility.showComic ? <ComicDisplaySettings reader={reader} preferences={preferences} /> : null}
+    <section
+      ref={rootRef}
+      className="epub-reader-panel epub-settings-panel"
+      aria-label="Reader settings"
+    >
+      {visibility.showComic ? (
+        <ComicDisplaySettings reader={reader} preferences={preferences} />
+      ) : null}
       {visibility.showText ? (
         <>
-          <ThemeSettings reader={reader} preferences={preferences} themes={snapshot.appearance.themes} />
+          <ThemeSettings
+            reader={reader}
+            preferences={preferences}
+            themes={snapshot.appearance.themes}
+          />
           <TypographySettings
             reader={reader}
             preferences={preferences}
@@ -66,11 +99,22 @@ export function EpubSettingsPanel({ reader: explicit }: { readonly reader?: Epub
           />
         </>
       ) : null}
-      <PageLayoutSettings reader={reader} preferences={preferences} showFlow={visibility.showText} />
+      <PageLayoutSettings
+        reader={reader}
+        preferences={preferences}
+        showFlow={visibility.showText}
+      />
       <TouchNavigationSettings reader={reader} preferences={preferences} />
       <div className="epub-settings-panel__section epub-settings-panel__section--link">
-        <button className="epub-settings-panel__advanced-entry" type="button" onClick={() => navigateToAdvanced(true)}>
-          <span><strong>Advanced settings</strong><small>Compatibility, local data and troubleshooting</small></span>
+        <button
+          className="epub-settings-panel__advanced-entry"
+          type="button"
+          onClick={() => navigateToAdvanced(true)}
+        >
+          <span>
+            <strong>Advanced settings</strong>
+            <small>Compatibility, local data and troubleshooting</small>
+          </span>
           <span aria-hidden="true">›</span>
         </button>
       </div>

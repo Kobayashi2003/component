@@ -1,9 +1,9 @@
-import type {
-  PublicationDiagnostic,
-  SpineItem,
-} from '../publication';
+import type { PublicationDiagnostic, SpineItem } from '../publication';
 import { resolvePublicationReference } from '../publication';
-import { decodePublicationText, PublicationResourceSession } from '../resources';
+import {
+  decodePublicationText,
+  PublicationResourceSession,
+} from '../resources';
 import type { BrowserXmlPlatform, MaterializedContentDocument } from './model';
 import { inspectSvgIntrinsicViewport } from './intrinsic-viewport';
 
@@ -17,18 +17,26 @@ export async function materializeSvgSpineItem(
   platform: BrowserXmlPlatform,
 ): Promise<MaterializedContentDocument> {
   if (item.remote || !item.path) {
-    throw new Error(`SVG materializer requires a container-local spine item: ${item.href}.`);
+    throw new Error(
+      `SVG materializer requires a container-local spine item: ${item.href}.`,
+    );
   }
   if (!isSvgMediaType(item.mediaType)) {
-    throw new Error(`SVG materializer cannot render media type ${item.mediaType}.`);
+    throw new Error(
+      `SVG materializer cannot render media type ${item.mediaType}.`,
+    );
   }
 
   const diagnostics: PublicationDiagnostic[] = [];
   const read = await session.resolver.read('', item.path);
   diagnostics.push(...read.diagnostics);
-  if (!read.resource) throw new Error(`Unable to read SVG content document ${item.path}.`);
+  if (!read.resource)
+    throw new Error(`Unable to read SVG content document ${item.path}.`);
 
-  const source = decodePublicationText(read.resource.bytes, read.resource.mediaType);
+  const source = decodePublicationText(
+    read.resource.bytes,
+    read.resource.mediaType,
+  );
   const document = platform.parseXml(source, 'image/svg+xml');
   assertParsedSvg(document, item.path);
 
@@ -36,28 +44,41 @@ export async function materializeSvgSpineItem(
   for (const script of scripts) script.remove();
   if (scripts.length > 0) {
     diagnostics.push({
-      code: 'CONTENT_SCRIPTING_DISABLED', severity: 'info', phase: 'content', path: item.path,
+      code: 'CONTENT_SCRIPTING_DISABLED',
+      severity: 'info',
+      phase: 'content',
+      path: item.path,
       message: `Disabled authored SVG scripts in ${item.path}.`,
     });
   }
 
-  const xmlBaseCount = Array.from(document.getElementsByTagName('*'))
-    .filter(element => element.hasAttributeNS(XML_NS, 'base')).length;
+  const xmlBaseCount = Array.from(document.getElementsByTagName('*')).filter(
+    (element) => element.hasAttributeNS(XML_NS, 'base'),
+  ).length;
   if (xmlBaseCount > 0) {
     diagnostics.push({
-      code: 'CONTENT_XML_BASE_UNSUPPORTED', severity: 'warning', phase: 'content', path: item.path,
+      code: 'CONTENT_XML_BASE_UNSUPPORTED',
+      severity: 'warning',
+      phase: 'content',
+      path: item.path,
       message: `Found ${xmlBaseCount} xml:base declaration(s) in ${item.path}; nested xml:base semantics are not applied yet.`,
     });
   }
 
   for (const element of Array.from(document.getElementsByTagName('*'))) {
     if (element.hasAttribute('style')) {
-      const rewritten = await session.rewriteInlineCss(item.path, element.getAttribute('style') ?? '');
+      const rewritten = await session.rewriteInlineCss(
+        item.path,
+        element.getAttribute('style') ?? '',
+      );
       diagnostics.push(...rewritten.diagnostics);
       element.setAttribute('style', rewritten.css);
     }
     if (element.namespaceURI === SVG_NS && element.localName === 'style') {
-      const rewritten = await session.rewriteInlineCss(item.path, element.textContent ?? '');
+      const rewritten = await session.rewriteInlineCss(
+        item.path,
+        element.textContent ?? '',
+      );
       diagnostics.push(...rewritten.diagnostics);
       element.textContent = rewritten.css;
     }
@@ -71,10 +92,15 @@ export async function materializeSvgSpineItem(
     }
 
     if (element.localName === 'a') {
-      const href = (element.getAttribute('href') ?? element.getAttributeNS(XLINK_NS, 'href'))?.trim();
+      const href = (
+        element.getAttribute('href') ?? element.getAttributeNS(XLINK_NS, 'href')
+      )?.trim();
       if (href && !href.startsWith('#')) {
         try {
-          element.setAttribute('data-epub-href', resolveSvgNavigationHref(item.path, href));
+          element.setAttribute(
+            'data-epub-href',
+            resolveSvgNavigationHref(item.path, href),
+          );
         } catch (cause) {
           diagnostics.push({
             code: 'CONTENT_LINK_REFERENCE_INVALID',
@@ -92,13 +118,29 @@ export async function materializeSvgSpineItem(
     }
   }
 
-  const hints = { viewport: inspectSvgIntrinsicViewport(document) ?? undefined };
+  const hints = {
+    viewport: inspectSvgIntrinsicViewport(document) ?? undefined,
+  };
   const serialized = ensureXmlDeclaration(platform.serializeXml(document));
-  const url = session.createGeneratedTextUrl(`svg:${item.path}`, serialized, 'image/svg+xml;charset=utf-8');
-  return { sourcePath: item.path, markup: serialized, url, mediaType: 'image/svg+xml', hints, diagnostics };
+  const url = session.createGeneratedTextUrl(
+    `svg:${item.path}`,
+    serialized,
+    'image/svg+xml;charset=utf-8',
+  );
+  return {
+    sourcePath: item.path,
+    markup: serialized,
+    url,
+    mediaType: 'image/svg+xml',
+    hints,
+    diagnostics,
+  };
 }
 
-export function resolveSvgNavigationHref(documentPath: string, authoredHref: string): string {
+export function resolveSvgNavigationHref(
+  documentPath: string,
+  authoredHref: string,
+): string {
   return resolvePublicationReference(documentPath, authoredHref).href;
 }
 
@@ -109,7 +151,9 @@ async function rewriteHref(
   diagnostics: PublicationDiagnostic[],
   namespace: string | null,
 ): Promise<void> {
-  const authored = namespace ? element.getAttributeNS(namespace, 'href') : element.getAttribute('href');
+  const authored = namespace
+    ? element.getAttributeNS(namespace, 'href')
+    : element.getAttribute('href');
   if (!authored || authored.trim().startsWith('#') || !item.path) return;
   const result = await session.materialize(item.path, authored);
   diagnostics.push(...result.diagnostics);
@@ -129,7 +173,9 @@ function assertParsedSvg(document: Document, path: string): void {
 }
 
 function ensureXmlDeclaration(source: string): string {
-  return /^\s*<\?xml\b/i.test(source) ? source : `<?xml version="1.0" encoding="utf-8"?>\n${source}`;
+  return /^\s*<\?xml\b/i.test(source)
+    ? source
+    : `<?xml version="1.0" encoding="utf-8"?>\n${source}`;
 }
 
 function isSvgMediaType(mediaType: string): boolean {

@@ -3,11 +3,19 @@ import type { Publication } from '../../epub/publication';
 import type { RendererContentDocument } from '../../presentation/renderer';
 import type { SearchHit } from '../search';
 import { DomDecorationLayer } from './dom-decoration-layer';
-import type { DecorationTheme, ReaderDecoration, ReaderDecorationActivation } from './model';
+import type {
+  DecorationTheme,
+  ReaderDecoration,
+  ReaderDecorationActivation,
+} from './model';
 
 export interface DecorationDocumentSource {
   readonly contentDocuments: readonly RendererContentDocument[];
-  onStateChange?(listener: (state: import('../../presentation/renderer').RendererHostState) => void): () => void;
+  onStateChange?(
+    listener: (
+      state: import('../../presentation/renderer').RendererHostState,
+    ) => void,
+  ): () => void;
 }
 
 /** Bridges persistent marks + ephemeral search results onto whatever documents are currently live. */
@@ -24,21 +32,33 @@ export class ReaderDecorationController {
     private readonly source: DecorationDocumentSource,
     store?: ReaderMarkStore,
     private readonly theme?: DecorationTheme,
-    private readonly onActivate?: (activation: ReaderDecorationActivation) => boolean,
+    private readonly onActivate?: (
+      activation: ReaderDecorationActivation,
+    ) => boolean,
   ) {
     if (store) {
-      this.unsubscribeMarks = store.subscribe(snapshot => {
+      this.unsubscribeMarks = store.subscribe((snapshot) => {
         this.persistent = snapshot.marks
-          .filter(mark => mark.kind !== 'bookmark')
-          .map(mark => ({ id: mark.id, range: mark.range, intent: mark.highlight, color: mark.color, ...(mark.label ? { ariaLabel: mark.label } : {}) }));
+          .filter((mark) => mark.kind !== 'bookmark')
+          .map((mark) => ({
+            id: mark.id,
+            range: mark.range,
+            intent: mark.highlight,
+            color: mark.color,
+            ...(mark.label ? { ariaLabel: mark.label } : {}),
+          }));
         this.sync();
       });
     }
-    if (source.onStateChange) this.unsubscribeHost = source.onStateChange(() => this.sync());
+    if (source.onStateChange)
+      this.unsubscribeHost = source.onStateChange(() => this.sync());
     this.sync();
   }
 
-  setSearchHits(hits: readonly SearchHit[], currentId: string | null = null): void {
+  setSearchHits(
+    hits: readonly SearchHit[],
+    currentId: string | null = null,
+  ): void {
     this.searchHits = hits;
     this.currentSearchId = currentId;
     this.sync();
@@ -56,7 +76,9 @@ export class ReaderDecorationController {
   }
 
   private sync(): void {
-    const live = new Set(this.source.contentDocuments.map(context => context.document));
+    const live = new Set(
+      this.source.contentDocuments.map((context) => context.document),
+    );
     for (const [document, layer] of this.layers) {
       if (!live.has(document)) {
         layer.dispose();
@@ -64,7 +86,7 @@ export class ReaderDecorationController {
       }
     }
 
-    const search: ReaderDecoration[] = this.searchHits.map(hit => ({
+    const search: ReaderDecoration[] = this.searchHits.map((hit) => ({
       id: hit.id,
       range: hit.range,
       intent: hit.id === this.currentSearchId ? 'search-current' : 'search',
@@ -73,17 +95,33 @@ export class ReaderDecorationController {
     for (const context of this.source.contentDocuments) {
       let layer = this.layers.get(context.document);
       if (!layer) {
-        layer = new DomDecorationLayer(context, this.publication, this.theme, this.onActivate);
+        layer = new DomDecorationLayer(
+          context,
+          this.publication,
+          this.theme,
+          this.onActivate,
+        );
         this.layers.set(context.document, layer);
       }
-      const relevant = all.filter(decoration => intersectsSpine(decoration, context.spineIndex));
+      const relevant = all.filter((decoration) =>
+        intersectsSpine(decoration, context.spineIndex),
+      );
       layer.setDecorations(relevant);
     }
   }
 }
 
-function intersectsSpine(decoration: ReaderDecoration, spineIndex: number): boolean {
-  const min = Math.min(decoration.range.start.spineIndex, decoration.range.end.spineIndex);
-  const max = Math.max(decoration.range.start.spineIndex, decoration.range.end.spineIndex);
+function intersectsSpine(
+  decoration: ReaderDecoration,
+  spineIndex: number,
+): boolean {
+  const min = Math.min(
+    decoration.range.start.spineIndex,
+    decoration.range.end.spineIndex,
+  );
+  const max = Math.max(
+    decoration.range.start.spineIndex,
+    decoration.range.end.spineIndex,
+  );
   return spineIndex >= min && spineIndex <= max;
 }

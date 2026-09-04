@@ -25,11 +25,15 @@ export interface ReaderChromeLockContext {
 }
 
 /** Conditions that genuinely require the controls to remain available. */
-export function shouldLockReaderChrome(context: ReaderChromeLockContext): boolean {
-  return !context.hasPublicationSnapshot
-    || context.surfaceOpen
-    || context.pointerOverChrome
-    || context.focusInChrome;
+export function shouldLockReaderChrome(
+  context: ReaderChromeLockContext,
+): boolean {
+  return (
+    !context.hasPublicationSnapshot ||
+    context.surfaceOpen ||
+    context.pointerOverChrome ||
+    context.focusInChrome
+  );
 }
 
 export function reduceReaderChrome(
@@ -43,10 +47,17 @@ export function reduceReaderChrome(
   }
   if (state.mode === 'pinned') return state;
   if (event.type === 'show') {
-    return state.visibility === 'shown' ? state : { ...state, visibility: 'shown' };
+    return state.visibility === 'shown'
+      ? state
+      : { ...state, visibility: 'shown' };
   }
   if (event.type === 'hide') {
-    return state.visibility === 'hidden' ? state : { ...state, visibility: 'hidden' };
+    return state.visibility === 'hidden'
+      ? state
+      : { ...state, visibility: 'hidden' };
   }
-  return { ...state, visibility: state.visibility === 'shown' ? 'hidden' : 'shown' };
+  return {
+    ...state,
+    visibility: state.visibility === 'shown' ? 'hidden' : 'shown',
+  };
 }

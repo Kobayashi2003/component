@@ -1,6 +1,10 @@
 import type { ReaderNavigator } from '../navigation';
 import type { ReaderNavigationResult } from '../navigation';
-import type { ReaderCommand, ReaderHostCommand, ReaderInputDispatcher } from './model';
+import type {
+  ReaderCommand,
+  ReaderHostCommand,
+  ReaderInputDispatcher,
+} from './model';
 
 export interface ReaderInputActions {
   readonly navigator: Pick<ReaderNavigator, 'next' | 'previous'>;
@@ -18,9 +22,10 @@ export class ReaderInputController implements ReaderInputDispatcher {
     switch (command.type) {
       case 'navigate':
         {
-          const result = command.direction === 'forward'
-          ? await this.actions.navigator.next()
-          : await this.actions.navigator.previous();
+          const result =
+            command.direction === 'forward'
+              ? await this.actions.navigator.next()
+              : await this.actions.navigator.previous();
           this.actions.navigationResult?.(result);
         }
         return;

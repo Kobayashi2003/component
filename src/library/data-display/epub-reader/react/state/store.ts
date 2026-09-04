@@ -1,19 +1,40 @@
-import { BrowserEpubReader, BrowserEpubReaderOpenError, DEFAULT_READER_COMPATIBILITY_PREFERENCES, DEFAULT_READER_PREFERENCES, type BrowserEpubReaderOptions, type BrowserEpubReaderSnapshot, type Locator, type NavigationTarget, type ReaderPreferences, type ReaderPreferencesPatch, type ReadingSessionRecord, type ReadingSessionStorage, type SearchOptions } from '../../core';
-import type { EpubSource, ReactEpubReaderSnapshot, UseEpubReaderOptions } from './model';
-import { BrowserReadingSessionStorage } from './browser-reading-session-storage';
-import { readingSessionKey } from './reading-session';
+import {
+  BrowserEpubReader,
+  BrowserEpubReaderOpenError,
+  DEFAULT_READER_PREFERENCES,
+  type AnnotationColor,
+  type AnnotationHighlightStyle,
+  type BrowserEpubReaderSnapshot,
+  type Locator,
+  type LocatorRange,
+  type NavigationTarget,
+  type ReaderMarkPatch,
+  type ReaderPreferences,
+  type ReaderPreferencesPatch,
+  type ReaderThemeDefinition,
+  type ReadingSessionStorage,
+  type SearchOptions,
+} from '../../core';
+import type {
+  EpubSource,
+  ReactEpubReaderSnapshot,
+  UseEpubReaderOptions,
+} from './model';
 import {
   SERVER_SNAPSHOT,
   abortReason,
   combineAbortSignals,
-  createRestoredMarkStore,
-  mergePreferences,
-  readingSessionPositionLocator,
   sourceBytes,
   statusFromReader,
-  stripReactCallbacks,
   throwIfAborted,
-} from './store-helpers';
+} from './store/lifecycle';
+import { mergePreferences } from './store/preferences';
+import { createReaderOptions } from './store/reader-options';
+import {
+  createReadingSessionRecord,
+  createRestoredMarkStore,
+  resolveReadingSession,
+} from './store/reading-session';
 
 type Listener = () => void;
 
@@ -25,7 +46,9 @@ export type ReactEpubReaderOpener = typeof BrowserEpubReader.open;
  * deterministic and keeps hooks as a very thin subscription adapter.
  */
 export class ReactEpubReaderStore {
-  constructor(private readonly openReader: ReactEpubReaderOpener = BrowserEpubReader.open) {}
+  constructor(
+    private readonly openReader: ReactEpubReaderOpener = BrowserEpubReader.open,
+  ) {}
 
   private readonly listeners = new Set<Listener>();
   private container: HTMLDivElement | null = null;
@@ -47,10 +70,19 @@ export class ReactEpubReaderStore {
   private readingSessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private openAbortController: AbortController | null = null;
   private reopenPreferences: ReaderPreferences | null = null;
-  private snapshotValue: ReactEpubReaderSnapshot = Object.freeze({ status: 'idle', reader: null, diagnostics: [], error: null });
+  private snapshotValue: ReactEpubReaderSnapshot = Object.freeze({
+    status: 'idle',
+    reader: null,
+    diagnostics: [],
+    error: null,
+  });
 
-  get snapshot(): ReactEpubReaderSnapshot { return this.snapshotValue; }
-  get activeReader(): BrowserEpubReader | null { return this.reader; }
+  get snapshot(): ReactEpubReaderSnapshot {
+    return this.snapshotValue;
+  }
+  get activeReader(): BrowserEpubReader | null {
+    return this.reader;
+  }
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -71,7 +103,12 @@ export class ReactEpubReaderStore {
       released = true;
       this.retainCount = Math.max(0, this.retainCount - 1);
       queueMicrotask(() => {
-        if (this.disposed || this.retainCount !== 0 || ticket !== this.disposeTicket) return;
+        if (
+          this.disposed ||
+          this.retainCount !== 0 ||
+          ticket !== this.disposeTicket
+        )
+          return;
         this.dispose();
       });
     };
@@ -99,6 +136,14 @@ export class ReactEpubReaderStore {
     void this.reopen();
   }
 
+  async retry(): Promise<void> {
+    this.assertAlive();
+    if (!this.source || !this.container) return;
+    this.reopenPreferences =
+      this.reader?.snapshot.preferences ?? this.reopenPreferences;
+    return this.reopen();
+  }
+
   attachViewport(element: HTMLDivElement | null): void {
     this.assertAlive();
 
@@ -111,11 +156,21 @@ export class ReactEpubReaderStore {
       // does not close and reopen a large publication session. A real detach
       // still tears down before the next task.
       queueMicrotask(() => {
-        if (this.disposed || ticket !== this.viewportDetachTicket || this.container !== detached) return;
+        if (
+          this.disposed ||
+          ticket !== this.viewportDetachTicket ||
+          this.container !== detached
+        )
+          return;
         this.detachResizeObserver();
         this.container = null;
         this.closeReader();
-        this.publish({ status: this.source ? 'loading' : 'idle', reader: null, diagnostics: [], error: null });
+        this.publish({
+          status: this.source ? 'loading' : 'idle',
+          reader: null,
+          diagnostics: [],
+          error: null,
+        });
       });
       return;
     }
@@ -124,9 +179,10 @@ export class ReactEpubReaderStore {
     if (this.container === element) return;
     this.detachResizeObserver();
     this.container = element;
-    this.resizeObserver = typeof ResizeObserver === 'function'
-      ? new ResizeObserver(() => this.scheduleResize())
-      : null;
+    this.resizeObserver =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(() => this.scheduleResize())
+        : null;
     this.resizeObserver?.observe(element);
     void this.reopen();
   }
@@ -140,7 +196,9 @@ export class ReactEpubReaderStore {
    * no status, nothing but a console warning the person reading never sees.
    * `null` means the command failed and has already been reported.
    */
-  private async run<T>(operation: (reader: BrowserEpubReader) => Promise<T>): Promise<T | null> {
+  private async run<T>(
+    operation: (reader: BrowserEpubReader) => Promise<T>,
+  ): Promise<T | null> {
     const reader = this.requireReader();
     try {
       return await operation(reader);
@@ -155,7 +213,10 @@ export class ReactEpubReaderStore {
    * the core lifecycle status is preserved rather than replaced with a
    * React-only fatal state.
    */
-  private reportOperationalError(reader: BrowserEpubReader, error: unknown): void {
+  private reportOperationalError(
+    reader: BrowserEpubReader,
+    error: unknown,
+  ): void {
     if (this.reader !== reader || this.disposed) return;
     this.publish({
       status: statusFromReader(reader.snapshot),
@@ -166,21 +227,27 @@ export class ReactEpubReaderStore {
     this.notifyError(error);
   }
 
-  next() { return this.run(reader => reader.next()); }
-  async retry(): Promise<void> {
-    this.assertAlive();
-    if (!this.source || !this.container) return;
-    this.reopenPreferences = this.reader?.snapshot.preferences ?? this.reopenPreferences;
-    return this.reopen();
+  next() {
+    return this.run((reader) => reader.next());
   }
-  previous() { return this.run(reader => reader.previous()); }
-  async goTo(target: NavigationTarget): Promise<Locator | null> { return this.run(reader => reader.goTo(target)); }
-  async goToLocator(locator: Locator): Promise<Locator | null> { return this.run(reader => reader.goToLocator(locator)); }
-  async historyBack(steps = 1): Promise<Locator | null> { return this.run(reader => reader.back(steps)); }
-  async historyForward(steps = 1): Promise<Locator | null> { return this.run(reader => reader.forward(steps)); }
+  previous() {
+    return this.run((reader) => reader.previous());
+  }
+  async goTo(target: NavigationTarget): Promise<Locator | null> {
+    return this.run((reader) => reader.goTo(target));
+  }
+  async goToLocator(locator: Locator): Promise<Locator | null> {
+    return this.run((reader) => reader.goToLocator(locator));
+  }
+  async historyBack(steps = 1): Promise<Locator | null> {
+    return this.run((reader) => reader.back(steps));
+  }
+  async historyForward(steps = 1): Promise<Locator | null> {
+    return this.run((reader) => reader.forward(steps));
+  }
   async setPreferences(patch: ReaderPreferencesPatch): Promise<void> {
     if (this.reader) {
-      await this.run(reader => reader.setPreferences(patch));
+      await this.run((reader) => reader.setPreferences(patch));
       return;
     }
     const current = this.snapshotValue.preferences;
@@ -189,54 +256,109 @@ export class ReactEpubReaderStore {
     this.reopenPreferences = next;
     this.publish({ ...this.snapshotValue, preferences: next });
   }
-  captureLocator() { return this.requireReader().captureLocator(); }
-  registerTheme(theme: import('../../core').ReaderThemeDefinition): Promise<void> { return this.requireReader().registerTheme(theme); }
-  captureSelection() { return this.requireReader().captureSelection(); }
-  clearSelection(): void { this.requireReader().clearSelection(); }
+  captureLocator() {
+    return this.requireReader().captureLocator();
+  }
+  registerTheme(theme: ReaderThemeDefinition): Promise<void> {
+    return this.requireReader().registerTheme(theme);
+  }
+  captureSelection() {
+    return this.requireReader().captureSelection();
+  }
+  clearSelection(): void {
+    this.requireReader().clearSelection();
+  }
   clearReadingSession(): void {
     if (this.readingSessionStorage && this.readingSessionKey) {
       this.readingSessionStorage.remove(this.readingSessionKey);
     }
-    if (this.readingSessionSaveTimer != null) clearTimeout(this.readingSessionSaveTimer);
+    if (this.readingSessionSaveTimer != null)
+      clearTimeout(this.readingSessionSaveTimer);
     this.readingSessionSaveTimer = null;
     this.readingSessionCleared = true;
   }
-  addHighlightFromSelection(highlight?: import('../../core').AnnotationHighlightStyle, color?: import('../../core').AnnotationColor) {
-    return this.run(reader => reader.addHighlightFromSelection(highlight, color));
+  addHighlightFromSelection(
+    highlight?: AnnotationHighlightStyle,
+    color?: AnnotationColor,
+  ) {
+    return this.run((reader) =>
+      reader.addHighlightFromSelection(highlight, color),
+    );
   }
   /** A failed search reports no hits rather than a null the panel must handle. */
   async searchRun(query: string, options?: Partial<SearchOptions>) {
-    return (await this.run(reader => reader.search.run(query, options))) ?? [];
+    return (
+      (await this.run((reader) => reader.search.run(query, options))) ?? []
+    );
   }
-  searchClear(): void { this.requireReader().search.clear(); }
-  searchClearCache(): void { this.requireReader().search.clearCache(); }
-  searchGoTo(index: number) { return this.run(reader => reader.search.goTo(index)); }
-  searchNext() { return this.run(reader => reader.search.next()); }
-  searchPrevious() { return this.run(reader => reader.search.previous()); }
+  searchClear(): void {
+    this.requireReader().search.clear();
+  }
+  searchClearCache(): void {
+    this.requireReader().search.clearCache();
+  }
+  searchGoTo(index: number) {
+    return this.run((reader) => reader.search.goTo(index));
+  }
+  searchNext() {
+    return this.run((reader) => reader.search.next());
+  }
+  searchPrevious() {
+    return this.run((reader) => reader.search.previous());
+  }
   // Capturing a locator can fail the same way a page turn can, and both are
   // reached from a button that ignores the result. Unguarded, the rejection
   // had nowhere to go.
-  addBookmark(label?: string) { return this.run(reader => reader.marks.addBookmark(label)); }
+  addBookmark(label?: string) {
+    return this.run((reader) => reader.marks.addBookmark(label));
+  }
   addHighlight(
-    range: import('../../core').LocatorRange,
-    highlight?: import('../../core').AnnotationHighlightStyle,
-    color?: import('../../core').AnnotationColor,
+    range: LocatorRange,
+    highlight?: AnnotationHighlightStyle,
+    color?: AnnotationColor,
     label?: string,
     tags?: readonly string[],
-  ) { return this.requireReader().marks.addHighlight(range, highlight, color, label, tags); }
+  ) {
+    return this.requireReader().marks.addHighlight(
+      range,
+      highlight,
+      color,
+      label,
+      tags,
+    );
+  }
   addAnnotation(
-    range: import('../../core').LocatorRange,
+    range: LocatorRange,
     body: string,
-    highlight?: import('../../core').AnnotationHighlightStyle,
-    color?: import('../../core').AnnotationColor,
+    highlight?: AnnotationHighlightStyle,
+    color?: AnnotationColor,
     label?: string,
     tags?: readonly string[],
-  ) { return this.requireReader().marks.addAnnotation(range, body, highlight, color, label, tags); }
-  removeMark(id: string): boolean { return this.requireReader().marks.remove(id); }
-  removeMarks(ids: readonly string[]): number { return this.requireReader().marks.removeMany(ids); }
-  updateMark(id: string, patch: import('../../core').ReaderMarkPatch) { return this.requireReader().marks.update(id, patch); }
-  clearMarks(): void { this.requireReader().marks.clear(); }
-  goToMark(id: string): Promise<boolean | null> { return this.run(reader => reader.marks.goTo(id)); }
+  ) {
+    return this.requireReader().marks.addAnnotation(
+      range,
+      body,
+      highlight,
+      color,
+      label,
+      tags,
+    );
+  }
+  removeMark(id: string): boolean {
+    return this.requireReader().marks.remove(id);
+  }
+  removeMarks(ids: readonly string[]): number {
+    return this.requireReader().marks.removeMany(ids);
+  }
+  updateMark(id: string, patch: ReaderMarkPatch) {
+    return this.requireReader().marks.update(id, patch);
+  }
+  clearMarks(): void {
+    this.requireReader().marks.clear();
+  }
+  goToMark(id: string): Promise<boolean | null> {
+    return this.run((reader) => reader.marks.goTo(id));
+  }
 
   dispose(): void {
     if (this.disposed) return;
@@ -244,7 +366,12 @@ export class ReactEpubReaderStore {
     this.generation += 1;
     this.detachResizeObserver();
     this.closeReader();
-    this.publish({ status: 'disposed', reader: null, diagnostics: [], error: null });
+    this.publish({
+      status: 'disposed',
+      reader: null,
+      diagnostics: [],
+      error: null,
+    });
     this.listeners.clear();
   }
 
@@ -257,7 +384,12 @@ export class ReactEpubReaderStore {
     // A React tree can attach the ref before layout has assigned its final size.
     // Wait for ResizeObserver rather than opening the engine with an invalid 0×0 viewport.
     if (!(width > 0 && height > 0)) {
-      this.publish({ status: 'loading', reader: null, diagnostics: [], error: null });
+      this.publish({
+        status: 'loading',
+        reader: null,
+        diagnostics: [],
+        error: null,
+      });
       return;
     }
 
@@ -265,96 +397,159 @@ export class ReactEpubReaderStore {
     this.closeReader();
     const openController = new AbortController();
     const externalSignal = this.options.signal;
-    const openSignal = combineAbortSignals(externalSignal, openController.signal);
+    const openSignal = combineAbortSignals(
+      externalSignal,
+      openController.signal,
+    );
     this.openAbortController = openController;
-    this.publish({ status: 'loading', reader: null, diagnostics: [], error: null });
+    this.publish({
+      status: 'loading',
+      reader: null,
+      diagnostics: [],
+      error: null,
+    });
     try {
       const bytes = await sourceBytes(this.source);
       throwIfAborted(openSignal);
-      if (this.disposed || generation !== this.generation || this.container !== element) return;
-      const session = this.resolveReadingSession(this.source, bytes, element.ownerDocument.defaultView);
+      if (
+        this.disposed ||
+        generation !== this.generation ||
+        this.container !== element
+      )
+        return;
+      const session = resolveReadingSession(
+        this.options.readingSession,
+        this.source,
+        bytes,
+        element.ownerDocument.defaultView,
+      );
       const saved = session.storage?.load(session.key) ?? null;
-      const restoredMarkStore = saved && !this.options.markStore
-        ? createRestoredMarkStore(saved.marks)
-        : undefined;
+      const restoredMarkStore =
+        saved && !this.options.markStore
+          ? createRestoredMarkStore(saved.marks)
+          : undefined;
       this.readingSessionStorage = session.storage;
       this.readingSessionKey = session.storage ? session.key : null;
       this.readingSessionPersistPreferences = session.persistPreferences;
       this.readingSessionCleared = false;
-      const savedPreferences: ReaderPreferencesPatch = saved && session.persistPreferences ? saved.preferences ?? {} : {};
-      const optionPreferences: ReaderPreferencesPatch = this.options.preferences ?? {};
-      const retryPreferences: ReaderPreferencesPatch = this.reopenPreferences ?? {};
-      const readerOptions: BrowserEpubReaderOptions = {
-        ...stripReactCallbacks(this.options),
-        ...(saved && this.options.initialLocator == null ? { initialLocator: saved.locator } : {}),
-        preferences: {
-          ...savedPreferences,
-          ...optionPreferences,
-          ...retryPreferences,
-          compatibility: {
-            ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
-            ...savedPreferences.compatibility,
-            ...optionPreferences.compatibility,
-            ...retryPreferences.compatibility,
-          },
-        },
-        ...(restoredMarkStore ? { markStore: restoredMarkStore } : {}),
+      const readerOptions = createReaderOptions({
+        options: this.options,
+        saved,
+        persistSavedPreferences: session.persistPreferences,
+        retryPreferences: this.reopenPreferences,
+        restoredMarkStore,
         signal: openSignal,
-        onOpenProgress: progress => {
-          if (this.disposed || generation !== this.generation || openSignal.aborted) return;
-          this.publish({
-            status: 'loading',
-            reader: null,
-            preferences: this.snapshotValue.preferences,
-            diagnostics: [],
-            error: null,
-            openProgress: progress,
-          });
-          this.invokeHostCallback(this.options.onOpenProgress, progress);
+        callbacks: {
+          onOpenProgress: (progress) => {
+            if (
+              this.disposed ||
+              generation !== this.generation ||
+              openSignal.aborted
+            )
+              return;
+            this.publish({
+              status: 'loading',
+              reader: null,
+              preferences: this.snapshotValue.preferences,
+              diagnostics: [],
+              error: null,
+              openProgress: progress,
+            });
+            this.invokeHostCallback(this.options.onOpenProgress, progress);
+          },
+          // Resolve host callbacks through current options so new callback
+          // identities do not force a publication reopen.
+          onCommand: (command) =>
+            this.invokeHostCallback(this.options.onCommand, command),
+          onEvent: (event) =>
+            this.invokeHostCallback(this.options.onEvent, event),
+          onDiagnostics: (diagnostics) =>
+            this.invokeHostCallback(this.options.onDiagnostics, diagnostics),
+          onExternalLink: (href) =>
+            this.invokeHostCallback(this.options.onExternalLink, href),
+          onUnresolvedPublicationLink: (href) =>
+            this.invokeHostCallback(
+              this.options.onUnresolvedPublicationLink,
+              href,
+            ),
         },
-        // Keep host callbacks live without reopening the publication when a
-        // parent React component re-renders with new callback identities.
-        onCommand: command => this.invokeHostCallback(this.options.onCommand, command),
-        onEvent: event => this.invokeHostCallback(this.options.onEvent, event),
-        onDiagnostics: diagnostics => this.invokeHostCallback(this.options.onDiagnostics, diagnostics),
-        onExternalLink: href => this.invokeHostCallback(this.options.onExternalLink, href),
-        onUnresolvedPublicationLink: href => this.invokeHostCallback(this.options.onUnresolvedPublicationLink, href),
-      };
-      const attemptedPreferences = mergePreferences(DEFAULT_READER_PREFERENCES, readerOptions.preferences ?? {});
-      this.publish({ status: 'loading', reader: null, preferences: attemptedPreferences, diagnostics: [], error: null });
+      });
+      const attemptedPreferences = mergePreferences(
+        DEFAULT_READER_PREFERENCES,
+        readerOptions.preferences ?? {},
+      );
+      this.publish({
+        status: 'loading',
+        reader: null,
+        preferences: attemptedPreferences,
+        diagnostics: [],
+        error: null,
+      });
       const reader = await this.openReader(bytes, element, readerOptions);
       if (openSignal.aborted) {
         reader.dispose();
         throw abortReason(openSignal);
       }
-      if (this.disposed || generation !== this.generation || this.container !== element) {
+      if (
+        this.disposed ||
+        generation !== this.generation ||
+        this.container !== element
+      ) {
         reader.dispose();
         return;
       }
       this.reader = reader;
       this.reopenPreferences = null;
-      if (this.openAbortController === openController) this.openAbortController = null;
+      if (this.openAbortController === openController)
+        this.openAbortController = null;
       this.unsubscribeReader = reader.subscribe(() => {
         if (this.reader !== reader) return;
-        this.publish({ status: statusFromReader(reader.snapshot), reader: reader.snapshot, preferences: reader.snapshot.preferences, diagnostics: reader.snapshot.diagnostics, error: reader.snapshot.error });
-        this.scheduleReadingSessionSave(reader.snapshot, session.saveDelayMs, session.persistPreferences);
+        this.publish({
+          status: statusFromReader(reader.snapshot),
+          reader: reader.snapshot,
+          preferences: reader.snapshot.preferences,
+          diagnostics: reader.snapshot.diagnostics,
+          error: reader.snapshot.error,
+        });
+        this.scheduleReadingSessionSave(
+          reader.snapshot,
+          session.saveDelayMs,
+          session.persistPreferences,
+        );
       });
-      this.publish({ status: 'ready', reader: reader.snapshot, preferences: reader.snapshot.preferences, diagnostics: reader.snapshot.diagnostics, error: null });
-      this.scheduleReadingSessionSave(reader.snapshot, session.saveDelayMs, session.persistPreferences);
+      this.publish({
+        status: 'ready',
+        reader: reader.snapshot,
+        preferences: reader.snapshot.preferences,
+        diagnostics: reader.snapshot.diagnostics,
+        error: null,
+      });
+      this.scheduleReadingSessionSave(
+        reader.snapshot,
+        session.saveDelayMs,
+        session.persistPreferences,
+      );
       this.invokeHostCallback(this.options.onReady, reader.snapshot);
     } catch (error) {
-      if (this.openAbortController === openController) this.openAbortController = null;
+      if (this.openAbortController === openController)
+        this.openAbortController = null;
       if (this.disposed || generation !== this.generation) return;
       if (openController.signal.aborted) return;
       if (externalSignal?.aborted) {
-        this.publish({ status: 'idle', reader: null, diagnostics: [], error: null });
+        this.publish({
+          status: 'idle',
+          reader: null,
+          diagnostics: [],
+          error: null,
+        });
         return;
       }
       this.publish({
         status: 'error',
         reader: null,
         preferences: this.reopenPreferences ?? this.snapshotValue.preferences,
-        diagnostics: error instanceof BrowserEpubReaderOpenError ? error.diagnostics : [],
+        diagnostics:
+          error instanceof BrowserEpubReaderOpenError ? error.diagnostics : [],
         error,
       });
       this.notifyError(error);
@@ -378,13 +573,20 @@ export class ReactEpubReaderStore {
     }
     if (this.resizeFrame != null) return;
     const ownerWindow = this.container.ownerDocument.defaultView;
-    const request = ownerWindow?.requestAnimationFrame?.bind(ownerWindow)
-      ?? ((callback: FrameRequestCallback) => globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number);
+    const request =
+      ownerWindow?.requestAnimationFrame?.bind(ownerWindow) ??
+      ((callback: FrameRequestCallback) =>
+        globalThis.setTimeout(
+          () => callback(Date.now()),
+          16,
+        ) as unknown as number);
     this.resizeFrame = request(() => {
       this.resizeFrame = null;
       const reader = this.reader;
       if (!reader) return;
-      void reader.syncViewportFromElement().catch(error => this.reportOperationalError(reader, error));
+      void reader
+        .syncViewportFromElement()
+        .catch((error) => this.reportOperationalError(reader, error));
     });
   }
 
@@ -393,17 +595,25 @@ export class ReactEpubReaderStore {
     this.resizeObserver = null;
     if (this.resizeFrame != null && this.container) {
       const ownerWindow = this.container.ownerDocument.defaultView;
-      if (ownerWindow?.cancelAnimationFrame) ownerWindow.cancelAnimationFrame(this.resizeFrame);
+      if (ownerWindow?.cancelAnimationFrame)
+        ownerWindow.cancelAnimationFrame(this.resizeFrame);
       else clearTimeout(this.resizeFrame);
       this.resizeFrame = null;
     }
   }
 
   private closeReader(): void {
-    this.openAbortController?.abort(new DOMException('Publication replaced or closed.', 'AbortError'));
+    this.openAbortController?.abort(
+      new DOMException('Publication replaced or closed.', 'AbortError'),
+    );
     this.openAbortController = null;
-    if (this.reader && !this.readingSessionCleared) this.saveReadingSession(this.reader.snapshot, this.readingSessionPersistPreferences);
-    if (this.readingSessionSaveTimer != null) clearTimeout(this.readingSessionSaveTimer);
+    if (this.reader && !this.readingSessionCleared)
+      this.saveReadingSession(
+        this.reader.snapshot,
+        this.readingSessionPersistPreferences,
+      );
+    if (this.readingSessionSaveTimer != null)
+      clearTimeout(this.readingSessionSaveTimer);
     this.readingSessionSaveTimer = null;
     this.unsubscribeReader?.();
     this.unsubscribeReader = null;
@@ -413,50 +623,41 @@ export class ReactEpubReaderStore {
     this.readingSessionKey = null;
   }
 
-  private resolveReadingSession(
-    source: EpubSource,
-    bytes: Uint8Array | ArrayBuffer,
-    ownerWindow: Window | null,
-  ): { storage: ReadingSessionStorage | null; key: string; persistPreferences: boolean; saveDelayMs: number } {
-    const options = this.options.readingSession;
-    if (options === false) return { storage: null, key: '', persistPreferences: false, saveDelayMs: 0 };
-    let storage = options?.storage ?? null;
-    if (!storage && ownerWindow) {
-      try { storage = new BrowserReadingSessionStorage(ownerWindow.localStorage); } catch { storage = null; }
-    }
-    return {
-      storage,
-      key: options?.key?.trim() || readingSessionKey(source, bytes),
-      persistPreferences: options?.persistPreferences !== false,
-      saveDelayMs: Math.max(0, options?.saveDelayMs ?? 300),
-    };
-  }
-
   private scheduleReadingSessionSave(
     snapshot: BrowserEpubReaderSnapshot,
     delayMs: number,
     persistPreferences: boolean,
   ): void {
-    if (!this.readingSessionStorage || !this.readingSessionKey || !snapshot.locator) return;
+    if (
+      !this.readingSessionStorage ||
+      !this.readingSessionKey ||
+      !snapshot.locator
+    )
+      return;
     this.readingSessionCleared = false;
-    if (this.readingSessionSaveTimer != null) clearTimeout(this.readingSessionSaveTimer);
+    if (this.readingSessionSaveTimer != null)
+      clearTimeout(this.readingSessionSaveTimer);
     this.readingSessionSaveTimer = setTimeout(() => {
       this.readingSessionSaveTimer = null;
       this.saveReadingSession(snapshot, persistPreferences);
     }, delayMs);
   }
 
-  private saveReadingSession(snapshot: BrowserEpubReaderSnapshot, persistPreferences: boolean): void {
-    if (!this.readingSessionStorage || !this.readingSessionKey || !snapshot.locator) return;
-    const record: ReadingSessionRecord = {
-      // The renderer's physical page/scroll progression is the durable source
-      // for reopening a session. Exact CFI/DOM channels remain on explicit
-      // bookmarks and annotations, where they identify intentional content.
-      locator: readingSessionPositionLocator(snapshot.locator, snapshot.renderer?.layout?.progression),
-      ...(persistPreferences ? { preferences: snapshot.preferences } : {}),
-      marks: snapshot.marks?.marks ?? [],
-      updatedAt: new Date().toISOString(),
-    };
+  private saveReadingSession(
+    snapshot: BrowserEpubReaderSnapshot,
+    persistPreferences: boolean,
+  ): void {
+    if (
+      !this.readingSessionStorage ||
+      !this.readingSessionKey ||
+      !snapshot.locator
+    )
+      return;
+    const record = createReadingSessionRecord(
+      snapshot,
+      snapshot.locator,
+      persistPreferences,
+    );
     this.readingSessionStorage.save(this.readingSessionKey, record);
   }
 
@@ -470,7 +671,10 @@ export class ReactEpubReaderStore {
     for (const listener of this.listeners) listener();
   }
 
-  private invokeHostCallback<T>(callback: ((value: T) => void) | undefined, value: T): void {
+  private invokeHostCallback<T>(
+    callback: ((value: T) => void) | undefined,
+    value: T,
+  ): void {
     if (!callback) return;
     try {
       callback(value);
@@ -488,6 +692,7 @@ export class ReactEpubReaderStore {
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('ReactEpubReaderStore has been disposed.');
+    if (this.disposed)
+      throw new Error('ReactEpubReaderStore has been disposed.');
   }
 }

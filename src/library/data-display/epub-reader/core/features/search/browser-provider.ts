@@ -1,8 +1,19 @@
 import type { PublicationContentDocumentPipeline } from '../../epub/content';
-import { createDomPath, createEpubCfi, parseEpubCfi } from '../../interaction/locator';
+import {
+  createDomPath,
+  createEpubCfi,
+  parseEpubCfi,
+} from '../../interaction/locator';
 import type { Publication } from '../../epub/publication';
-import { buildSemanticTextProjection, type SemanticTextSegment } from '../../epub/text';
-import type { SearchDocument, SearchDocumentProvider, SearchTextSegment } from './model';
+import {
+  buildSemanticTextProjection,
+  type SemanticTextSegment,
+} from '../../epub/text';
+import type {
+  SearchDocument,
+  SearchDocumentProvider,
+  SearchTextSegment,
+} from './model';
 
 export class BrowserPublicationSearchProvider implements SearchDocumentProvider {
   constructor(
@@ -10,26 +21,42 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
     private readonly contentPipeline: PublicationContentDocumentPipeline,
   ) {}
 
-  async load(spineIndex: number, signal: AbortSignal): Promise<SearchDocument | null> {
+  async load(
+    spineIndex: number,
+    signal: AbortSignal,
+  ): Promise<SearchDocument | null> {
     throwIfAborted(signal);
     const document = await this.build(spineIndex, signal);
     throwIfAborted(signal);
     return document;
   }
 
-  private async build(spineIndex: number, signal: AbortSignal): Promise<SearchDocument | null> {
+  private async build(
+    spineIndex: number,
+    signal: AbortSignal,
+  ): Promise<SearchDocument | null> {
     const item = this.publication.spine[spineIndex];
     if (!item?.path || item.remote) return null;
     const media = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-    if (media !== 'application/xhtml+xml' && media !== 'text/html' && media !== 'image/svg+xml') return null;
-    const parsedContent = await this.contentPipeline.parseForAnalysis(item, signal);
+    if (
+      media !== 'application/xhtml+xml' &&
+      media !== 'text/html' &&
+      media !== 'image/svg+xml'
+    )
+      return null;
+    const parsedContent = await this.contentPipeline.parseForAnalysis(
+      item,
+      signal,
+    );
     const parsed = parsedContent.document;
     removeExecutableScripts(parsed);
     const root = parsed.body ?? parsed.documentElement;
     if (!root) return null;
     const projection = buildSemanticTextProjection(parsed, root);
     const text = projection.text;
-    const segments = projection.segments.map(segment => lightweightSegment(parsed, item, segment));
+    const segments = projection.segments.map((segment) =>
+      lightweightSegment(parsed, item, segment),
+    );
 
     return {
       spineIndex,
@@ -43,7 +70,9 @@ export class BrowserPublicationSearchProvider implements SearchDocumentProvider 
 
 function throwIfAborted(signal: AbortSignal): void {
   if (!signal.aborted) return;
-  throw signal.reason instanceof Error ? signal.reason : new DOMException('Search aborted.', 'AbortError');
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('Search aborted.', 'AbortError');
 }
 
 function lightweightSegment(
@@ -72,7 +101,7 @@ function lightweightSegment(
 }
 
 function nearestElementId(node: Node): string | undefined {
-  let element = node.nodeType === 1 ? node as Element : node.parentElement;
+  let element = node.nodeType === 1 ? (node as Element) : node.parentElement;
   while (element) {
     if (element.id) return element.id;
     element = element.parentElement;
@@ -81,6 +110,10 @@ function nearestElementId(node: Node): string | undefined {
 }
 
 function removeExecutableScripts(document: Document): void {
-  for (const script of Array.from(document.getElementsByTagName('script'))) script.remove();
-  for (const script of Array.from(document.getElementsByTagNameNS('http://www.w3.org/2000/svg', 'script'))) script.remove();
+  for (const script of Array.from(document.getElementsByTagName('script')))
+    script.remove();
+  for (const script of Array.from(
+    document.getElementsByTagNameNS('http://www.w3.org/2000/svg', 'script'),
+  ))
+    script.remove();
 }

@@ -8,22 +8,34 @@ interface SessionStorageLike {
 const STORAGE_PREFIX = 'epub-reader:contents:collapsed:';
 
 export function publicationContentsKey(publication: Publication): string {
-  const identity = publication.metadata.identifier?.value || publication.packagePath;
+  const identity =
+    publication.metadata.identifier?.value || publication.packagePath;
   return `${identity}:${publication.spine.length}`;
 }
 
-export function readCollapsedSections(publicationKey: string): ReadonlySet<string> {
+export function readCollapsedSections(
+  publicationKey: string,
+): ReadonlySet<string> {
   const storage = browserSessionStorage();
   if (!storage) return new Set();
   try {
-    const parsed: unknown = JSON.parse(storage.getItem(storageKey(publicationKey)) ?? '[]');
-    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []);
+    const parsed: unknown = JSON.parse(
+      storage.getItem(storageKey(publicationKey)) ?? '[]',
+    );
+    return new Set(
+      Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === 'string')
+        : [],
+    );
   } catch {
     return new Set();
   }
 }
 
-export function writeCollapsedSections(publicationKey: string, collapsed: ReadonlySet<string>): void {
+export function writeCollapsedSections(
+  publicationKey: string,
+  collapsed: ReadonlySet<string>,
+): void {
   const storage = browserSessionStorage();
   if (!storage) return;
   try {

@@ -67,7 +67,10 @@ export class LifecycleScope {
  * compatibility uses phase-specific registries and runners instead.
  */
 export interface LifecycleModule<TContext> extends OrderedExtension {
-  start(context: TContext, scope: LifecycleScope): void | Cleanup | Promise<void | Cleanup>;
+  start(
+    context: TContext,
+    scope: LifecycleScope,
+  ): void | Cleanup | Promise<void | Cleanup>;
 }
 
 export interface ExtensionStartFailure {
@@ -112,7 +115,7 @@ export async function startLifecycleModules<TContext>(
   options: ExtensionLifecycleOptions = {},
 ): Promise<ActiveExtensionLifecycle> {
   const ordered = orderExtensions(modules);
-  const registeredIds = new Set(modules.map(module => module.id));
+  const registeredIds = new Set(modules.map((module) => module.id));
   const unavailableIds = new Set<string>();
   const failures: ExtensionStartFailure[] = [];
   const startedIds: string[] = [];
@@ -120,10 +123,14 @@ export async function startLifecycleModules<TContext>(
 
   for (const module of ordered) {
     const unavailableDependencies = (module.dependencies ?? []).filter(
-      dependencyId => !registeredIds.has(dependencyId) || unavailableIds.has(dependencyId),
+      (dependencyId) =>
+        !registeredIds.has(dependencyId) || unavailableIds.has(dependencyId),
     );
     if (unavailableDependencies.length > 0) {
-      const error = new ExtensionDependencyUnavailableError(module.id, Object.freeze(unavailableDependencies));
+      const error = new ExtensionDependencyUnavailableError(
+        module.id,
+        Object.freeze(unavailableDependencies),
+      );
       const failure: ExtensionStartFailure = {
         extensionId: module.id,
         kind: 'dependency-unavailable',
@@ -143,7 +150,9 @@ export async function startLifecycleModules<TContext>(
     try {
       const cleanup = await module.start(context, moduleScope);
       if (cleanup) moduleScope.add(cleanup);
-      rootScope.add(() => moduleScope.dispose(`Extension ${module.id} disposed.`));
+      rootScope.add(() =>
+        moduleScope.dispose(`Extension ${module.id} disposed.`),
+      );
       startedIds.push(module.id);
     } catch (error) {
       moduleScope.dispose(`Extension ${module.id} startup failed.`);
@@ -166,7 +175,10 @@ export async function startLifecycleModules<TContext>(
   return new ActiveExtensionLifecycle(startedIds, failures, rootScope);
 }
 
-function reportOptionalFailure(options: ExtensionLifecycleOptions, failure: ExtensionStartFailure): void {
+function reportOptionalFailure(
+  options: ExtensionLifecycleOptions,
+  failure: ExtensionStartFailure,
+): void {
   try {
     options.onOptionalFailure?.(failure);
   } catch {

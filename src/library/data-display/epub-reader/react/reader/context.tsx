@@ -4,8 +4,18 @@ import type { EpubReaderHandle } from '../state/model';
 
 const EpubReaderContext = createContext<EpubReaderHandle | null>(null);
 
-export function EpubReaderProvider({ reader, children }: { readonly reader: EpubReaderHandle; readonly children: ReactNode }) {
-  return <EpubReaderContext.Provider value={reader}>{children}</EpubReaderContext.Provider>;
+export function EpubReaderProvider({
+  reader,
+  children,
+}: {
+  readonly reader: EpubReaderHandle;
+  readonly children: ReactNode;
+}) {
+  return (
+    <EpubReaderContext.Provider value={reader}>
+      {children}
+    </EpubReaderContext.Provider>
+  );
 }
 
 export function useOptionalEpubReaderContext(): EpubReaderHandle | null {
@@ -14,6 +24,9 @@ export function useOptionalEpubReaderContext(): EpubReaderHandle | null {
 
 export function useEpubReaderContext(): EpubReaderHandle {
   const reader = useOptionalEpubReaderContext();
-  if (!reader) throw new Error('useEpubReaderContext() must be used inside <EpubReaderProvider>.');
+  if (!reader)
+    throw new Error(
+      'useEpubReaderContext() must be used inside <EpubReaderProvider>.',
+    );
   return reader;
 }

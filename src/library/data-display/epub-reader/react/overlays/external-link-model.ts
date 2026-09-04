@@ -9,7 +9,10 @@ export interface ExternalLinkDetails {
   readonly destination: string;
 }
 
-const LABELS: Record<ExternalLinkKind, Pick<ExternalLinkDetails, 'title' | 'actionLabel'>> = {
+const LABELS: Record<
+  ExternalLinkKind,
+  Pick<ExternalLinkDetails, 'title' | 'actionLabel'>
+> = {
   website: { title: 'Open external website?', actionLabel: 'Open website' },
   email: { title: 'Open email app?', actionLabel: 'Continue to email' },
   phone: { title: 'Open phone app?', actionLabel: 'Continue to phone' },
@@ -20,11 +23,14 @@ const LABELS: Record<ExternalLinkKind, Pick<ExternalLinkDetails, 'title' | 'acti
  * already passed the engine allowlist. Keeping the allowlist check here too
  * makes the overlay safe to reuse without accidentally widening that policy.
  */
-export function externalLinkDetails(target: ExternalLinkTarget): ExternalLinkDetails {
+export function externalLinkDetails(
+  target: ExternalLinkTarget,
+): ExternalLinkDetails {
   const { kind, href } = target;
-  const destination = kind === 'website'
-    ? websiteDestination(href)
-    : schemeDestination(href, kind === 'email' ? 'mailto' : 'tel');
+  const destination =
+    kind === 'website'
+      ? websiteDestination(href)
+      : schemeDestination(href, kind === 'email' ? 'mailto' : 'tel');
   return { kind, href, ...LABELS[kind], destination };
 }
 

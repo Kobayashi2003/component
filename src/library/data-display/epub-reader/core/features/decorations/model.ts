@@ -2,7 +2,8 @@ import type { AnnotationColor, AnnotationHighlightStyle } from '../annotations';
 import type { LocatorRange } from '../../epub/publication';
 import type { RendererContentDocument } from '../../presentation/renderer';
 
-export type DecorationIntent = AnnotationHighlightStyle | 'search' | 'search-current';
+export type DecorationIntent =
+  AnnotationHighlightStyle | 'search' | 'search-current';
 
 export interface ReaderDecoration {
   readonly id: string;

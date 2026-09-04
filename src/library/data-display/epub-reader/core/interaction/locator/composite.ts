@@ -1,7 +1,15 @@
-import type { Locator, Publication, PublicationHref } from '../../epub/publication';
+import type {
+  Locator,
+  Publication,
+  PublicationHref,
+} from '../../epub/publication';
 import { createEpubCfi, resolveEpubCfi } from './cfi';
 import { createDomPath, resolveDomPath } from './dom-path';
-import type { DomPoint, LocatorRestoreMethod, LocatorRestoreResult } from './model';
+import type {
+  DomPoint,
+  LocatorRestoreMethod,
+  LocatorRestoreResult,
+} from './model';
 import { createTextQuote, resolveTextQuote } from './text-quote';
 
 export interface CompositeLocatorResolution extends LocatorRestoreResult {
@@ -19,14 +27,25 @@ export function createCompositeLocator(
   textExtent = 48,
 ): Locator {
   const item = publication.spine[spineIndex];
-  if (!item || item.href !== href) throw new RangeError(`Spine item ${spineIndex} does not match ${href}.`);
+  if (!item || item.href !== href)
+    throw new RangeError(`Spine item ${spineIndex} does not match ${href}.`);
   const text = createTextQuote(document, point, textExtent);
-  const cfiAssertion = text ? {
-    ...(text.before ? { before: collapseWhitespace(text.before).slice(-16) } : {}),
-    ...(text.highlight ? { after: collapseWhitespace(text.highlight).slice(0, 16) } : {}),
-  } : undefined;
+  const cfiAssertion = text
+    ? {
+        ...(text.before
+          ? { before: collapseWhitespace(text.before).slice(-16) }
+          : {}),
+        ...(text.highlight
+          ? { after: collapseWhitespace(text.highlight).slice(0, 16) }
+          : {}),
+      }
+    : undefined;
   let cfi: string | undefined;
-  try { cfi = createEpubCfi(item, document, point, cfiAssertion); } catch { /* resilient channels remain available */ }
+  try {
+    cfi = createEpubCfi(item, document, point, cfiAssertion);
+  } catch {
+    /* resilient channels remain available */
+  }
   const fragment = nearestElementId(point.node);
   const dom = createDomPath(document, point);
   return {
@@ -58,13 +77,19 @@ export function resolveCompositeLocator(
 
   if (locator.locations.cfi) {
     try {
-      const resolved = resolveEpubCfi(publication, document, locator.locations.cfi);
+      const resolved = resolveEpubCfi(
+        publication,
+        document,
+        locator.locations.cfi,
+      );
       if (resolved.spineItem.index === expectedSpineIndex) {
         point = resolved.point;
         correctedCfi = resolved.correctedCfi;
         method = 'cfi';
       }
-    } catch { /* try resilient fallbacks */ }
+    } catch {
+      /* try resilient fallbacks */
+    }
   }
 
   if (!point && locator.text) {
@@ -88,12 +113,21 @@ export function resolveCompositeLocator(
     }
   }
 
-  const progression = !point && locator.locations.progression != null
-    ? Math.max(0, Math.min(1, locator.locations.progression))
-    : undefined;
+  const progression =
+    !point && locator.locations.progression != null
+      ? Math.max(0, Math.min(1, locator.locations.progression))
+      : undefined;
   if (!point && progression != null) method = 'progression';
 
-  const updated = healedLocator(document, publication, expectedSpineIndex, locator, point, method, correctedCfi);
+  const updated = healedLocator(
+    document,
+    publication,
+    expectedSpineIndex,
+    locator,
+    point,
+    method,
+    correctedCfi,
+  );
   return {
     locator: updated,
     method,
@@ -112,7 +146,11 @@ function healedLocator(
   method: LocatorRestoreMethod,
   correctedCfi: string | undefined,
 ): Locator {
-  if (correctedCfi) return { ...locator, locations: { ...locator.locations, cfi: correctedCfi } };
+  if (correctedCfi)
+    return {
+      ...locator,
+      locations: { ...locator.locations, cfi: correctedCfi },
+    };
   if (!point || method === 'cfi') return locator;
   try {
     const rebuilt = createCompositeLocator(
@@ -126,7 +164,13 @@ function healedLocator(
     );
     return locator.locations.position == null
       ? rebuilt
-      : { ...rebuilt, locations: { ...rebuilt.locations, position: locator.locations.position } };
+      : {
+          ...rebuilt,
+          locations: {
+            ...rebuilt.locations,
+            position: locator.locations.position,
+          },
+        };
   } catch {
     // Recovery succeeded. Failure to refresh an optional precision channel
     // must not turn successful navigation into an error.
@@ -134,20 +178,26 @@ function healedLocator(
   }
 }
 
-export function locatorAtResourceStart(publication: Publication, spineIndex: number): Locator {
+export function locatorAtResourceStart(
+  publication: Publication,
+  spineIndex: number,
+): Locator {
   const item = publication.spine[spineIndex];
   if (!item) throw new RangeError(`Spine item ${spineIndex} does not exist.`);
   return { href: item.href, spineIndex, locations: { progression: 0 } };
 }
 
-export function locatorAtResourceEnd(publication: Publication, spineIndex: number): Locator {
+export function locatorAtResourceEnd(
+  publication: Publication,
+  spineIndex: number,
+): Locator {
   const item = publication.spine[spineIndex];
   if (!item) throw new RangeError(`Spine item ${spineIndex} does not exist.`);
   return { href: item.href, spineIndex, locations: { progression: 1 } };
 }
 
 function nearestElementId(node: Node): string | undefined {
-  let element = node.nodeType === 1 ? node as Element : node.parentElement;
+  let element = node.nodeType === 1 ? (node as Element) : node.parentElement;
   while (element) {
     if (element.id) return element.id;
     element = element.parentElement;

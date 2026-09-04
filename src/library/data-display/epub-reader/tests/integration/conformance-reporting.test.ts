@@ -1,8 +1,11 @@
-import { OcfZipArchive, __zipTestUtils } from '../../core/epub/archive';
-import { createCompatibilityReport } from '../../core/epub/compatibility';
-import { loadEpub } from '../../core/epub/publication';
-import { runEpubCorpusCase } from '../../core/validation/conformance/corpus';
-import { W3cConformanceRecorder, summarizeW3cResults } from '../../core/validation/conformance/report';
+import { OcfZipArchive, __zipTestUtils } from "../../core/epub/archive";
+import { createCompatibilityReport } from "../../core/epub/compatibility";
+import { loadEpub } from "../../core/epub/publication";
+import { runEpubCorpusCase } from "../../core/validation/conformance/corpus";
+import {
+  W3cConformanceRecorder,
+  summarizeW3cResults,
+} from "../../core/validation/conformance/report";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -61,120 +64,209 @@ const conflictingPackage = `<?xml version="1.0"?>
 
 async function main() {
   const validZip = buildStoredZip({
-    mimetype: 'application/epub+zip',
-    'META-INF/container.xml': containerXml,
-    'EPUB/package.opf': validPackage,
-    'EPUB/nav.xhtml': navXml,
-    'EPUB/chapter.xhtml': '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Hello</p></body></html>',
+    mimetype: "application/epub+zip",
+    "META-INF/container.xml": containerXml,
+    "EPUB/package.opf": validPackage,
+    "EPUB/nav.xhtml": navXml,
+    "EPUB/chapter.xhtml":
+      '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Hello</p></body></html>',
   });
 
   // 1. Archive hardening rejects oversized input and excessive entry counts
   // before any Deflate payload is expanded.
   {
-    const tooLarge = await OcfZipArchive.open(validZip, { maxContainerBytes: validZip.byteLength - 1 });
-    assert(!tooLarge.archive, 'container byte limit must block oversized EPUBs');
-    assert(tooLarge.diagnostics.some(d => d.code === 'OCF_ZIP_CONTAINER_LIMIT_EXCEEDED'), 'container limit diagnostic must be explicit');
+    const tooLarge = await OcfZipArchive.open(validZip, {
+      maxContainerBytes: validZip.byteLength - 1,
+    });
+    assert(
+      !tooLarge.archive,
+      "container byte limit must block oversized EPUBs",
+    );
+    assert(
+      tooLarge.diagnostics.some(
+        (d) => d.code === "OCF_ZIP_CONTAINER_LIMIT_EXCEEDED",
+      ),
+      "container limit diagnostic must be explicit",
+    );
 
     const tooMany = await OcfZipArchive.open(validZip, { maxEntries: 2 });
-    assert(!tooMany.archive, 'entry-count limit must block archive bombs before reads');
-    assert(tooMany.diagnostics.some(d => d.code === 'OCF_ZIP_ENTRY_COUNT_LIMIT_EXCEEDED'), 'entry-count diagnostic must be explicit');
+    assert(
+      !tooMany.archive,
+      "entry-count limit must block archive bombs before reads",
+    );
+    assert(
+      tooMany.diagnostics.some(
+        (d) => d.code === "OCF_ZIP_ENTRY_COUNT_LIMIT_EXCEEDED",
+      ),
+      "entry-count diagnostic must be explicit",
+    );
 
-    const oversizedEntry = await OcfZipArchive.open(validZip, { maxEntryUncompressedBytes: 20 });
-    assert(!oversizedEntry.archive, 'per-entry uncompressed limit must block oversized advertised entries');
-    assert(oversizedEntry.diagnostics.some(d => d.code === 'OCF_ZIP_ENTRY_SIZE_LIMIT_EXCEEDED'), 'entry-size diagnostic must be explicit');
+    const oversizedEntry = await OcfZipArchive.open(validZip, {
+      maxEntryUncompressedBytes: 20,
+    });
+    assert(
+      !oversizedEntry.archive,
+      "per-entry uncompressed limit must block oversized advertised entries",
+    );
+    assert(
+      oversizedEntry.diagnostics.some(
+        (d) => d.code === "OCF_ZIP_ENTRY_SIZE_LIMIT_EXCEEDED",
+      ),
+      "entry-size diagnostic must be explicit",
+    );
 
-    const bomb = patchCentralEntryAsBomb(validZip, 'EPUB/chapter.xhtml');
-    const suspiciousRatio = await OcfZipArchive.open(bomb, { maxCompressionRatio: 20 });
-    assert(!suspiciousRatio.archive, 'advertised Deflate bomb ratio must be rejected before decompression');
-    assert(suspiciousRatio.diagnostics.some(d => d.code === 'OCF_ZIP_COMPRESSION_RATIO_LIMIT_EXCEEDED'), 'compression-ratio diagnostic must be explicit');
+    const bomb = patchCentralEntryAsBomb(validZip, "EPUB/chapter.xhtml");
+    const suspiciousRatio = await OcfZipArchive.open(bomb, {
+      maxCompressionRatio: 20,
+    });
+    assert(
+      !suspiciousRatio.archive,
+      "advertised Deflate bomb ratio must be rejected before decompression",
+    );
+    assert(
+      suspiciousRatio.diagnostics.some(
+        (d) => d.code === "OCF_ZIP_COMPRESSION_RATIO_LIMIT_EXCEEDED",
+      ),
+      "compression-ratio diagnostic must be explicit",
+    );
 
-    const controlBudget = await loadEpub(validZip, { controlDocumentLimits: { maxPackageDocumentBytes: 64 } });
-    assert(!controlBudget.publication, 'oversized package control documents must stop before XML parsing');
-    assert(controlBudget.diagnostics.some(d => d.code === 'PACKAGE_DOCUMENT_LIMIT_EXCEEDED'), 'package control-document budget must be diagnosed');
+    const controlBudget = await loadEpub(validZip, {
+      controlDocumentLimits: { maxPackageDocumentBytes: 64 },
+    });
+    assert(
+      !controlBudget.publication,
+      "oversized package control documents must stop before XML parsing",
+    );
+    assert(
+      controlBudget.diagnostics.some(
+        (d) => d.code === "PACKAGE_DOCUMENT_LIMIT_EXCEEDED",
+      ),
+      "package control-document budget must be diagnosed",
+    );
   }
 
   // 2. Clean publications produce a clean compatibility summary.
   {
     const loaded = await loadEpub(validZip);
-    assert(loaded.publication, 'valid conformance EPUB must load');
-    assert(createCompatibilityReport(loaded.diagnostics).status === 'clean', 'valid publication must remain compatibility-clean');
+    assert(loaded.publication, "valid conformance EPUB must load");
+    assert(
+      createCompatibilityReport(loaded.diagnostics).status === "clean",
+      "valid publication must remain compatibility-clean",
+    );
   }
 
   // 3. Standard-defined malformed rendition recovery is observable as a repair,
   // not silently normalized or mislabeled as an unresolved failure.
   {
     const zip = buildStoredZip({
-      mimetype: 'application/epub+zip',
-      'META-INF/container.xml': containerXml,
-      'EPUB/package.opf': conflictingPackage,
-      'EPUB/nav.xhtml': navXml,
-      'EPUB/chapter.xhtml': '<html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
+      mimetype: "application/epub+zip",
+      "META-INF/container.xml": containerXml,
+      "EPUB/package.opf": conflictingPackage,
+      "EPUB/nav.xhtml": navXml,
+      "EPUB/chapter.xhtml":
+        '<html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
     });
     const loaded = await loadEpub(zip);
     const report = createCompatibilityReport(loaded.diagnostics);
-    assert(loaded.publication?.spine[0]?.rendition.flow === 'scrolled-doc', 'first authored rendition override must remain the recovery value');
-    assert(report.status === 'repaired', 'known deterministic recovery must be classified as repaired');
-    assert(report.repairs.some(repair => repair.strategy === 'use-first-authored-rendition-override'), 'repair strategy must be surfaced');
+    assert(
+      loaded.publication?.spine[0]?.rendition.flow === "scrolled-doc",
+      "first authored rendition override must remain the recovery value",
+    );
+    assert(
+      report.status === "repaired",
+      "known deterministic recovery must be classified as repaired",
+    );
+    assert(
+      report.repairs.some(
+        (repair) => repair.strategy === "use-first-authored-rendition-override",
+      ),
+      "repair strategy must be surfaced",
+    );
   }
 
   // 4. EPUB 3 NCX fallback is an explicit compatibility repair.
   {
     const zip = buildStoredZip({
-      mimetype: 'application/epub+zip',
-      'META-INF/container.xml': containerXml,
-      'EPUB/package.opf': ncxFallbackPackage,
-      'EPUB/toc.ncx': ncxXml,
-      'EPUB/chapter.xhtml': '<html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
+      mimetype: "application/epub+zip",
+      "META-INF/container.xml": containerXml,
+      "EPUB/package.opf": ncxFallbackPackage,
+      "EPUB/toc.ncx": ncxXml,
+      "EPUB/chapter.xhtml":
+        '<html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
     });
     const loaded = await loadEpub(zip);
     const report = createCompatibilityReport(loaded.diagnostics);
-    assert(loaded.publication?.navigation.source === 'ncx', 'EPUB 3 compatibility fallback must produce NCX navigation');
-    assert(report.repairs.some(repair => repair.strategy === 'use-ncx-navigation-fallback'), 'NCX fallback must be visible in compatibility report');
+    assert(
+      loaded.publication?.navigation.source === "ncx",
+      "EPUB 3 compatibility fallback must produce NCX navigation",
+    );
+    assert(
+      report.repairs.some(
+        (repair) => repair.strategy === "use-ncx-navigation-fallback",
+      ),
+      "NCX fallback must be visible in compatibility report",
+    );
   }
 
   // 5. The local corpus harness validates expected outcomes without conflating
   // “could load this test publication” with a W3C Reading System conformance pass.
   {
     const result = await runEpubCorpusCase({
-      id: 'local-valid-reflowable',
+      id: "local-valid-reflowable",
       bytes: validZip,
       expectPublication: true,
-      expectedCompatibilityStatus: 'clean',
+      expectedCompatibilityStatus: "clean",
     });
-    assert(result.passed, `local corpus case must pass: ${result.failures.join('; ')}`);
+    assert(
+      result.passed,
+      `local corpus case must pass: ${result.failures.join("; ")}`,
+    );
 
     const blocked = await runEpubCorpusCase({
-      id: 'local-archive-limit',
+      id: "local-archive-limit",
       bytes: validZip,
       expectPublication: false,
-      expectedDiagnosticCodes: ['OCF_ZIP_ENTRY_COUNT_LIMIT_EXCEEDED'],
-      expectedCompatibilityStatus: 'blocked',
+      expectedDiagnosticCodes: ["OCF_ZIP_ENTRY_COUNT_LIMIT_EXCEEDED"],
+      expectedCompatibilityStatus: "blocked",
       archiveLimits: { maxEntries: 1 },
     });
-    assert(blocked.passed, `blocked corpus case must match declared expectation: ${blocked.failures.join('; ')}`);
+    assert(
+      blocked.passed,
+      `blocked corpus case must match declared expectation: ${blocked.failures.join("; ")}`,
+    );
   }
 
   // 6. W3C report writer preserves the four values required by the official
   // implementation-report format.
   {
     const recorder = new W3cConformanceRecorder({
-      name: 'EPUB Reader Engine',
-      variant: 'Web',
-      tested_by: 'implementer',
+      name: "EPUB Reader Engine",
+      variant: "Web",
+      tested_by: "implementer",
     });
-    recorder.record('must-pass', true);
-    recorder.record('known-fail', false);
-    recorder.record('unsupported-feature', 'n/a');
-    recorder.record('not-run', null);
+    recorder.record("must-pass", true);
+    recorder.record("known-fail", false);
+    recorder.record("unsupported-feature", "n/a");
+    recorder.record("not-run", null);
     const report = recorder.report();
-    assert(report.tests['must-pass'] === true && report.tests['unsupported-feature'] === 'n/a', 'W3C result values must round-trip exactly');
+    assert(
+      report.tests["must-pass"] === true &&
+        report.tests["unsupported-feature"] === "n/a",
+      "W3C result values must round-trip exactly",
+    );
     const summary = summarizeW3cResults(Object.values(report.tests));
-    assert(summary.total === 4 && summary.passed === 1 && summary.failed === 1 && summary.notApplicable === 1 && summary.notRun === 1, 'W3C summary counts must be stable');
+    assert(
+      summary.total === 4 &&
+        summary.passed === 1 &&
+        summary.failed === 1 &&
+        summary.notApplicable === 1 &&
+        summary.notRun === 1,
+      "W3C summary counts must be stable",
+    );
   }
 
-  console.log('Conformance reporting integration test: PASS');
+  console.log("Conformance reporting integration test: PASS");
 }
-
 
 function patchCentralEntryAsBomb(zip: Uint8Array, name: string): Uint8Array {
   const out = zip.slice();
@@ -182,7 +274,10 @@ function patchCentralEntryAsBomb(zip: Uint8Array, name: string): Uint8Array {
   for (let i = 46; i <= out.length - encoded.length; i += 1) {
     let match = true;
     for (let j = 0; j < encoded.length; j += 1) {
-      if (out[i + j] !== encoded[j]) { match = false; break; }
+      if (out[i + j] !== encoded[j]) {
+        match = false;
+        break;
+      }
     }
     if (!match) continue;
     const central = i - 46;
@@ -253,7 +348,10 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const out = new Uint8Array(total);
   let offset = 0;
-  for (const part of parts) { out.set(part, offset); offset += part.length; }
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
   return out;
 }
 

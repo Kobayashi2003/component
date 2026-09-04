@@ -1,5 +1,8 @@
 export * from './epub/publication';
-export type { OcfCompatibilityMode, OcfZipLimits } from './epub/archive/ocf-zip';
+export type {
+  OcfCompatibilityMode,
+  OcfZipLimits,
+} from './epub/archive/ocf-zip';
 export { DEFAULT_OCF_ZIP_LIMITS } from './epub/archive/ocf-zip';
 export type { ResourceResolverOptions } from './epub/resources/model';
 export type { PublicationContentDocumentCachePolicy } from './epub/content/document-cache';

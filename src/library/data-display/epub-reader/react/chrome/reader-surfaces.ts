@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { ReaderFootnote, ExternalLinkTarget, ReaderImageActivation, ReaderMarkActivation, ReaderSelectionActivation } from '../../core';
+import type {
+  ReaderFootnote,
+  ExternalLinkTarget,
+  ReaderImageActivation,
+  ReaderMarkActivation,
+  ReaderSelectionActivation,
+} from '../../core';
 import type { EpubSource } from '../state/model';
 import type { ReaderToolId } from '../tools/model';
 import type { ReaderSurface } from './reader-surface-model';
@@ -47,28 +53,37 @@ export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
 
   const show = useCallback((next: ReaderSurface) => setSurface(next), []);
   const close = useCallback(() => setSurface(NONE), []);
-  const togglePanel = useCallback((panel: ReaderToolId, returnFocus: HTMLElement | null) => {
-    setSurface(current => current.kind === 'panel' && current.panel === panel
-      ? NONE
-      : { kind: 'panel', panel, returnFocus });
-  }, []);
+  const togglePanel = useCallback(
+    (panel: ReaderToolId, returnFocus: HTMLElement | null) => {
+      setSurface((current) =>
+        current.kind === 'panel' && current.panel === panel
+          ? NONE
+          : { kind: 'panel', panel, returnFocus },
+      );
+    },
+    [],
+  );
 
-  const publicationOwned = surface.kind === 'footnote' || surface.kind === 'external-link';
+  const publicationOwned =
+    surface.kind === 'footnote' || surface.kind === 'external-link';
   const live = publicationOwned && surface.source !== source ? NONE : surface;
 
   // Memoized so callers can depend on this object in their own hooks without
   // invalidating them on every render.
-  return useMemo(() => ({
-    surface: live,
-    panel: live.kind === 'panel' ? live.panel : null,
-    footnote: live.kind === 'footnote' ? live.footnote : null,
-    selection: live.kind === 'selection' ? live.activation : null,
-    mark: live.kind === 'mark' ? live.activation : null,
-    image: live.kind === 'image' ? live.activation : null,
-    externalLink: live.kind === 'external-link' ? live.target : null,
-    open: live.kind !== 'none',
-    show,
-    close,
-    togglePanel,
-  }), [close, live, show, togglePanel]);
+  return useMemo(
+    () => ({
+      surface: live,
+      panel: live.kind === 'panel' ? live.panel : null,
+      footnote: live.kind === 'footnote' ? live.footnote : null,
+      selection: live.kind === 'selection' ? live.activation : null,
+      mark: live.kind === 'mark' ? live.activation : null,
+      image: live.kind === 'image' ? live.activation : null,
+      externalLink: live.kind === 'external-link' ? live.target : null,
+      open: live.kind !== 'none',
+      show,
+      close,
+      togglePanel,
+    }),
+    [close, live, show, togglePanel],
+  );
 }

@@ -1,4 +1,9 @@
-import type { LocatorDomPoint, LocatorRange, PublicationDiagnostic, PublicationHref } from '../../epub/publication';
+import type {
+  LocatorDomPoint,
+  LocatorRange,
+  PublicationDiagnostic,
+  PublicationHref,
+} from '../../epub/publication';
 import type { CfiPath } from '../../interaction/locator';
 
 export interface SearchOptions {
@@ -24,10 +29,11 @@ export interface PublicationSearchCachePolicy {
   readonly maxBytes: number;
 }
 
-export const DEFAULT_SEARCH_CACHE_POLICY: PublicationSearchCachePolicy = Object.freeze({
-  maxDocuments: 12,
-  maxBytes: 8 * 1024 * 1024,
-});
+export const DEFAULT_SEARCH_CACHE_POLICY: PublicationSearchCachePolicy =
+  Object.freeze({
+    maxDocuments: 12,
+    maxBytes: 8 * 1024 * 1024,
+  });
 
 export interface PublicationSearchCacheSnapshot {
   readonly documents: number;
@@ -82,7 +88,6 @@ export interface SearchResultSet {
   readonly truncated: boolean;
   readonly diagnostics: readonly PublicationDiagnostic[];
 }
-
 
 export interface ReaderSearchState {
   readonly query: string;

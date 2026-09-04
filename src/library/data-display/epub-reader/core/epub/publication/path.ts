@@ -52,7 +52,9 @@ export function resolvePublicationReference(
   if (REMOTE_SCHEME.test(trimmed) || trimmed.startsWith('//')) {
     const absolute = trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
     const url = new URL(absolute);
-    const fragment = url.hash ? safeDecodeFragment(url.hash.slice(1)) : undefined;
+    const fragment = url.hash
+      ? safeDecodeFragment(url.hash.slice(1))
+      : undefined;
     url.hash = '';
     return {
       source,
@@ -89,7 +91,6 @@ export function resolvePublicationReference(
   };
 }
 
-
 /**
  * Resolve a reference from an XHTML document while honoring its first HTML
  * `<base href>` when present. The base URL is allowed to intentionally point
@@ -101,14 +102,20 @@ export function resolvePublicationDocumentReference(
   baseHref: string | undefined,
   source: string,
 ): ResolvedPublicationReference {
-  if (!baseHref?.trim()) return resolvePublicationReference(documentPath, source);
+  if (!baseHref?.trim())
+    return resolvePublicationReference(documentPath, source);
 
-  const documentUrl = new URL(encodePath(normalizePublicationPath(documentPath)), FAKE_ORIGIN);
+  const documentUrl = new URL(
+    encodePath(normalizePublicationPath(documentPath)),
+    FAKE_ORIGIN,
+  );
   const trimmedBase = baseHref.trim();
   let baseUrl: URL;
 
   if (REMOTE_SCHEME.test(trimmedBase) || trimmedBase.startsWith('//')) {
-    baseUrl = new URL(trimmedBase.startsWith('//') ? `https:${trimmedBase}` : trimmedBase);
+    baseUrl = new URL(
+      trimmedBase.startsWith('//') ? `https:${trimmedBase}` : trimmedBase,
+    );
   } else {
     assertReferenceStaysInsideContainer(documentPath, trimmedBase);
     baseUrl = new URL(trimmedBase, documentUrl);
@@ -117,7 +124,9 @@ export function resolvePublicationDocumentReference(
   const trimmedSource = source.trim();
   let resolvedUrl: URL;
   if (REMOTE_SCHEME.test(trimmedSource) || trimmedSource.startsWith('//')) {
-    resolvedUrl = new URL(trimmedSource.startsWith('//') ? `https:${trimmedSource}` : trimmedSource);
+    resolvedUrl = new URL(
+      trimmedSource.startsWith('//') ? `https:${trimmedSource}` : trimmedSource,
+    );
   } else {
     if (baseUrl.origin === FAKE_ORIGIN_URL.origin) {
       const decodedBasePath = decodePath(baseUrl.pathname.replace(/^\/+/, ''));
@@ -130,7 +139,9 @@ export function resolvePublicationDocumentReference(
   }
 
   if (resolvedUrl.origin !== FAKE_ORIGIN_URL.origin) {
-    const fragment = resolvedUrl.hash ? safeDecodeFragment(resolvedUrl.hash.slice(1)) : undefined;
+    const fragment = resolvedUrl.hash
+      ? safeDecodeFragment(resolvedUrl.hash.slice(1))
+      : undefined;
     resolvedUrl.hash = '';
     return {
       source,
@@ -141,8 +152,12 @@ export function resolvePublicationDocumentReference(
     };
   }
 
-  const path = normalizePublicationPath(decodePath(resolvedUrl.pathname.replace(/^\/+/, '')));
-  const fragment = resolvedUrl.hash ? safeDecodeFragment(resolvedUrl.hash.slice(1)) : undefined;
+  const path = normalizePublicationPath(
+    decodePath(resolvedUrl.pathname.replace(/^\/+/, '')),
+  );
+  const fragment = resolvedUrl.hash
+    ? safeDecodeFragment(resolvedUrl.hash.slice(1))
+    : undefined;
   return {
     source,
     href: `${path}${resolvedUrl.search}${fragment ? `#${fragment}` : ''}`,
@@ -159,15 +174,25 @@ export function resolvePublicationDocumentBase(
   parentBaseHref: string | undefined,
   authoredBaseHref: string,
 ): string {
-  const resolved = resolvePublicationDocumentReference(documentPath, parentBaseHref, authoredBaseHref);
+  const resolved = resolvePublicationDocumentReference(
+    documentPath,
+    parentBaseHref,
+    authoredBaseHref,
+  );
   if (resolved.remote) return resolved.href;
   const path = resolved.path ?? '';
   const directory = authoredBaseHref.trim().endsWith('/');
   const from = dirname(documentPath).split('/').filter(Boolean);
   const to = path.split('/').filter(Boolean);
   let common = 0;
-  while (common < from.length && common < to.length && from[common] === to[common]) common += 1;
-  const relative = `${'../'.repeat(from.length - common)}${to.slice(common).join('/')}` || '.';
+  while (
+    common < from.length &&
+    common < to.length &&
+    from[common] === to[common]
+  )
+    common += 1;
+  const relative =
+    `${'../'.repeat(from.length - common)}${to.slice(common).join('/')}` || '.';
   const suffix = directory && !relative.endsWith('/') ? '/' : '';
   return `${relative}${suffix}${resolved.query ?? ''}`;
 }
@@ -194,12 +219,17 @@ export function referencePathPart(source: string): string {
   return source.slice(0, end);
 }
 
-function assertReferenceStaysInsideContainer(baseFile: PublicationPath, source: string): void {
+function assertReferenceStaysInsideContainer(
+  baseFile: PublicationPath,
+  source: string,
+): void {
   const rawPath = referencePathPart(source).replace(/\\/g, '/');
   if (!rawPath) return;
 
   if (rawPath.startsWith('/')) {
-    throw new Error(`Root-relative URLs are not valid OCF-relative references: ${source}`);
+    throw new Error(
+      `Root-relative URLs are not valid OCF-relative references: ${source}`,
+    );
   }
   const stack = dirname(baseFile).split('/').filter(Boolean);
 
@@ -238,14 +268,14 @@ function decodeTraversalSegment(segment: string, source: string): string {
 function encodePath(path: string): string {
   return path
     .split('/')
-    .map(segment => encodeURIComponent(segment))
+    .map((segment) => encodeURIComponent(segment))
     .join('/');
 }
 
 function decodePath(path: string): string {
   return path
     .split('/')
-    .map(segment => {
+    .map((segment) => {
       try {
         return decodeURIComponent(segment);
       } catch {
@@ -273,12 +303,17 @@ export function validateArchiveEntryPath(input: string): PublicationPath {
   if (!input || input.startsWith('/') || input.startsWith('\\')) {
     throw new Error(`Invalid absolute/empty OCF entry path: ${input}`);
   }
-  if (input.includes('\\')) throw new Error(`OCF entry path contains a reverse solidus: ${input}`);
+  if (input.includes('\\'))
+    throw new Error(`OCF entry path contains a reverse solidus: ${input}`);
   if (input.includes('\0')) throw new Error('OCF entry path contains U+0000.');
 
   const segments = input.split('/');
-  if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
-    throw new Error(`OCF entry path contains an empty or dot segment: ${input}`);
+  if (
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error(
+      `OCF entry path contains an empty or dot segment: ${input}`,
+    );
   }
   return input;
 }

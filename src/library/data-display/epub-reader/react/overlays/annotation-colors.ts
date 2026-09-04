@@ -25,4 +25,4 @@ export const ANNOTATION_COLORS: readonly AnnotationColor[] = [
  * independent list.
  */
 export const QUICK_ANNOTATION_COLORS: readonly AnnotationColor[] =
-  ANNOTATION_COLORS.filter(color => color !== 'orange' && color !== 'purple');
+  ANNOTATION_COLORS.filter((color) => color !== 'orange' && color !== 'purple');

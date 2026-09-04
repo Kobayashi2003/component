@@ -17,7 +17,10 @@ export class MemoryPublicationArchive implements PublicationArchive {
     const normalized = new Map<PublicationPath, Uint8Array>();
     for (const [path, value] of Object.entries(files)) {
       const key = validateArchiveEntryPath(path);
-      normalized.set(key, typeof value === 'string' ? encoder.encode(value) : value);
+      normalized.set(
+        key,
+        typeof value === 'string' ? encoder.encode(value) : value,
+      );
     }
     this.files = normalized;
     this.entries = [...normalized.keys()];

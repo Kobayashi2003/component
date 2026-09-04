@@ -1,8 +1,4 @@
-import type {
-  CSSProperties,
-  KeyboardEvent,
-  ReactNode,
-} from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import type { ReaderThemeDefinition } from '../../../../core';
 import { EpubReaderControls } from '../../../chrome/EpubReaderControls';
 import { EpubReaderFeedback } from '../../../chrome/EpubReaderFeedback';
@@ -90,7 +86,9 @@ export function ReaderShell({
       data-external-link-open={externalLinkOpen ? 'true' : undefined}
       onKeyDownCapture={onKeyDownCapture}
     >
-      <a className="epub-reader-skip-link" href={`#${viewportId}`}>{messages.skipToContent}</a>
+      <a className="epub-reader-skip-link" href={`#${viewportId}`}>
+        {messages.skipToContent}
+      </a>
       <span id={instructionsId} className="epub-reader-visually-hidden">
         {messages.readerInstructions}
       </span>
@@ -98,12 +96,17 @@ export function ReaderShell({
       {children}
       <EpubReaderControls />
       {modalLayer}
-      {feedback ? <EpubReaderFeedback feedback={feedback} feedbackId={feedback.id} /> : null}
+      {feedback ? (
+        <EpubReaderFeedback feedback={feedback} feedbackId={feedback.id} />
+      ) : null}
     </div>
   );
 }
 
-function themeUiStyle(ui: ReaderThemeDefinition['ui'], panelWidthPx: number): CSSProperties {
+function themeUiStyle(
+  ui: ReaderThemeDefinition['ui'],
+  panelWidthPx: number,
+): CSSProperties {
   return {
     '--epub-panel-width': `${panelWidthPx}px`,
     '--epub-color-reader': ui?.reader,

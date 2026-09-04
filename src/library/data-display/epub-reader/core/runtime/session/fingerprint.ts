@@ -13,7 +13,8 @@ export function publicationSessionKey(
   };
   // Hash every byte. Sampling only the head and tail made two same-sized EPUBs
   // with identical ZIP edges share a session even when their content differed.
-  for (let index = 0; index < view.length; index += 1) update(view[index]!, index);
+  for (let index = 0; index < view.length; index += 1)
+    update(view[index]!, index);
   const nameHash = [...normalizedName].reduce(
     (hash, char) => Math.imul(hash ^ char.codePointAt(0)!, 0x01000193) >>> 0,
     0x811c9dc5,

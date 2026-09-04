@@ -15,12 +15,28 @@ interface ReaderModalHostProps {
 }
 
 /** Keeps modal semantics and safe external actions fixed while selecting their content provider. */
-export function ReaderModalHost({ surface, onClose, showFeedback }: ReaderModalHostProps) {
+export function ReaderModalHost({
+  surface,
+  onClose,
+  showFeedback,
+}: ReaderModalHostProps) {
   if (surface.kind === 'image') {
-    return <ImageSurfaceFrame surface={surface} onClose={onClose} showFeedback={showFeedback} />;
+    return (
+      <ImageSurfaceFrame
+        surface={surface}
+        onClose={onClose}
+        showFeedback={showFeedback}
+      />
+    );
   }
   if (surface.kind === 'external-link') {
-    return <ExternalLinkSurfaceFrame surface={surface} onClose={onClose} showFeedback={showFeedback} />;
+    return (
+      <ExternalLinkSurfaceFrame
+        surface={surface}
+        onClose={onClose}
+        showFeedback={showFeedback}
+      />
+    );
   }
   return null;
 }
@@ -31,7 +47,11 @@ interface ModalFrameProps<K extends 'image' | 'external-link'> {
   readonly showFeedback: ReaderFeedbackController['show'];
 }
 
-function ImageSurfaceFrame({ surface, onClose, showFeedback }: ModalFrameProps<'image'>) {
+function ImageSurfaceFrame({
+  surface,
+  onClose,
+  showFeedback,
+}: ModalFrameProps<'image'>) {
   const reader = useEpubReaderContext();
   const { messages, surfaceRendererRegistry } = useReaderUiConfiguration();
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -50,7 +70,11 @@ function ImageSurfaceFrame({ surface, onClose, showFeedback }: ModalFrameProps<'
       className="epub-reader-image-viewer"
       role="dialog"
       aria-modal="true"
-      aria-label={surface.activation.alt ? `Image: ${surface.activation.alt}` : 'Publication image'}
+      aria-label={
+        surface.activation.alt
+          ? `Image: ${surface.activation.alt}`
+          : 'Publication image'
+      }
       tabIndex={-1}
       onClick={() => onClose(true)}
     >
@@ -58,20 +82,27 @@ function ImageSurfaceFrame({ surface, onClose, showFeedback }: ModalFrameProps<'
         renderer={renderer}
         context={context}
         resetKey={surface.activation.src}
-        fallback={(
-          <button type="button" onClick={(event: MouseEvent<HTMLButtonElement>) => {
-            event.stopPropagation();
-            onClose(true);
-          }}>
+        fallback={
+          <button
+            type="button"
+            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+              event.stopPropagation();
+              onClose(true);
+            }}
+          >
             {messages.actionFailed}
           </button>
-        )}
+        }
       />
     </aside>
   );
 }
 
-function ExternalLinkSurfaceFrame({ surface, onClose, showFeedback }: ModalFrameProps<'external-link'>) {
+function ExternalLinkSurfaceFrame({
+  surface,
+  onClose,
+  showFeedback,
+}: ModalFrameProps<'external-link'>) {
   const reader = useEpubReaderContext();
   const { messages, surfaceRendererRegistry } = useReaderUiConfiguration();
   const renderer = surfaceRendererRegistry.resolve('external-link');
@@ -86,25 +117,30 @@ function ExternalLinkSurfaceFrame({ surface, onClose, showFeedback }: ModalFrame
     <EpubExternalLinkDialog
       target={surface.target}
       onClose={onClose}
-      body={(
+      body={
         <ReaderSurfaceRendererSlot
           renderer={renderer}
           context={context}
           resetKey={surface.target.href}
           fallback={<p role="alert">{messages.actionFailed}</p>}
         />
-      )}
+      }
     />
   );
 }
 
-function useModalFocus(dialogRef: { readonly current: HTMLElement | null }): void {
+function useModalFocus(dialogRef: {
+  readonly current: HTMLElement | null;
+}): void {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ));
+    const focusable = () =>
+      Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Tab') return;
       const elements = focusable();
@@ -125,7 +161,9 @@ function useModalFocus(dialogRef: { readonly current: HTMLElement | null }): voi
       }
     };
     dialog.addEventListener('keydown', onKeyDown);
-    const frame = requestAnimationFrame(() => (focusable()[0] ?? dialog).focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() =>
+      (focusable()[0] ?? dialog).focus({ preventScroll: true }),
+    );
     return () => {
       cancelAnimationFrame(frame);
       dialog.removeEventListener('keydown', onKeyDown);

@@ -15,11 +15,12 @@ import type {
 import type { RenditionCompatibilityDirectives } from '../../epub/compatibility/rendition-policy';
 
 export type RendererKind =
-  | 'reflowable-paginated'
-  | 'reflowable-scroll'
-  | 'fixed-layout';
+  'reflowable-paginated' | 'reflowable-scroll' | 'fixed-layout';
 
-export type ResolvedPageProgression = Exclude<PageProgressionDirection, 'default'>;
+export type ResolvedPageProgression = Exclude<
+  PageProgressionDirection,
+  'default'
+>;
 export type ViewportOrientation = 'portrait' | 'landscape' | 'square';
 export type PlanResolutionSource =
   | 'user'
@@ -58,18 +59,19 @@ export interface RenditionPlannerPolicy {
   };
 }
 
-export const DEFAULT_RENDITION_PLANNER_POLICY: RenditionPlannerPolicy = Object.freeze({
-  defaultPageProgression: 'ltr',
-  defaultReflowableFlow: 'paginated',
-  defaultUserScrolledFlow: 'scrolled-doc',
-  syntheticSpreads: Object.freeze({
-    // The spread compositor supports fixed/reflowable mixed slots.
-    supported: true,
-    autoMode: 'landscape-when-room',
-    minViewportWidth: 720,
-    minPageWidth: 320,
-  }),
-});
+export const DEFAULT_RENDITION_PLANNER_POLICY: RenditionPlannerPolicy =
+  Object.freeze({
+    defaultPageProgression: 'ltr',
+    defaultReflowableFlow: 'paginated',
+    defaultUserScrolledFlow: 'scrolled-doc',
+    syntheticSpreads: Object.freeze({
+      // The spread compositor supports fixed/reflowable mixed slots.
+      supported: true,
+      autoMode: 'landscape-when-room',
+      minViewportWidth: 720,
+      minPageWidth: 320,
+    }),
+  });
 
 export interface ResolvedValue<T> {
   readonly value: T;
@@ -77,10 +79,7 @@ export interface ResolvedValue<T> {
 }
 
 export type OverflowMode =
-  | 'fixed-page'
-  | 'paginated'
-  | 'scrolled-doc'
-  | 'scrolled-continuous';
+  'fixed-page' | 'paginated' | 'scrolled-doc' | 'scrolled-continuous';
 
 export interface SpreadPairHint {
   readonly leftSpineIndex: number;
@@ -93,7 +92,8 @@ export interface SpreadPairHint {
  * The renderer executes this either inside one reflowable document or through the
  * cross-spine compositor, depending on the plan's execution mode.
  */
-export type SpreadExecutionMode = 'single' | 'intra-document' | 'spanning-document' | 'cross-spine';
+export type SpreadExecutionMode =
+  'single' | 'intra-document' | 'spanning-document' | 'cross-spine';
 
 export interface SpreadPlan {
   readonly mode: 'single' | 'double';

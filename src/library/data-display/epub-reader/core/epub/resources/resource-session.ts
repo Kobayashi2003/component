@@ -1,12 +1,15 @@
-import type { PublicationDiagnostic, PublicationPath } from '../publication/model';
-import { runInlineStyleResourceCompatibility, runStylesheetResourceCompatibility } from '../compatibility/resource-runner';
+import type {
+  PublicationDiagnostic,
+  PublicationPath,
+} from '../publication/model';
+import {
+  runInlineStyleResourceCompatibility,
+  runStylesheetResourceCompatibility,
+} from '../compatibility/resource-runner';
 import { rewriteCssReferences } from './css-rewriter';
 import { decodePublicationText } from './text-decoder';
 import { isCssMediaType } from './mime';
-import type {
-  MaterializeResult,
-  ObjectUrlFactory,
-} from './model';
+import type { MaterializeResult, ObjectUrlFactory } from './model';
 import { ObjectUrlStore } from './object-url-store';
 import { ResourceResolver } from './resource-resolver';
 
@@ -29,7 +32,10 @@ export class PublicationResourceSession {
     this.urls = new ObjectUrlStore(objectUrlFactory);
   }
 
-  async materialize(basePath: PublicationPath, source: string): Promise<MaterializeResult> {
+  async materialize(
+    basePath: PublicationPath,
+    source: string,
+  ): Promise<MaterializeResult> {
     this.assertAlive();
     if (isInlineDataUrl(source)) {
       return {
@@ -50,7 +56,10 @@ export class PublicationResourceSession {
       return {
         resource: {
           request,
-          url: this.resolver.options.remotePolicy === 'preserve' ? request.href : null,
+          url:
+            this.resolver.options.remotePolicy === 'preserve'
+              ? request.href
+              : null,
         },
         diagnostics,
       };
@@ -67,7 +76,12 @@ export class PublicationResourceSession {
       const read = await this.resolver.readRequest(request);
       diagnostics.push(...read.diagnostics);
       if (!read.resource) url = null;
-      else url = this.urls.getOrCreate(`raw:${request.path}`, read.resource.bytes, read.resource.mediaType);
+      else
+        url = this.urls.getOrCreate(
+          `raw:${request.path}`,
+          read.resource.bytes,
+          read.resource.mediaType,
+        );
     }
 
     if (url && request.fragment) url += `#${encodeFragment(request.fragment)}`;
@@ -84,7 +98,6 @@ export class PublicationResourceSession {
     return { resource: { request, url }, diagnostics };
   }
 
-
   /**
    * Rewrite CSS authored inline in an XHTML/SVG document. Relative URLs are
    * resolved against the content document that owns the style block/attribute.
@@ -92,41 +105,48 @@ export class PublicationResourceSession {
   async rewriteInlineCss(
     basePath: PublicationPath,
     cssText: string,
-  ): Promise<{ readonly css: string; readonly diagnostics: readonly PublicationDiagnostic[] }> {
+  ): Promise<{
+    readonly css: string;
+    readonly diagnostics: readonly PublicationDiagnostic[];
+  }> {
     this.assertAlive();
     const diagnostics: PublicationDiagnostic[] = [];
-    const rewritten = await rewriteCssReferences(cssText, async (source, kind) => {
-      if (source.trim().startsWith('#') || isInlineDataUrl(source)) return source;
+    const rewritten = await rewriteCssReferences(
+      cssText,
+      async (source, kind) => {
+        if (source.trim().startsWith('#') || isInlineDataUrl(source))
+          return source;
 
-      const child = this.resolver.resolve(basePath, source);
-      diagnostics.push(...child.diagnostics);
-      const request = child.request;
-      if (!request) return 'about:blank';
+        const child = this.resolver.resolve(basePath, source);
+        diagnostics.push(...child.diagnostics);
+        const request = child.request;
+        if (!request) return 'about:blank';
 
-      if (request.remote) {
-        return this.resolver.options.remotePolicy === 'preserve'
-          ? request.href
-          : 'about:blank';
-      }
+        if (request.remote) {
+          return this.resolver.options.remotePolicy === 'preserve'
+            ? request.href
+            : 'about:blank';
+        }
 
-      if (!request.path) return 'about:blank';
-      if (kind === 'import' || isCssMediaType(request.mediaType ?? '')) {
-        const nested = await this.materializeCss(request.path, []);
-        diagnostics.push(...nested.diagnostics);
-        return nested.url ?? 'about:blank';
-      }
+        if (!request.path) return 'about:blank';
+        if (kind === 'import' || isCssMediaType(request.mediaType ?? '')) {
+          const nested = await this.materializeCss(request.path, []);
+          diagnostics.push(...nested.diagnostics);
+          return nested.url ?? 'about:blank';
+        }
 
-      const read = await this.resolver.readRequest(request);
-      diagnostics.push(...read.diagnostics);
-      if (!read.resource) return 'about:blank';
-      let url = this.urls.getOrCreate(
-        `raw:${request.path}`,
-        read.resource.bytes,
-        read.resource.mediaType,
-      );
-      if (request.fragment) url += `#${encodeFragment(request.fragment)}`;
-      return url;
-    });
+        const read = await this.resolver.readRequest(request);
+        diagnostics.push(...read.diagnostics);
+        if (!read.resource) return 'about:blank';
+        let url = this.urls.getOrCreate(
+          `raw:${request.path}`,
+          read.resource.bytes,
+          read.resource.mediaType,
+        );
+        if (request.fragment) url += `#${encodeFragment(request.fragment)}`;
+        return url;
+      },
+    );
 
     const compatible = await runInlineStyleResourceCompatibility(
       this.resolver.compatibilityProfile.resourceRules,
@@ -160,7 +180,11 @@ export class PublicationResourceSession {
     text: string,
     mediaType = 'application/xhtml+xml;charset=utf-8',
   ): string {
-    return this.createGeneratedResourceUrl(key, new TextEncoder().encode(text), mediaType);
+    return this.createGeneratedResourceUrl(
+      key,
+      new TextEncoder().encode(text),
+      mediaType,
+    );
   }
 
   dispose(): void {
@@ -181,13 +205,15 @@ export class PublicationResourceSession {
     if (stack.includes(path)) {
       return {
         url: null,
-        diagnostics: [{
-          code: 'RESOURCE_CSS_IMPORT_CYCLE',
-          severity: 'warning',
-          phase: 'resource',
-          message: `CSS @import cycle detected: ${[...stack, path].join(' -> ')}.`,
-          path,
-        }],
+        diagnostics: [
+          {
+            code: 'RESOURCE_CSS_IMPORT_CYCLE',
+            severity: 'warning',
+            phase: 'resource',
+            message: `CSS @import cycle detected: ${[...stack, path].join(' -> ')}.`,
+            path,
+          },
+        ],
       };
     }
 
@@ -214,41 +240,49 @@ export class PublicationResourceSession {
     diagnostics.push(...read.diagnostics);
     if (!read.resource) return { url: null, diagnostics };
 
-    const cssText = decodePublicationText(read.resource.bytes, read.resource.mediaType);
-    const rewritten = await rewriteCssReferences(cssText, async (source, kind) => {
-      // Fragment-only CSS URLs commonly target paint servers or masks in the
-      // rendered document. Rebinding them to the stylesheet Blob would be wrong.
-      if (source.trim().startsWith('#') || isInlineDataUrl(source)) return source;
+    const cssText = decodePublicationText(
+      read.resource.bytes,
+      read.resource.mediaType,
+    );
+    const rewritten = await rewriteCssReferences(
+      cssText,
+      async (source, kind) => {
+        // Fragment-only CSS URLs commonly target paint servers or masks in the
+        // rendered document. Rebinding them to the stylesheet Blob would be wrong.
+        if (source.trim().startsWith('#') || isInlineDataUrl(source))
+          return source;
 
-      const child = this.resolver.resolve(path, source);
-      diagnostics.push(...child.diagnostics);
-      const childRequest = child.request;
-      if (!childRequest) return 'about:blank';
+        const child = this.resolver.resolve(path, source);
+        diagnostics.push(...child.diagnostics);
+        const childRequest = child.request;
+        if (!childRequest) return 'about:blank';
 
-      if (childRequest.remote) {
-        return this.resolver.options.remotePolicy === 'preserve'
-          ? childRequest.href
-          : 'about:blank';
-      }
+        if (childRequest.remote) {
+          return this.resolver.options.remotePolicy === 'preserve'
+            ? childRequest.href
+            : 'about:blank';
+        }
 
-      if (!childRequest.path) return 'about:blank';
-      if (kind === 'import' || isCssMediaType(childRequest.mediaType ?? '')) {
-        const nested = await this.materializeCss(childRequest.path, stack);
-        diagnostics.push(...nested.diagnostics);
-        return nested.url ?? 'about:blank';
-      }
+        if (!childRequest.path) return 'about:blank';
+        if (kind === 'import' || isCssMediaType(childRequest.mediaType ?? '')) {
+          const nested = await this.materializeCss(childRequest.path, stack);
+          diagnostics.push(...nested.diagnostics);
+          return nested.url ?? 'about:blank';
+        }
 
-      const childRead = await this.resolver.readRequest(childRequest);
-      diagnostics.push(...childRead.diagnostics);
-      if (!childRead.resource) return 'about:blank';
-      let url = this.urls.getOrCreate(
-        `raw:${childRequest.path}`,
-        childRead.resource.bytes,
-        childRead.resource.mediaType,
-      );
-      if (childRequest.fragment) url += `#${encodeFragment(childRequest.fragment)}`;
-      return url;
-    });
+        const childRead = await this.resolver.readRequest(childRequest);
+        diagnostics.push(...childRead.diagnostics);
+        if (!childRead.resource) return 'about:blank';
+        let url = this.urls.getOrCreate(
+          `raw:${childRequest.path}`,
+          childRead.resource.bytes,
+          childRead.resource.mediaType,
+        );
+        if (childRequest.fragment)
+          url += `#${encodeFragment(childRequest.fragment)}`;
+        return url;
+      },
+    );
 
     const compatible = await runStylesheetResourceCompatibility(
       this.resolver.compatibilityProfile.resourceRules,
@@ -270,7 +304,8 @@ export class PublicationResourceSession {
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('PublicationResourceSession has been disposed.');
+    if (this.disposed)
+      throw new Error('PublicationResourceSession has been disposed.');
   }
 }
 
@@ -280,10 +315,12 @@ interface CssMaterialization {
 }
 
 function encodeFragment(fragment: string): string {
-  return encodeURIComponent(fragment)
-    // Keep common URI-fragment punctuation readable and interoperable.
-    .replace(/%2F/gi, '/')
-    .replace(/%3A/gi, ':');
+  return (
+    encodeURIComponent(fragment)
+      // Keep common URI-fragment punctuation readable and interoperable.
+      .replace(/%2F/gi, '/')
+      .replace(/%3A/gi, ':')
+  );
 }
 
 function isInlineDataUrl(source: string): boolean {

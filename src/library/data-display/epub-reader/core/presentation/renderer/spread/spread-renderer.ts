@@ -1,4 +1,10 @@
-import { resolveSpineRendition, type ContentPresentationHints, type Locator, type Publication, type PublicationDiagnostic } from '../../../epub/publication';
+import {
+  resolveSpineRendition,
+  type ContentPresentationHints,
+  type Locator,
+  type Publication,
+  type PublicationDiagnostic,
+} from '../../../epub/publication';
 import type { PublicationContentDocumentCache } from '../../../epub/content';
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
@@ -7,7 +13,10 @@ import {
   type RenditionPlannerPolicy,
   type RendererKind,
 } from '../../rendition';
-import type { FixedLayoutHorizontalAlignment, FixedLayoutRendererPolicy } from '../fixed-layout';
+import type {
+  FixedLayoutHorizontalAlignment,
+  FixedLayoutRendererPolicy,
+} from '../fixed-layout';
 import { FixedLayoutRenderer } from '../fixed-layout';
 import type { ReflowableRendererPolicy } from '../reflowable';
 import { ReflowableRenderer } from '../reflowable';
@@ -34,10 +43,17 @@ export interface ReadingRendererEnvironment {
   readonly reflowablePolicy?: ReflowableRendererPolicy;
   readonly fixedLayoutPolicy?: FixedLayoutRendererPolicy;
   readonly spreadPolicy?: SpreadRendererPolicy;
-  readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
+  readonly onDiagnostics?: (
+    diagnostics: readonly PublicationDiagnostic[],
+  ) => void;
   readonly themeResolver?: import('../../appearance').ReaderThemeResolver;
-  readonly contentHintsForSpine?: (spineIndex: number) => ContentPresentationHints | undefined;
-  readonly onPresentationHints?: (spineIndex: number, hints: ContentPresentationHints) => void;
+  readonly contentHintsForSpine?: (
+    spineIndex: number,
+  ) => ContentPresentationHints | undefined;
+  readonly onPresentationHints?: (
+    spineIndex: number,
+    hints: ContentPresentationHints,
+  ) => void;
 }
 
 /**
@@ -48,14 +64,23 @@ export interface ReadingRendererEnvironment {
 export function createReadingRendererFactories(
   environment: ReadingRendererEnvironment,
 ): readonly RendererFactory[] {
-  const kinds: readonly RendererKind[] = ['reflowable-paginated', 'reflowable-scroll', 'fixed-layout'];
-  return kinds.map(kind => ({
+  const kinds: readonly RendererKind[] = [
+    'reflowable-paginated',
+    'reflowable-scroll',
+    'fixed-layout',
+  ];
+  return kinds.map((kind) => ({
     kind,
-    create: plan => {
+    create: (plan) => {
       if (plan?.spread.execution === 'cross-spine') {
         return new SyntheticSpreadRenderer(kind, environment);
       }
-      return createSingleRenderer(kind, environment.container, environment, plan?.spineIndex ?? -1);
+      return createSingleRenderer(
+        kind,
+        environment.container,
+        environment,
+        plan?.spineIndex ?? -1,
+      );
     },
   }));
 }
@@ -80,17 +105,28 @@ export class SyntheticSpreadRenderer implements RendererInstance {
   private gap = 0;
   private visible = true;
   private disposed = false;
-  private readonly layoutListeners = new Set<(layout: import('../model').RendererLayoutSnapshot) => void>();
+  private readonly layoutListeners = new Set<
+    (layout: import('../model').RendererLayoutSnapshot) => void
+  >();
 
-  constructor(kind: RendererKind, private readonly environment: ReadingRendererEnvironment) {
+  constructor(
+    kind: RendererKind,
+    private readonly environment: ReadingRendererEnvironment,
+  ) {
     this.kind = kind;
     this.policy = environment.spreadPolicy ?? DEFAULT_SPREAD_RENDERER_POLICY;
   }
 
-  async mount(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async mount(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (this.root) throw new Error('SyntheticSpreadRenderer.mount() can only be called once.');
+    if (this.root)
+      throw new Error(
+        'SyntheticSpreadRenderer.mount() can only be called once.',
+      );
 
     const ownerDocument = this.environment.container.ownerDocument;
     const root = ownerDocument.createElement('div');
@@ -105,8 +141,20 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       root.style.visibility = this.visible ? 'visible' : 'hidden';
       this.environment.container.appendChild(root);
       this.root = root;
-      this.left = { slot: 'left', container: leftContainer, renderer: null, plan: null, layoutCleanup: null };
-      this.right = { slot: 'right', container: rightContainer, renderer: null, plan: null, layoutCleanup: null };
+      this.left = {
+        slot: 'left',
+        container: leftContainer,
+        renderer: null,
+        plan: null,
+        layoutCleanup: null,
+      };
+      this.right = {
+        slot: 'right',
+        container: rightContainer,
+        renderer: null,
+        plan: null,
+        layoutCleanup: null,
+      };
       this.plan = plan;
     });
 
@@ -118,28 +166,44 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     }
   }
 
-  async update(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async update(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (!this.root || !this.plan) throw new Error('SyntheticSpreadRenderer must be mounted before update().');
-    transaction.mutate(() => { this.plan = plan; });
+    if (!this.root || !this.plan)
+      throw new Error(
+        'SyntheticSpreadRenderer must be mounted before update().',
+      );
+    transaction.mutate(() => {
+      this.plan = plan;
+    });
     await this.applySpread(plan, transaction);
   }
 
-  async captureLocator(transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async captureLocator(
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const active = this.child(this.activeSlot).renderer;
     return active ? active.captureLocator(transaction) : null;
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async restoreLocator(
+    locator: Locator,
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
-    const target = [this.left, this.right].find(child => child?.plan?.spineIndex === locator.spineIndex);
-    return target?.renderer ? await target.renderer.restoreLocator(locator, transaction) : null;
+    const target = [this.left, this.right].find(
+      (child) => child?.plan?.spineIndex === locator.spineIndex,
+    );
+    return target?.renderer
+      ? await target.renderer.restoreLocator(locator, transaction)
+      : null;
   }
-
 
   async navigate(
     direction: import('../model').ReadingDirection,
@@ -148,16 +212,22 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const active = this.child(this.activeSlot).renderer;
-    if (!active) return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
+    if (!active)
+      return {
+        status: 'boundary',
+        edge: direction === 'forward' ? 'end' : 'start',
+      };
     return active.navigate(direction, transaction);
   }
 
-  async waitForLayoutStable(transaction: LayoutTransactionContext): Promise<LayoutStabilityReport> {
+  async waitForLayoutStable(
+    transaction: LayoutTransactionContext,
+  ): Promise<LayoutStabilityReport> {
     this.assertAlive();
     const reports = await Promise.all(
       [this.left?.renderer, this.right?.renderer]
         .filter((renderer): renderer is RendererInstance => renderer != null)
-        .map(renderer => renderer.waitForLayoutStable(transaction)),
+        .map((renderer) => renderer.waitForLayoutStable(transaction)),
     );
     transaction.throwIfSuperseded();
     return mergeStabilityReports(reports, this.root!);
@@ -166,12 +236,15 @@ export class SyntheticSpreadRenderer implements RendererInstance {
   contentDocuments(): readonly import('../model').RendererContentDocument[] {
     const documents: import('../model').RendererContentDocument[] = [];
     for (const child of [this.left, this.right]) {
-      if (child?.renderer?.contentDocuments) documents.push(...child.renderer.contentDocuments());
+      if (child?.renderer?.contentDocuments)
+        documents.push(...child.renderer.contentDocuments());
     }
     return documents;
   }
 
-  onLayoutChange(listener: (layout: import('../model').RendererLayoutSnapshot) => void): () => void {
+  onLayoutChange(
+    listener: (layout: import('../model').RendererLayoutSnapshot) => void,
+  ): () => void {
     this.layoutListeners.add(listener);
     return () => this.layoutListeners.delete(listener);
   }
@@ -188,8 +261,9 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       // Reading order: right leaf first for right-to-left publications.
       visibleSpineIndices: (this.plan?.pageProgression.value === 'rtl'
         ? [this.right, this.left]
-        : [this.left, this.right])
-        .map(child => child?.plan?.spineIndex)
+        : [this.left, this.right]
+      )
+        .map((child) => child?.plan?.spineIndex)
         .filter((index): index is number => Number.isInteger(index)),
       // A composed spread is one physical page turn, so it reports a position
       // the same way a single pre-paginated page does. Omitting these left the
@@ -198,7 +272,8 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       // the reader with no progression to repair its locator from.
       pageCount: 1,
       currentPage: 1,
-      progression: this.child(this.activeSlot).renderer?.snapshot?.()?.progression ?? 0,
+      progression:
+        this.child(this.activeSlot).renderer?.snapshot?.()?.progression ?? 0,
       measurement: {
         clientWidth: this.root.clientWidth,
         clientHeight: this.root.clientHeight,
@@ -228,9 +303,13 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     this.plan = null;
   }
 
-  private async applySpread(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  private async applySpread(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     const root = this.root;
-    if (!root || !this.left || !this.right) throw new Error('Synthetic spread DOM is not mounted.');
+    if (!root || !this.left || !this.right)
+      throw new Error('Synthetic spread DOM is not mounted.');
 
     const assignment = resolveSpreadSlotAssignment(
       this.environment.publication,
@@ -240,9 +319,15 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       // spread, but it executes that inside its own document as two columns, so
       // pairing it with a plate showed it once on its own and then a second
       // time as the facing leaf.
-      item => this.planCandidate(item.index, plan).spread.execution === 'cross-spine',
+      (item) =>
+        this.planCandidate(item.index, plan).spread.execution === 'cross-spine',
     );
-    const gap = resolveSpreadGap(this.environment.publication, plan, assignment, this.policy.pageGap);
+    const gap = resolveSpreadGap(
+      this.environment.publication,
+      plan,
+      assignment,
+      this.policy.pageGap,
+    );
     const slotWidth = Math.max(1, (plan.viewport.width - gap) / 2);
     const slotViewport = { width: slotWidth, height: plan.viewport.height };
 
@@ -258,15 +343,32 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       this.right!.container.style.height = `${plan.viewport.height}px`;
     });
 
-    await this.updateChild(this.left, assignment.leftSpineIndex, slotViewport, plan, transaction);
-    await this.updateChild(this.right, assignment.rightSpineIndex, slotViewport, plan, transaction);
+    await this.updateChild(
+      this.left,
+      assignment.leftSpineIndex,
+      slotViewport,
+      plan,
+      transaction,
+    );
+    await this.updateChild(
+      this.right,
+      assignment.rightSpineIndex,
+      slotViewport,
+      plan,
+      transaction,
+    );
     transaction.mutate(() => {
-      const scrollableFixedLayout = plan.renderer === 'fixed-layout'
-        && plan.preferences.fixedLayoutFit !== 'contain';
+      const scrollableFixedLayout =
+        plan.renderer === 'fixed-layout' &&
+        plan.preferences.fixedLayoutFit !== 'contain';
       root.style.overflow = scrollableFixedLayout ? 'auto' : 'hidden';
       root.style.overscrollBehavior = scrollableFixedLayout ? 'contain' : '';
-      this.left!.container.style.overflow = scrollableFixedLayout ? 'visible' : 'hidden';
-      this.right!.container.style.overflow = scrollableFixedLayout ? 'visible' : 'hidden';
+      this.left!.container.style.overflow = scrollableFixedLayout
+        ? 'visible'
+        : 'hidden';
+      this.right!.container.style.overflow = scrollableFixedLayout
+        ? 'visible'
+        : 'hidden';
     });
   }
 
@@ -290,20 +392,31 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       return;
     }
 
-    transaction.mutate(() => { delete child.container.dataset.epubBlankSpreadSlot; });
+    transaction.mutate(() => {
+      delete child.container.dataset.epubBlankSpreadSlot;
+    });
     const childPlan = this.childPlan(spineIndex, viewport, outerPlan);
-    const sameContent = child.plan?.spineIndex === childPlan.spineIndex
-      && child.plan.href === childPlan.href
-      && child.renderer?.kind === childPlan.renderer;
+    const sameContent =
+      child.plan?.spineIndex === childPlan.spineIndex &&
+      child.plan.href === childPlan.href &&
+      child.renderer?.kind === childPlan.renderer;
 
     if (sameContent && child.renderer) {
       await child.renderer.update(childPlan, transaction);
       transaction.throwIfSuperseded();
-      transaction.mutate(() => { child.plan = childPlan; });
+      transaction.mutate(() => {
+        child.plan = childPlan;
+      });
       return;
     }
 
-    const next = createSingleRenderer(childPlan.renderer, child.container, this.environment, childPlan.spineIndex, child.slot);
+    const next = createSingleRenderer(
+      childPlan.renderer,
+      child.container,
+      this.environment,
+      childPlan.spineIndex,
+      child.slot,
+    );
     next.setVisibility?.(false);
     let committed = false;
     try {
@@ -315,7 +428,8 @@ export class SyntheticSpreadRenderer implements RendererInstance {
         child.renderer?.dispose();
         child.renderer = next;
         child.plan = childPlan;
-        child.layoutCleanup = next.onLayoutChange?.(() => this.emitLiveLayout()) ?? null;
+        child.layoutCleanup =
+          next.onLayoutChange?.(() => this.emitLiveLayout()) ?? null;
         committed = true;
       });
     } finally {
@@ -329,7 +443,10 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     for (const listener of this.layoutListeners) listener(layout);
   }
 
-  private planCandidate(spineIndex: number, outerPlan: RenditionPlan): RenditionPlan {
+  private planCandidate(
+    spineIndex: number,
+    outerPlan: RenditionPlan,
+  ): RenditionPlan {
     const item = this.environment.publication.spine[spineIndex]!;
     return planRendition({
       publication: this.environment.publication,
@@ -337,7 +454,8 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       viewport: outerPlan.viewport,
       preferences: outerPlan.preferences,
       contentHints: this.environment.contentHintsForSpine?.(spineIndex),
-      policy: this.environment.plannerPolicy ?? DEFAULT_RENDITION_PLANNER_POLICY,
+      policy:
+        this.environment.plannerPolicy ?? DEFAULT_RENDITION_PLANNER_POLICY,
     });
   }
 
@@ -347,20 +465,24 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     outerPlan: RenditionPlan,
   ): RenditionPlan {
     const item = this.environment.publication.spine[spineIndex]!;
-    const basePolicy = this.environment.plannerPolicy ?? DEFAULT_RENDITION_PLANNER_POLICY;
+    const basePolicy =
+      this.environment.plannerPolicy ?? DEFAULT_RENDITION_PLANNER_POLICY;
     const noNestedSpread: RenditionPlannerPolicy = {
       ...basePolicy,
       syntheticSpreads: { ...basePolicy.syntheticSpreads, supported: false },
     };
     const preflightHints = this.environment.contentHintsForSpine?.(spineIndex);
-    const activeHints = spineIndex === outerPlan.spineIndex
-      ? {
-          ...preflightHints,
-          writingMode: outerPlan.writingMode.value,
-          direction: outerPlan.textDirection.value,
-          ...(outerPlan.intrinsicViewport ? { viewport: outerPlan.intrinsicViewport } : {}),
-        }
-      : preflightHints;
+    const activeHints =
+      spineIndex === outerPlan.spineIndex
+        ? {
+            ...preflightHints,
+            writingMode: outerPlan.writingMode.value,
+            direction: outerPlan.textDirection.value,
+            ...(outerPlan.intrinsicViewport
+              ? { viewport: outerPlan.intrinsicViewport }
+              : {}),
+          }
+        : preflightHints;
     return planRendition({
       publication: this.environment.publication,
       spineItem: item,
@@ -378,12 +500,17 @@ export class SyntheticSpreadRenderer implements RendererInstance {
   }
 
   private assertPlan(plan: RenditionPlan): void {
-    if (plan.renderer !== this.kind) throw new Error(`Spread renderer ${this.kind} received plan ${plan.renderer}.`);
-    if (plan.spread.mode !== 'double') throw new Error('SyntheticSpreadRenderer requires a double-spread plan.');
+    if (plan.renderer !== this.kind)
+      throw new Error(
+        `Spread renderer ${this.kind} received plan ${plan.renderer}.`,
+      );
+    if (plan.spread.mode !== 'double')
+      throw new Error('SyntheticSpreadRenderer requires a double-spread plan.');
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('SyntheticSpreadRenderer has been disposed.');
+    if (this.disposed)
+      throw new Error('SyntheticSpreadRenderer has been disposed.');
   }
 }
 
@@ -401,10 +528,15 @@ function createSingleRenderer(
       contentDocumentCache: environment.contentDocumentCache,
       policy: environment.fixedLayoutPolicy,
       resolveHorizontalAlignment: spreadSlot
-        ? plan => resolveFixedLayoutSpreadAlignment(plan.preferences.fixedLayoutGutter, spreadSlot)
+        ? (plan) =>
+            resolveFixedLayoutSpreadAlignment(
+              plan.preferences.fixedLayoutGutter,
+              spreadSlot,
+            )
         : undefined,
       onDiagnostics: environment.onDiagnostics,
-      onPresentationHints: hints => environment.onPresentationHints?.(spineIndex, hints),
+      onPresentationHints: (hints) =>
+        environment.onPresentationHints?.(spineIndex, hints),
     });
   }
   return new ReflowableRenderer(kind, {
@@ -414,7 +546,8 @@ function createSingleRenderer(
     policy: environment.reflowablePolicy,
     themeResolver: environment.themeResolver,
     onDiagnostics: environment.onDiagnostics,
-    onPresentationHints: hints => environment.onPresentationHints?.(spineIndex, hints),
+    onPresentationHints: (hints) =>
+      environment.onPresentationHints?.(spineIndex, hints),
   });
 }
 
@@ -466,17 +599,31 @@ function mergeStabilityReports(
     };
   }
   return {
-    status: reports.some(report => report.status === 'timed-out') ? 'timed-out' : 'stable',
-    fonts: reports.some(report => report.fonts === 'timed-out')
+    status: reports.some((report) => report.status === 'timed-out')
       ? 'timed-out'
-      : reports.every(report => report.fonts === 'not-requested') ? 'not-requested' : 'ready',
-    images: reports.reduce<{ requested: number; decoded: number; failed: number; timedOut: boolean }>((total, report) => ({
-      requested: total.requested + report.images.requested,
-      decoded: total.decoded + report.images.decoded,
-      failed: total.failed + report.images.failed,
-      timedOut: total.timedOut || report.images.timedOut,
-    }), { requested: 0, decoded: 0, failed: 0, timedOut: false }),
-    stableFramesObserved: Math.min(...reports.map(report => report.stableFramesObserved)),
+      : 'stable',
+    fonts: reports.some((report) => report.fonts === 'timed-out')
+      ? 'timed-out'
+      : reports.every((report) => report.fonts === 'not-requested')
+        ? 'not-requested'
+        : 'ready',
+    images: reports.reduce<{
+      requested: number;
+      decoded: number;
+      failed: number;
+      timedOut: boolean;
+    }>(
+      (total, report) => ({
+        requested: total.requested + report.images.requested,
+        decoded: total.decoded + report.images.decoded,
+        failed: total.failed + report.images.failed,
+        timedOut: total.timedOut || report.images.timedOut,
+      }),
+      { requested: 0, decoded: 0, failed: 0, timedOut: false },
+    ),
+    stableFramesObserved: Math.min(
+      ...reports.map((report) => report.stableFramesObserved),
+    ),
     measurement: {
       clientWidth: root.clientWidth,
       clientHeight: root.clientHeight,
@@ -489,13 +636,21 @@ function mergeStabilityReports(
 function shouldSuppressSpreadGap(
   publication: Publication,
   plan: RenditionPlan,
-  assignment: { readonly leftSpineIndex: number | null; readonly rightSpineIndex: number | null; readonly trueSpread: boolean },
+  assignment: {
+    readonly leftSpineIndex: number | null;
+    readonly rightSpineIndex: number | null;
+    readonly trueSpread: boolean;
+  },
 ): boolean {
   if (plan.spread.gap === 'none' || assignment.trueSpread) return true;
   for (const index of [assignment.leftSpineIndex, assignment.rightSpineIndex]) {
     if (index == null) continue;
     const item = publication.spine[index];
-    if (item && resolveSpineRendition(publication, item).layout === 'pre-paginated') return true;
+    if (
+      item &&
+      resolveSpineRendition(publication, item).layout === 'pre-paginated'
+    )
+      return true;
   }
   return false;
 }
@@ -503,13 +658,19 @@ function shouldSuppressSpreadGap(
 export function resolveSpreadGap(
   publication: Publication,
   plan: RenditionPlan,
-  assignment: { readonly leftSpineIndex: number | null; readonly rightSpineIndex: number | null; readonly trueSpread: boolean },
+  assignment: {
+    readonly leftSpineIndex: number | null;
+    readonly rightSpineIndex: number | null;
+    readonly trueSpread: boolean;
+  },
   defaultGap: number,
 ): number {
   if (plan.renderer === 'fixed-layout') {
     return plan.preferences.fixedLayoutGutter === 'none' ? 0 : defaultGap;
   }
-  return shouldSuppressSpreadGap(publication, plan, assignment) ? 0 : defaultGap;
+  return shouldSuppressSpreadGap(publication, plan, assignment)
+    ? 0
+    : defaultGap;
 }
 
 export function resolveFixedLayoutSpreadAlignment(

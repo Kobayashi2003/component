@@ -14,10 +14,15 @@ export interface RuntimeReaderUiConfiguration extends ReaderUiConfiguration {
   readonly surfaceRendererRegistry: ReaderSurfaceRendererRegistry;
 }
 
-export function resolveReaderUiConfiguration(configuration: ReaderUiConfiguration): RuntimeReaderUiConfiguration {
+export function resolveReaderUiConfiguration(
+  configuration: ReaderUiConfiguration,
+): RuntimeReaderUiConfiguration {
   return Object.freeze({
     ...configuration,
-    tools: createReaderToolRegistry([...BUILT_IN_READER_TOOLS, ...configuration.toolModules]),
+    tools: createReaderToolRegistry([
+      ...BUILT_IN_READER_TOOLS,
+      ...configuration.toolModules,
+    ]),
     surfaceRendererRegistry: createReaderSurfaceRendererRegistry(
       BUILT_IN_READER_SURFACE_RENDERERS,
       configuration.surfaceRenderers,
@@ -25,9 +30,10 @@ export function resolveReaderUiConfiguration(configuration: ReaderUiConfiguratio
   });
 }
 
-const ReaderUiConfigurationContext = createContext<RuntimeReaderUiConfiguration>(
-  resolveReaderUiConfiguration(DEFAULT_READER_UI_CONFIGURATION),
-);
+const ReaderUiConfigurationContext =
+  createContext<RuntimeReaderUiConfiguration>(
+    resolveReaderUiConfiguration(DEFAULT_READER_UI_CONFIGURATION),
+  );
 
 export function ReaderUiConfigurationProvider({
   configuration,
@@ -36,7 +42,11 @@ export function ReaderUiConfigurationProvider({
   readonly configuration: RuntimeReaderUiConfiguration;
   readonly children: ReactNode;
 }) {
-  return <ReaderUiConfigurationContext.Provider value={configuration}>{children}</ReaderUiConfigurationContext.Provider>;
+  return (
+    <ReaderUiConfigurationContext.Provider value={configuration}>
+      {children}
+    </ReaderUiConfigurationContext.Provider>
+  );
 }
 
 export function useReaderUiConfiguration(): RuntimeReaderUiConfiguration {

@@ -15,7 +15,10 @@ export const LOADING_VISIBILITY_DELAY_MS = 180;
  * Going false is immediate: once the work is finished there is nothing left to
  * wait for, and holding the indicator any longer would invent latency.
  */
-export function useDelayedFlag(active: boolean, delayMs = LOADING_VISIBILITY_DELAY_MS): boolean {
+export function useDelayedFlag(
+  active: boolean,
+  delayMs = LOADING_VISIBILITY_DELAY_MS,
+): boolean {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

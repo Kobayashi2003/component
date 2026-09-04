@@ -24,4 +24,7 @@ const [file, setFile] = useState<File | null>(null)
 
 EPUB bytes and reading data remain local by default. The React source may be a `Blob`, `File`, `ArrayBuffer`, or `Uint8Array`; the lower-level Core reader accepts byte arrays.
 
-See the [documentation](./docs/README.md) and [checked extension example](./examples/reader-extensions.ts).
+See the [documentation](./docs/README.md), the
+[Core maintainer guide](./core/README.md), the
+[React maintainer guide](./react/README.md), and the
+[checked extension example](./examples/reader-extensions.ts).

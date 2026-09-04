@@ -19,7 +19,10 @@ export function throwIfAborted(signal: AbortSignal, message?: string): void {
     : createAbortError(message ?? 'Operation aborted.');
 }
 
-export function linkAbortSignal(source: AbortSignal, target: AbortController): () => void {
+export function linkAbortSignal(
+  source: AbortSignal,
+  target: AbortController,
+): () => void {
   if (source.aborted) {
     target.abort(source.reason);
     return () => {};

@@ -17,8 +17,14 @@ export interface ReaderSurfaceController {
   readonly buttonRefs: { current: Map<ReaderToolId, HTMLButtonElement> };
   readonly activeElement: () => HTMLElement | null;
   readonly show: (surface: ReaderSurface) => void;
-  readonly close: (restoreFocus?: boolean, focusTarget?: HTMLElement | null) => void;
-  readonly togglePanel: (panel: ReaderToolId, origin: HTMLButtonElement) => void;
+  readonly close: (
+    restoreFocus?: boolean,
+    focusTarget?: HTMLElement | null,
+  ) => void;
+  readonly togglePanel: (
+    panel: ReaderToolId,
+    origin: HTMLButtonElement,
+  ) => void;
 }
 
 export function useReaderSurfaceController(
@@ -34,20 +40,24 @@ export function useReaderSurfaceController(
   const buttonRefs = useRef(new Map<ReaderToolId, HTMLButtonElement>());
 
   /** Focus whatever raised the surface, or the page itself if it is gone. */
-  const restoreFocus = useCallback((target: HTMLElement | null) => {
-    requestAnimationFrame(() => {
+  const restoreFocus = useCallback(
+    (target: HTMLElement | null) => {
       requestAnimationFrame(() => {
-        const fallback = document.getElementById(viewportId);
-        const resolve = () => (target?.isConnected ? target : fallback);
-        resolve()?.focus({ preventScroll: true });
-        // Browsers may drop focus to body when its element disappears in the
-        // same commit, so retry once after the next layout frame.
         requestAnimationFrame(() => {
-          if (document.activeElement === document.body) resolve()?.focus({ preventScroll: true });
+          const fallback = document.getElementById(viewportId);
+          const resolve = () => (target?.isConnected ? target : fallback);
+          resolve()?.focus({ preventScroll: true });
+          // Browsers may drop focus to body when its element disappears in the
+          // same commit, so retry once after the next layout frame.
+          requestAnimationFrame(() => {
+            if (document.activeElement === document.body)
+              resolve()?.focus({ preventScroll: true });
+          });
         });
       });
-    });
-  }, [viewportId]);
+    },
+    [viewportId],
+  );
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current != null) clearTimeout(closeTimerRef.current);
@@ -55,45 +65,73 @@ export function useReaderSurfaceController(
     setClosing(false);
   }, []);
 
-  const show = useCallback((next: ReaderSurface) => {
-    cancelClose();
-    surfaces.show(next);
-  }, [cancelClose, surfaces]);
+  const show = useCallback(
+    (next: ReaderSurface) => {
+      cancelClose();
+      surfaces.show(next);
+    },
+    [cancelClose, surfaces],
+  );
 
-  const close = useCallback((withFocus = true, focusTarget?: HTMLElement | null) => {
-    if (closeTimerRef.current != null) return;
-    const target = focusTarget ?? surfaceReturnFocus(surfaces.surface);
-    const finish = () => {
-      closeTimerRef.current = null;
-      surfaces.close();
-      setClosing(false);
-      if (withFocus) restoreFocus(target);
-    };
-    if (surfaces.surface.kind !== 'panel' && surfaces.surface.kind !== 'footnote') {
-      finish();
-      return;
-    }
-    setClosing(true);
-    const reducedMotion = motion === 'reduced' || (
-      typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
-    closeTimerRef.current = setTimeout(finish, reducedMotion ? 0 : 180);
-  }, [motion, restoreFocus, surfaces]);
+  const close = useCallback(
+    (withFocus = true, focusTarget?: HTMLElement | null) => {
+      if (closeTimerRef.current != null) return;
+      const target = focusTarget ?? surfaceReturnFocus(surfaces.surface);
+      const finish = () => {
+        closeTimerRef.current = null;
+        surfaces.close();
+        setClosing(false);
+        if (withFocus) restoreFocus(target);
+      };
+      if (
+        surfaces.surface.kind !== 'panel' &&
+        surfaces.surface.kind !== 'footnote'
+      ) {
+        finish();
+        return;
+      }
+      setClosing(true);
+      const reducedMotion =
+        motion === 'reduced' ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      closeTimerRef.current = setTimeout(finish, reducedMotion ? 0 : 180);
+    },
+    [motion, restoreFocus, surfaces],
+  );
 
-  const togglePanel = useCallback((next: ReaderToolId, origin: HTMLButtonElement) => {
-    if (surfaces.panel === next) close();
-    else show({ kind: 'panel', panel: next, returnFocus: origin });
-  }, [close, show, surfaces.panel]);
+  const togglePanel = useCallback(
+    (next: ReaderToolId, origin: HTMLButtonElement) => {
+      if (surfaces.panel === next) close();
+      else show({ kind: 'panel', panel: next, returnFocus: origin });
+    },
+    [close, show, surfaces.panel],
+  );
 
   const activeElement = useCallback(
-    () => (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+    () =>
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
     [],
   );
 
-  useEffect(() => () => {
-    if (closeTimerRef.current != null) clearTimeout(closeTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current != null) clearTimeout(closeTimerRef.current);
+    },
+    [],
+  );
 
-  return { surfaces, closing, panelRef, footnoteRef, buttonRefs, activeElement, show, close, togglePanel };
+  return {
+    surfaces,
+    closing,
+    panelRef,
+    footnoteRef,
+    buttonRefs,
+    activeElement,
+    show,
+    close,
+    togglePanel,
+  };
 }

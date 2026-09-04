@@ -69,10 +69,17 @@ export interface ReaderUiMessages {
   readonly compatibilityStatus: (status: CompatibilityStatus) => string;
   readonly closePanel: (label: string) => string;
   readonly sectionPosition: (section: number, total: number) => string;
-  readonly sectionsPosition: (start: number, end: number, total: number) => string;
+  readonly sectionsPosition: (
+    start: number,
+    end: number,
+    total: number,
+  ) => string;
   readonly positionInPublication: string;
   readonly positionInSection: string;
-  readonly progressThrough: (percent: number, scope: 'publication' | 'section') => string;
+  readonly progressThrough: (
+    percent: number,
+    scope: 'publication' | 'section',
+  ) => string;
   readonly openPhase: (phase: BrowserEpubReaderOpenPhase) => string;
 }
 

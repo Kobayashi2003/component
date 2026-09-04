@@ -9,7 +9,10 @@ import type { ReaderToolModule } from './model';
 import { BUILT_IN_READER_TOOL_MANIFEST } from './built-in-reader-tool-manifest';
 
 /** Built-ins use the same public module contract as product-contributed tools. */
-const BUILT_IN_RENDERERS: Record<(typeof BUILT_IN_READER_TOOL_MANIFEST)[number]['id'], Pick<ReaderToolModule, 'renderIcon' | 'render'>> = {
+const BUILT_IN_RENDERERS: Record<
+  (typeof BUILT_IN_READER_TOOL_MANIFEST)[number]['id'],
+  Pick<ReaderToolModule, 'renderIcon' | 'render'>
+> = {
   contents: {
     renderIcon: () => <ReaderToolIcon id="contents" />,
     render: ({ reader }) => <EpubContents reader={reader} />,
@@ -32,13 +35,17 @@ const BUILT_IN_RENDERERS: Record<(typeof BUILT_IN_READER_TOOL_MANIFEST)[number][
   },
   help: {
     renderIcon: () => <ReaderToolIcon id="help" />,
-    render: ({ shortcutGroups }) => <EpubKeyboardHelp groups={shortcutGroups} />,
+    render: ({ shortcutGroups }) => (
+      <EpubKeyboardHelp groups={shortcutGroups} />
+    ),
   },
 };
 
 export const BUILT_IN_READER_TOOLS: readonly ReaderToolModule[] = Object.freeze(
-  BUILT_IN_READER_TOOL_MANIFEST.map(metadata => Object.freeze({
-    ...metadata,
-    ...BUILT_IN_RENDERERS[metadata.id],
-  })),
+  BUILT_IN_READER_TOOL_MANIFEST.map((metadata) =>
+    Object.freeze({
+      ...metadata,
+      ...BUILT_IN_RENDERERS[metadata.id],
+    }),
+  ),
 );

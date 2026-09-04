@@ -20,7 +20,9 @@ export interface PaginatedGeometry {
  * horizontal writing, where the generated columns themselves are laid out on
  * physical X and scrollWidth represents the positive overflow extent.
  */
-export function calculatePaginatedGeometry(input: PaginatedGeometryInput): PaginatedGeometry {
+export function calculatePaginatedGeometry(
+  input: PaginatedGeometryInput,
+): PaginatedGeometry {
   const page = positive(input.pageExtent, 'pageExtent');
   const gap = nonNegative(input.pageGap, 'pageGap');
   const extent = Math.max(page, finite(input.scrollExtent, 'scrollExtent'));
@@ -38,7 +40,10 @@ export function calculatePaginatedGeometry(input: PaginatedGeometryInput): Pagin
   // the end of the section and paging stopped there permanently.
   const pageCount = Math.max(1, Math.round(extent / advance));
   const maxPage = pageCount - 1;
-  const pageIndex = Math.max(0, Math.min(maxPage, Math.round(Math.max(0, input.logicalOffset) / advance)));
+  const pageIndex = Math.max(
+    0,
+    Math.min(maxPage, Math.round(Math.max(0, input.logicalOffset) / advance)),
+  );
   const snappedOffset = pageIndex * advance;
   return {
     pageAdvance: advance,
@@ -54,10 +59,13 @@ export function pageOffsetForProgression(
   pageCount: number,
   pageAdvance: number,
 ): number {
-  if (!Number.isInteger(pageCount) || pageCount < 1) throw new RangeError('pageCount must be an integer >= 1.');
+  if (!Number.isInteger(pageCount) || pageCount < 1)
+    throw new RangeError('pageCount must be an integer >= 1.');
   positive(pageAdvance, 'pageAdvance');
   if (pageCount === 1) return 0;
-  const pageIndex = Math.round(normalizeProgression(progression) * (pageCount - 1));
+  const pageIndex = Math.round(
+    normalizeProgression(progression) * (pageCount - 1),
+  );
   return pageIndex * pageAdvance;
 }
 
@@ -72,12 +80,13 @@ function finite(value: number, label: string): number {
 }
 
 function positive(value: number, label: string): number {
-  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${label} must be a positive finite number.`);
+  if (!Number.isFinite(value) || value <= 0)
+    throw new RangeError(`${label} must be a positive finite number.`);
   return value;
 }
 
 function nonNegative(value: number, label: string): number {
-  if (!Number.isFinite(value) || value < 0) throw new RangeError(`${label} must be a finite non-negative number.`);
+  if (!Number.isFinite(value) || value < 0)
+    throw new RangeError(`${label} must be a finite non-negative number.`);
   return value;
 }
-

@@ -43,7 +43,8 @@ export interface ContentDocumentCompatibilityRule extends CompatibilityModuleDes
   apply(
     context: ContentDocumentCompatibilityContext,
     state: ContentDocumentCompatibilityState,
-  ): CompatibilityRuleResult<ContentDocumentCompatibilityState>
+  ):
+    | CompatibilityRuleResult<ContentDocumentCompatibilityState>
     | Promise<CompatibilityRuleResult<ContentDocumentCompatibilityState>>;
 }
 
@@ -60,38 +61,62 @@ export async function runContentDocumentCompatibility(
       value = freezeState(validateState(result.value));
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, {
-        path: context.path,
-        spineIndex: context.spineItem.index,
-      }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.path,
+          spineIndex: context.spineItem.index,
+        }),
+      );
     }
   }
   return Object.freeze({ value, diagnostics: Object.freeze(diagnostics) });
 }
 
-function validateState(state: ContentDocumentCompatibilityState): ContentDocumentCompatibilityState {
-  if (typeof state.source !== 'string') throw new TypeError('Compatible content source must be a string.');
+function validateState(
+  state: ContentDocumentCompatibilityState,
+): ContentDocumentCompatibilityState {
+  if (typeof state.source !== 'string')
+    throw new TypeError('Compatible content source must be a string.');
   if (state.parseMode !== 'xml' && state.parseMode !== 'html-recovery') {
-    throw new TypeError('Compatible content parse mode must be xml or html-recovery.');
+    throw new TypeError(
+      'Compatible content parse mode must be xml or html-recovery.',
+    );
   }
   const { writingMode, direction, viewport } = state.hints;
-  if (writingMode && !['horizontal-tb', 'vertical-rl', 'vertical-lr'].includes(writingMode)) {
+  if (
+    writingMode &&
+    !['horizontal-tb', 'vertical-rl', 'vertical-lr'].includes(writingMode)
+  ) {
     throw new TypeError(`Unsupported compatible writing mode: ${writingMode}.`);
   }
   if (direction && !['ltr', 'rtl', 'auto'].includes(direction)) {
     throw new TypeError(`Unsupported compatible text direction: ${direction}.`);
   }
-  if (viewport && (!Number.isFinite(viewport.width) || viewport.width <= 0 || !Number.isFinite(viewport.height) || viewport.height <= 0)) {
-    throw new RangeError('Compatible intrinsic viewport must use positive finite dimensions.');
+  if (
+    viewport &&
+    (!Number.isFinite(viewport.width) ||
+      viewport.width <= 0 ||
+      !Number.isFinite(viewport.height) ||
+      viewport.height <= 0)
+  ) {
+    throw new RangeError(
+      'Compatible intrinsic viewport must use positive finite dimensions.',
+    );
   }
   return state;
 }
 
-function freezeState(state: ContentDocumentCompatibilityState): ContentDocumentCompatibilityState {
+function freezeState(
+  state: ContentDocumentCompatibilityState,
+): ContentDocumentCompatibilityState {
   const hints = Object.freeze({
     ...state.hints,
-    ...(state.hints.viewport ? { viewport: Object.freeze({ ...state.hints.viewport }) } : {}),
-    ...(state.hints.page ? { page: Object.freeze({ ...state.hints.page }) } : {}),
+    ...(state.hints.viewport
+      ? { viewport: Object.freeze({ ...state.hints.viewport }) }
+      : {}),
+    ...(state.hints.page
+      ? { page: Object.freeze({ ...state.hints.page }) }
+      : {}),
   });
   return Object.freeze({ ...state, hints });
 }

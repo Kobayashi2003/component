@@ -1,8 +1,13 @@
+import { type PublicationContentDocumentCache } from '../../../epub/content';
+import type {
+  ContentPresentationHints,
+  Locator,
+  Publication,
+} from '../../../epub/publication';
 import {
-  type PublicationContentDocumentCache,
-} from '../../../epub/content';
-import type { ContentPresentationHints, Locator, Publication } from '../../../epub/publication';
-import { createCompositeLocator, resolveCompositeLocator } from '../../../interaction/locator';
+  createCompositeLocator,
+  resolveCompositeLocator,
+} from '../../../interaction/locator';
 import type { RenditionPlan, RendererKind } from '../../rendition';
 import { BrowserIFrameContentSurface } from '../browser-iframe-surface';
 import { LifecycleScope } from '../lifecycle';
@@ -41,7 +46,9 @@ export interface ReflowableRendererEnvironment {
   readonly contentDocumentCache: PublicationContentDocumentCache;
   readonly policy?: ReflowableRendererPolicy;
   readonly createSurface?: () => ContentSurface;
-  readonly onDiagnostics?: (diagnostics: readonly import('../../../epub/publication').PublicationDiagnostic[]) => void;
+  readonly onDiagnostics?: (
+    diagnostics: readonly import('../../../epub/publication').PublicationDiagnostic[],
+  ) => void;
   readonly themeResolver?: import('../../appearance').ReaderThemeResolver;
   /** Feed document-derived presentation facts back to the future controller/planner loop. */
   readonly onPresentationHints?: (hints: ContentPresentationHints) => void;
@@ -78,7 +85,9 @@ export class ReflowableRenderer implements RendererInstance {
   private presentation: ReflowablePresentation | null = null;
   private visible = true;
   private disposed = false;
-  private readonly layoutListeners = new Set<(layout: import('../model').RendererLayoutSnapshot) => void>();
+  private readonly layoutListeners = new Set<
+    (layout: import('../model').RendererLayoutSnapshot) => void
+  >();
   private cancelLayoutFrame: (() => void) | null = null;
 
   constructor(
@@ -89,33 +98,46 @@ export class ReflowableRenderer implements RendererInstance {
     this.policy = environment.policy ?? DEFAULT_REFLOWABLE_RENDERER_POLICY;
   }
 
-  async mount(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async mount(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (this.surface) throw new Error('ReflowableRenderer.mount() can only be called once.');
+    if (this.surface)
+      throw new Error('ReflowableRenderer.mount() can only be called once.');
 
     const item = this.environment.publication.spine[plan.spineIndex];
     if (!item || item.href !== plan.href) {
-      throw new Error(`Rendition plan does not resolve to spine item ${plan.spineIndex}.`);
+      throw new Error(
+        `Rendition plan does not resolve to spine item ${plan.spineIndex}.`,
+      );
     }
 
     const ownerDocument = this.environment.container.ownerDocument;
-    const materialized = await this.environment.contentDocumentCache.materialize(item);
+    const materialized =
+      await this.environment.contentDocumentCache.materialize(item);
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);
     if (plan.overflow.value === 'scrolled-continuous') {
-      this.environment.onDiagnostics?.([{
-        code: 'RENDITION_CONTINUOUS_SCROLL_COORDINATOR_PENDING',
-        severity: 'info',
-        phase: 'rendition',
-        spineIndex: plan.spineIndex,
-        message: 'The reflowable surface renders this spine item as a scrollable document; cross-spine continuous stitching is a higher-level navigation responsibility and is not active yet.',
-      }]);
+      this.environment.onDiagnostics?.([
+        {
+          code: 'RENDITION_CONTINUOUS_SCROLL_COORDINATOR_PENDING',
+          severity: 'info',
+          phase: 'rendition',
+          spineIndex: plan.spineIndex,
+          message:
+            'The reflowable surface renders this spine item as a scrollable document; cross-spine continuous stitching is a higher-level navigation responsibility and is not active yet.',
+        },
+      ]);
     }
     this.environment.onPresentationHints?.(materialized.hints);
 
-    const surface = this.environment.createSurface?.()
-      ?? new BrowserIFrameContentSurface(ownerDocument, { title: `EPUB: ${item.href}` });
+    const surface =
+      this.environment.createSurface?.() ??
+      new BrowserIFrameContentSurface(ownerDocument, {
+        title: `EPUB: ${item.href}`,
+      });
     let mounted = false;
     try {
       transaction.mutate(() => {
@@ -127,11 +149,14 @@ export class ReflowableRenderer implements RendererInstance {
         mounted = true;
       });
 
-      const loaded = await surface.load({
-        kind: 'url',
-        url: materialized.url,
-        srcdocFallback: { html: materialized.markup },
-      }, transaction.signal);
+      const loaded = await surface.load(
+        {
+          kind: 'url',
+          url: materialized.url,
+          srcdocFallback: { html: materialized.markup },
+        },
+        transaction.signal,
+      );
       transaction.throwIfSuperseded();
 
       transaction.mutate(() => {
@@ -149,12 +174,21 @@ export class ReflowableRenderer implements RendererInstance {
     }
   }
 
-  async update(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async update(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (!this.document || !this.plan) throw new Error('ReflowableRenderer must be mounted before update().');
-    if (this.plan.spineIndex !== plan.spineIndex || this.plan.href !== plan.href) {
-      throw new Error('ReflowableRenderer cannot update to a different spine document.');
+    if (!this.document || !this.plan)
+      throw new Error('ReflowableRenderer must be mounted before update().');
+    if (
+      this.plan.spineIndex !== plan.spineIndex ||
+      this.plan.href !== plan.href
+    ) {
+      throw new Error(
+        'ReflowableRenderer cannot update to a different spine document.',
+      );
     }
 
     transaction.mutate(() => {
@@ -163,17 +197,29 @@ export class ReflowableRenderer implements RendererInstance {
     });
   }
 
-  async captureLocator(transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async captureLocator(
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const document = this.document;
     const plan = this.plan;
     if (!document || !plan) return null;
-    const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
-    const snapshot = snapshotReflowableLayout(document, plan, presentation, this.policy);
+    const presentation =
+      this.presentation ?? inspectComputedPresentation(document, plan);
+    const snapshot = snapshotReflowableLayout(
+      document,
+      plan,
+      presentation,
+      this.policy,
+    );
     const point = findVisibleDomPoint(document, presentation);
     if (!point) {
-      return { href: plan.href, spineIndex: plan.spineIndex, locations: { progression: snapshot.progression } };
+      return {
+        href: plan.href,
+        spineIndex: plan.spineIndex,
+        locations: { progression: snapshot.progression },
+      };
     }
     return createCompositeLocator(
       document,
@@ -186,24 +232,55 @@ export class ReflowableRenderer implements RendererInstance {
     );
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async restoreLocator(
+    locator: Locator,
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const document = this.document;
     const plan = this.plan;
     if (!document || !plan) return null;
-    if (locator.spineIndex !== plan.spineIndex || locator.href !== plan.href) return null;
+    if (locator.spineIndex !== plan.spineIndex || locator.href !== plan.href)
+      return null;
 
     return transaction.mutate(() => {
-      const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
-      const resolved = resolveCompositeLocator(document, this.environment.publication, plan.spineIndex, locator);
-      if (resolved.point) restoreDomPoint(document, plan, presentation, this.policy, resolved.point);
-      else restoreProgression(document, plan, presentation, this.policy, resolved.progression ?? 0);
-      const progression = snapshotReflowableLayout(document, plan, presentation, this.policy).progression;
-      return { ...resolved.locator, locations: { ...resolved.locator.locations, progression } };
+      const presentation =
+        this.presentation ?? inspectComputedPresentation(document, plan);
+      const resolved = resolveCompositeLocator(
+        document,
+        this.environment.publication,
+        plan.spineIndex,
+        locator,
+      );
+      if (resolved.point)
+        restoreDomPoint(
+          document,
+          plan,
+          presentation,
+          this.policy,
+          resolved.point,
+        );
+      else
+        restoreProgression(
+          document,
+          plan,
+          presentation,
+          this.policy,
+          resolved.progression ?? 0,
+        );
+      const progression = snapshotReflowableLayout(
+        document,
+        plan,
+        presentation,
+        this.policy,
+      ).progression;
+      return {
+        ...resolved.locator,
+        locations: { ...resolved.locator.locations, progression },
+      };
     });
   }
-
 
   async navigate(
     direction: import('../model').ReadingDirection,
@@ -213,14 +290,27 @@ export class ReflowableRenderer implements RendererInstance {
     transaction.throwIfSuperseded();
     const document = this.document;
     const plan = this.plan;
-    if (!document || !plan) return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
+    if (!document || !plan)
+      return {
+        status: 'boundary',
+        edge: direction === 'forward' ? 'end' : 'start',
+      };
     return transaction.mutate(() => {
-      const presentation = this.presentation ?? inspectComputedPresentation(document, plan);
-      return navigateReflowable(document, plan, presentation, this.policy, direction);
+      const presentation =
+        this.presentation ?? inspectComputedPresentation(document, plan);
+      return navigateReflowable(
+        document,
+        plan,
+        presentation,
+        this.policy,
+        direction,
+      );
     });
   }
 
-  async waitForLayoutStable(transaction: LayoutTransactionContext): Promise<LayoutStabilityReport> {
+  async waitForLayoutStable(
+    transaction: LayoutTransactionContext,
+  ): Promise<LayoutStabilityReport> {
     this.assertAlive();
     const surface = this.surface;
     if (!surface) throw new Error('ReflowableRenderer has no content surface.');
@@ -245,10 +335,19 @@ export class ReflowableRenderer implements RendererInstance {
 
   contentDocuments(): readonly import('../model').RendererContentDocument[] {
     if (!this.document || !this.plan || !this.surface) return [];
-    return [{ spineIndex: this.plan.spineIndex, href: this.plan.href, document: this.document, surfaceElement: this.surface.element }];
+    return [
+      {
+        spineIndex: this.plan.spineIndex,
+        href: this.plan.href,
+        document: this.document,
+        surfaceElement: this.surface.element,
+      },
+    ];
   }
 
-  onLayoutChange(listener: (layout: import('../model').RendererLayoutSnapshot) => void): () => void {
+  onLayoutChange(
+    listener: (layout: import('../model').RendererLayoutSnapshot) => void,
+  ): () => void {
     this.layoutListeners.add(listener);
     return () => this.layoutListeners.delete(listener);
   }
@@ -256,13 +355,21 @@ export class ReflowableRenderer implements RendererInstance {
   snapshot() {
     this.assertAlive();
     if (!this.document || !this.plan) return {};
-    const presentation = this.presentation ?? inspectComputedPresentation(this.document, this.plan);
-    return snapshotReflowableLayout(this.document, this.plan, presentation, this.policy);
+    const presentation =
+      this.presentation ??
+      inspectComputedPresentation(this.document, this.plan);
+    return snapshotReflowableLayout(
+      this.document,
+      this.plan,
+      presentation,
+      this.policy,
+    );
   }
 
   setVisibility(visible: boolean): void {
     this.visible = visible;
-    if (this.surface) this.surface.element.style.visibility = visible ? 'visible' : 'hidden';
+    if (this.surface)
+      this.surface.element.style.visibility = visible ? 'visible' : 'hidden';
   }
 
   dispose(): void {
@@ -281,7 +388,10 @@ export class ReflowableRenderer implements RendererInstance {
 
   private applyPlan(plan: RenditionPlan): void {
     const document = this.document;
-    if (!document) throw new Error('Cannot apply a reflowable plan before its document is loaded.');
+    if (!document)
+      throw new Error(
+        'Cannot apply a reflowable plan before its document is loaded.',
+      );
 
     // User typography can influence computed presentation (for example a
     // user font can change metrics), but must not overwrite writing-mode or
@@ -290,65 +400,92 @@ export class ReflowableRenderer implements RendererInstance {
     upsertReaderStyle(
       document,
       READER_PREFERENCES_STYLE_ID,
-      buildReaderPreferenceCss(plan, this.environment.themeResolver?.resolve(plan.preferences.theme)),
+      buildReaderPreferenceCss(
+        plan,
+        this.environment.themeResolver?.resolve(plan.preferences.theme),
+      ),
     );
     this.presentation = inspectComputedPresentation(document, plan);
     upsertReaderStyle(
       document,
       READER_LAYOUT_STYLE_ID,
-      buildReflowableLayoutCss(plan, this.policy, this.presentation.writingMode),
+      buildReflowableLayoutCss(
+        plan,
+        this.policy,
+        this.presentation.writingMode,
+      ),
     );
   }
 
   private installLiveLayoutReporting(document: Document): void {
-    this.lifecycle.listen(document, 'scroll', () => {
-      if (this.cancelLayoutFrame || this.disposed) return;
-      const win = document.defaultView;
-      if (!win) return;
-      const frame = win.requestAnimationFrame(() => {
-        this.cancelLayoutFrame = null;
-        if (this.disposed || !this.document || !this.plan) return;
-        const layout = this.snapshot();
-        for (const listener of this.layoutListeners) listener(layout);
-      });
-      this.cancelLayoutFrame = () => win.cancelAnimationFrame(frame);
-    }, true);
+    this.lifecycle.listen(
+      document,
+      'scroll',
+      () => {
+        if (this.cancelLayoutFrame || this.disposed) return;
+        const win = document.defaultView;
+        if (!win) return;
+        const frame = win.requestAnimationFrame(() => {
+          this.cancelLayoutFrame = null;
+          if (this.disposed || !this.document || !this.plan) return;
+          const layout = this.snapshot();
+          for (const listener of this.layoutListeners) listener(layout);
+        });
+        this.cancelLayoutFrame = () => win.cancelAnimationFrame(frame);
+      },
+      true,
+    );
   }
 
   private installNavigationGuard(document: Document): void {
-    this.lifecycle.listen(document, 'click', event => {
-      const target = event.target;
-      if (!target || (target as Node).nodeType !== 1) return;
-      const anchor = (target as Element).closest('a[href]');
-      if (!anchor) return;
-      const href = anchor.getAttribute('href') ?? '';
-      if (href.startsWith('#')) return;
+    this.lifecycle.listen(
+      document,
+      'click',
+      (event) => {
+        const target = event.target;
+        if (!target || (target as Node).nodeType !== 1) return;
+        const anchor = (target as Element).closest('a[href]');
+        if (!anchor) return;
+        const href = anchor.getAttribute('href') ?? '';
+        if (href.startsWith('#')) return;
 
-      // Cross-document navigation is a ReaderNavigator responsibility. Do not let
-      // the iframe replace its one-document lifetime behind the engine.
-      event.preventDefault();
-    }, true);
+        // Cross-document navigation is a ReaderNavigator responsibility. Do not let
+        // the iframe replace its one-document lifetime behind the engine.
+        event.preventDefault();
+      },
+      true,
+    );
   }
 
-
   private installFormGuard(document: Document): void {
-    this.lifecycle.listen(document, 'submit', event => {
-      // A form navigation would replace the iframe document and violate the
-      // one-surface/one-document lifetime. Form interaction can be routed by a
-      // future scripted-content/controller capability instead.
-      event.preventDefault();
-    }, true);
+    this.lifecycle.listen(
+      document,
+      'submit',
+      (event) => {
+        // A form navigation would replace the iframe document and violate the
+        // one-surface/one-document lifetime. Form interaction can be routed by a
+        // future scripted-content/controller capability instead.
+        event.preventDefault();
+      },
+      true,
+    );
   }
 
   private assertPlan(plan: RenditionPlan): void {
     if (plan.renderer !== this.kind) {
-      throw new Error(`Renderer ${this.kind} received incompatible plan ${plan.renderer}.`);
+      throw new Error(
+        `Renderer ${this.kind} received incompatible plan ${plan.renderer}.`,
+      );
     }
     if (plan.publicationRendition.layout !== 'reflowable') {
-      throw new Error(`Renderer ${this.kind} cannot render pre-paginated content.`);
+      throw new Error(
+        `Renderer ${this.kind} cannot render pre-paginated content.`,
+      );
     }
     if (plan.spread.execution === 'cross-spine') {
-      throw new Error('Cross-spine spreads must be executed by the spread compositor.');
+      throw new Error(
+        'Cross-spine spreads must be executed by the spread compositor.',
+      );
     }
   }
 

@@ -12,7 +12,10 @@ interface ReaderContributionBoundaryState {
 }
 
 /** Contains a contributed React renderer without hiding the Reader viewport. */
-export class ReaderContributionBoundary extends Component<ReaderContributionBoundaryProps, ReaderContributionBoundaryState> {
+export class ReaderContributionBoundary extends Component<
+  ReaderContributionBoundaryProps,
+  ReaderContributionBoundaryState
+> {
   override state: ReaderContributionBoundaryState = { failed: false };
 
   static getDerivedStateFromError(): ReaderContributionBoundaryState {
@@ -20,10 +23,11 @@ export class ReaderContributionBoundary extends Component<ReaderContributionBoun
   }
 
   override componentDidUpdate(previous: ReaderContributionBoundaryProps): void {
-    if (this.state.failed && (
-      previous.resetKey !== this.props.resetKey
-      || previous.resetVersion !== this.props.resetVersion
-    )) {
+    if (
+      this.state.failed &&
+      (previous.resetKey !== this.props.resetKey ||
+        previous.resetVersion !== this.props.resetVersion)
+    ) {
       this.setState({ failed: false });
     }
   }

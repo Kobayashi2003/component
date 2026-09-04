@@ -1,4 +1,10 @@
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { CloseIcon } from '../chrome/reader-icons';
 import { externalLinkDetails } from './external-link-model';
 import type { ExternalLinkTarget } from '../../core';
@@ -9,7 +15,11 @@ interface EpubExternalLinkDialogProps {
   readonly body: ReactNode;
 }
 
-export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLinkDialogProps) {
+export function EpubExternalLinkDialog({
+  target,
+  onClose,
+  body,
+}: EpubExternalLinkDialogProps) {
   const details = externalLinkDetails(target);
   const dialogRef = useRef<HTMLElement | null>(null);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
@@ -22,7 +32,9 @@ export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLi
     if (!dialog) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Tab') return;
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'));
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'),
+      );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;
@@ -42,7 +54,10 @@ export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLi
   const opensNewTab = details.kind === 'website';
 
   return (
-    <div className="epub-reader-external-link-layer" onClick={() => onClose(true)}>
+    <div
+      className="epub-reader-external-link-layer"
+      onClick={() => onClose(true)}
+    >
       <aside
         ref={dialogRef}
         className="epub-reader-external-link"
@@ -57,23 +72,32 @@ export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLi
             <span>Leaving the reader</span>
             <strong id={titleId}>{details.title}</strong>
           </div>
-          <button type="button" aria-label="Cancel external link" onClick={() => onClose(true)}>
+          <button
+            type="button"
+            aria-label="Cancel external link"
+            onClick={() => onClose(true)}
+          >
             <CloseIcon />
           </button>
         </header>
         <div className="epub-reader-external-link__body">
-          <p id={descriptionId}>This book wants to open a link outside the reader.</p>
+          <p id={descriptionId}>
+            This book wants to open a link outside the reader.
+          </p>
           {body}
         </div>
         <footer>
-          <button ref={cancelRef} type="button" onClick={() => onClose(true)}>Cancel</button>
+          <button ref={cancelRef} type="button" onClick={() => onClose(true)}>
+            Cancel
+          </button>
           <a
             href={details.href}
             target={opensNewTab ? '_blank' : undefined}
             rel={opensNewTab ? 'noopener noreferrer external' : 'external'}
             onClick={() => onClose(true)}
           >
-            {details.actionLabel}<span aria-hidden="true"> ↗</span>
+            {details.actionLabel}
+            <span aria-hidden="true"> ↗</span>
           </a>
         </footer>
       </aside>
@@ -81,13 +105,19 @@ export function EpubExternalLinkDialog({ target, onClose, body }: EpubExternalLi
   );
 }
 
-export function EpubExternalLinkBody({ target }: { readonly target: ExternalLinkTarget }) {
+export function EpubExternalLinkBody({
+  target,
+}: {
+  readonly target: ExternalLinkTarget;
+}) {
   const details = externalLinkDetails(target);
   return (
     <>
       <code title={details.destination}>{details.destination}</code>
       <p className="epub-reader-external-link__hint">
-        {details.kind === 'website' ? 'The website will open in a new tab.' : 'Your device will choose the app that handles this link.'}
+        {details.kind === 'website'
+          ? 'The website will open in a new tab.'
+          : 'Your device will choose the app that handles this link.'}
       </p>
     </>
   );

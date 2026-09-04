@@ -1,4 +1,8 @@
-import type { PublicationLayoutProfile, RenditionCapabilities, WritingMode } from '../../../core';
+import type {
+  PublicationLayoutProfile,
+  RenditionCapabilities,
+  WritingMode,
+} from '../../../core';
 
 export interface ReaderSettingsSectionProfile {
   readonly layout: PublicationLayoutProfile;
@@ -24,9 +28,13 @@ export function readerSettingsSectionVisibility(
     showComic,
     showText,
     verticalWriting: profile.writingMode !== 'horizontal-tb',
-    typographyEnabled: showText
-      && (profile.layout === 'mixed' || profile.capabilities?.textCustomization.fontSize !== false),
-    lineHeightEnabled: showText
-      && (profile.layout === 'mixed' || profile.capabilities?.textCustomization.lineHeight !== false),
+    typographyEnabled:
+      showText &&
+      (profile.layout === 'mixed' ||
+        profile.capabilities?.textCustomization.fontSize !== false),
+    lineHeightEnabled:
+      showText &&
+      (profile.layout === 'mixed' ||
+        profile.capabilities?.textCustomization.lineHeight !== false),
   });
 }

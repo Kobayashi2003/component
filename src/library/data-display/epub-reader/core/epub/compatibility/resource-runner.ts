@@ -1,4 +1,8 @@
-import type { Publication, PublicationDiagnostic, PublicationPath } from '../publication';
+import type {
+  Publication,
+  PublicationDiagnostic,
+  PublicationPath,
+} from '../publication';
 import {
   compatibilityModuleFailureDiagnostic,
   type CompatibilityModuleDescriptor,
@@ -25,7 +29,9 @@ export interface BinaryResourceCompatibilityRule extends ResourceCompatibilityRu
   apply(
     context: BinaryResourceCompatibilityContext,
     bytes: Uint8Array,
-  ): CompatibilityRuleResult<Uint8Array> | Promise<CompatibilityRuleResult<Uint8Array>>;
+  ):
+    | CompatibilityRuleResult<Uint8Array>
+    | Promise<CompatibilityRuleResult<Uint8Array>>;
 }
 
 export interface StylesheetCompatibilityContext {
@@ -65,10 +71,12 @@ export async function runBinaryResourceCompatibility(
   rules: readonly ResourceCompatibilityRule[],
   context: BinaryResourceCompatibilityContext,
   initial: Uint8Array,
-): Promise<CompatibilityRunResult<Uint8Array> & {
-  readonly matchedModuleIds: readonly string[];
-  readonly appliedModuleIds: readonly string[];
-}> {
+): Promise<
+  CompatibilityRunResult<Uint8Array> & {
+    readonly matchedModuleIds: readonly string[];
+    readonly appliedModuleIds: readonly string[];
+  }
+> {
   let value = initial.slice();
   const diagnostics: PublicationDiagnostic[] = [];
   const appliedModuleIds: string[] = [];
@@ -79,15 +87,24 @@ export async function runBinaryResourceCompatibility(
       if (!rule.applies(context)) continue;
       matchedModuleIds.push(rule.id);
       const result = await rule.apply(context, value.slice());
-      if (!(result.value instanceof Uint8Array)) throw new TypeError('Compatible binary resource must remain a Uint8Array.');
+      if (!(result.value instanceof Uint8Array))
+        throw new TypeError(
+          'Compatible binary resource must remain a Uint8Array.',
+        );
       if (result.value.byteLength > context.maxOutputBytes) {
-        throw new RangeError(`Compatible binary resource exceeds the ${context.maxOutputBytes}-byte output limit.`);
+        throw new RangeError(
+          `Compatible binary resource exceeds the ${context.maxOutputBytes}-byte output limit.`,
+        );
       }
       value = result.value.slice();
       appliedModuleIds.push(rule.id);
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, { path: context.path }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.path,
+        }),
+      );
     }
   }
   return Object.freeze({
@@ -112,7 +129,11 @@ export async function runStylesheetResourceCompatibility(
       value = validateTextResult(result.value, context.maxOutputCharacters);
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, { path: context.path }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.path,
+        }),
+      );
     }
   }
   return frozen(value, diagnostics);
@@ -132,20 +153,33 @@ export async function runInlineStyleResourceCompatibility(
       value = validateTextResult(result.value, context.maxOutputCharacters);
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, { path: context.documentPath }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.documentPath,
+        }),
+      );
     }
   }
   return frozen(value, diagnostics);
 }
 
-function validateTextResult(value: string, maxOutputCharacters: number): string {
-  if (typeof value !== 'string') throw new TypeError('Compatible CSS resource must remain a string.');
+function validateTextResult(
+  value: string,
+  maxOutputCharacters: number,
+): string {
+  if (typeof value !== 'string')
+    throw new TypeError('Compatible CSS resource must remain a string.');
   if (value.length > maxOutputCharacters) {
-    throw new RangeError(`Compatible CSS resource exceeds the ${maxOutputCharacters}-character output limit.`);
+    throw new RangeError(
+      `Compatible CSS resource exceeds the ${maxOutputCharacters}-character output limit.`,
+    );
   }
   return value;
 }
 
-function frozen<T>(value: T, diagnostics: readonly PublicationDiagnostic[]): CompatibilityRunResult<T> {
+function frozen<T>(
+  value: T,
+  diagnostics: readonly PublicationDiagnostic[],
+): CompatibilityRunResult<T> {
   return Object.freeze({ value, diagnostics: Object.freeze([...diagnostics]) });
 }

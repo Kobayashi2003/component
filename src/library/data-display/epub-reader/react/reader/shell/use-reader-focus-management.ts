@@ -18,7 +18,9 @@ interface ReaderFocusManagementOptions {
 }
 
 /** Owns Shell focus transfer and inert regions independently of surface content. */
-export function useReaderFocusManagement(options: ReaderFocusManagementOptions): void {
+export function useReaderFocusManagement(
+  options: ReaderFocusManagementOptions,
+): void {
   const {
     shellRef,
     panelRef,
@@ -48,9 +50,12 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (!panel) return;
-      const preferred = panel === 'search'
-        ? panelRef.current?.querySelector<HTMLInputElement>('input[type="search"]')
-        : null;
+      const preferred =
+        panel === 'search'
+          ? panelRef.current?.querySelector<HTMLInputElement>(
+              'input[type="search"]',
+            )
+          : null;
       (preferred ?? panelRef.current)?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
@@ -59,7 +64,9 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
   useEffect(() => {
     if (!footnote) return;
     const frame = requestAnimationFrame(() => {
-      footnoteRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+      footnoteRef.current
+        ?.querySelector<HTMLButtonElement>('button')
+        ?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [footnote, footnoteRef]);
@@ -69,15 +76,20 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
     const modal = panel ? panelRef.current : footnoteRef.current;
     const shell = shellRef.current;
     if (!modal || !shell) return;
-    const isolated = [shell.querySelector<HTMLElement>('.epub-reader-shell__viewport')]
-      .filter((element): element is HTMLElement => Boolean(element));
+    const isolated = [
+      shell.querySelector<HTMLElement>('.epub-reader-shell__viewport'),
+    ].filter((element): element is HTMLElement => Boolean(element));
     for (const element of isolated) {
       element.inert = true;
       element.setAttribute('aria-hidden', 'true');
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Tab') return;
-      const focusable = Array.from(modal.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'));
+      const focusable = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;
@@ -106,8 +118,9 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
     if (!modalOverlayOpen) return;
     const shell = shellRef.current;
     if (!shell) return;
-    const isolated = [shell.querySelector<HTMLElement>('.epub-reader-shell__body')]
-      .filter((element): element is HTMLElement => Boolean(element));
+    const isolated = [
+      shell.querySelector<HTMLElement>('.epub-reader-shell__body'),
+    ].filter((element): element is HTMLElement => Boolean(element));
     for (const element of isolated) {
       element.inert = true;
       element.setAttribute('aria-hidden', 'true');
@@ -127,8 +140,14 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
       shell.querySelector<HTMLElement>('.epub-reader-shell__toolbar'),
       shell.querySelector<HTMLElement>('.epub-reader-controls'),
     ].filter((element): element is HTMLElement => Boolean(element));
-    const inert = chromeHidden || (compactLayout && Boolean(panel || footnote)) || modalOverlayOpen;
-    if (inert && bars.some(element => element.contains(document.activeElement))) {
+    const inert =
+      chromeHidden ||
+      (compactLayout && Boolean(panel || footnote)) ||
+      modalOverlayOpen;
+    if (
+      inert &&
+      bars.some((element) => element.contains(document.activeElement))
+    ) {
       document.getElementById(viewportId)?.focus({ preventScroll: true });
     }
     for (const element of bars) {
@@ -142,5 +161,13 @@ export function useReaderFocusManagement(options: ReaderFocusManagementOptions):
         element.removeAttribute('aria-hidden');
       }
     };
-  }, [chromeHidden, compactLayout, footnote, modalOverlayOpen, panel, shellRef, viewportId]);
+  }, [
+    chromeHidden,
+    compactLayout,
+    footnote,
+    modalOverlayOpen,
+    panel,
+    shellRef,
+    viewportId,
+  ]);
 }

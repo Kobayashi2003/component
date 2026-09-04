@@ -10,7 +10,10 @@ import {
   BUILTIN_READER_THEMES,
   ReaderThemeRegistry,
 } from '../../presentation/appearance';
-import type { ReaderExtensionConfiguration, ReaderExtensionContributions } from './model';
+import type {
+  ReaderExtensionConfiguration,
+  ReaderExtensionContributions,
+} from './model';
 
 /**
  * Validates and combines host contributions with the reader's built-ins.

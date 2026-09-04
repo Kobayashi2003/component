@@ -14,9 +14,18 @@ export function resolvePageProgression(
     return { value: preferences.pageProgression, source: 'user' };
   }
 
-  if (publication.pageProgressionDirection === 'ltr' || publication.pageProgressionDirection === 'rtl') {
-    return { value: publication.pageProgressionDirection, source: 'publication' };
+  if (
+    publication.pageProgressionDirection === 'ltr' ||
+    publication.pageProgressionDirection === 'rtl'
+  ) {
+    return {
+      value: publication.pageProgressionDirection,
+      source: 'publication',
+    };
   }
 
-  return { value: policy.defaultPageProgression, source: 'reading-system-default' };
+  return {
+    value: policy.defaultPageProgression,
+    source: 'reading-system-default',
+  };
 }

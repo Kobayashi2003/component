@@ -9,10 +9,11 @@ export interface FixedLayoutRendererPolicy {
 
 export type FixedLayoutHorizontalAlignment = 'start' | 'center' | 'end';
 
-export const DEFAULT_FIXED_LAYOUT_RENDERER_POLICY: FixedLayoutRendererPolicy = Object.freeze({
-  fit: 'contain',
-  center: true,
-});
+export const DEFAULT_FIXED_LAYOUT_RENDERER_POLICY: FixedLayoutRendererPolicy =
+  Object.freeze({
+    fit: 'contain',
+    center: true,
+  });
 
 export interface FixedLayoutPlacement {
   readonly intrinsic: IntrinsicViewport;

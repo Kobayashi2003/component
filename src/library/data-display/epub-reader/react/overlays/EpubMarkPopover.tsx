@@ -1,9 +1,21 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { AnnotationHighlightStyle, ReaderMarkActivation } from '../../core';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
+import type {
+  AnnotationHighlightStyle,
+  ReaderMarkActivation,
+} from '../../core';
 import { ANNOTATION_COLORS as COLORS } from './annotation-colors';
 import type { EpubReaderHandle } from '../state/model';
 
-const STYLES: readonly { readonly value: AnnotationHighlightStyle; readonly label: string }[] = [
+const STYLES: readonly {
+  readonly value: AnnotationHighlightStyle;
+  readonly label: string;
+}[] = [
   { value: 'solid', label: 'Highlight' },
   { value: 'underline', label: 'Underline' },
   { value: 'strikethrough', label: 'Strike through' },
@@ -17,7 +29,12 @@ interface EpubMarkPopoverProps {
   readonly onChanged: (message: string) => void;
 }
 
-export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged }: EpubMarkPopoverProps) {
+export function EpubMarkPopoverContent({
+  activation,
+  reader,
+  onClose,
+  onChanged,
+}: EpubMarkPopoverProps) {
   const { mark } = activation;
   const [color, setColor] = useState(mark.color);
   const [highlight, setHighlight] = useState(mark.highlight);
@@ -37,7 +54,9 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
       highlight,
       ...(mark.kind === 'annotation' ? { body: body.trim() } : {}),
     });
-    onChanged(mark.kind === 'annotation' ? 'Note updated' : 'Highlight updated');
+    onChanged(
+      mark.kind === 'annotation' ? 'Note updated' : 'Highlight updated',
+    );
     onClose(true);
   };
   const remove = () => {
@@ -46,7 +65,9 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
       return;
     }
     reader.marks.remove(mark.id);
-    onChanged(mark.kind === 'annotation' ? 'Note deleted' : 'Highlight deleted');
+    onChanged(
+      mark.kind === 'annotation' ? 'Note deleted' : 'Highlight deleted',
+    );
     onClose(true);
   };
 
@@ -54,19 +75,46 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
     <>
       <header>
         <div>
-          <strong>{mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'}</strong>
-          <span>{mark.kind === 'annotation' ? 'Update the note and its appearance' : 'Change the saved selection appearance'}</span>
+          <strong>
+            {mark.kind === 'annotation' ? 'Edit note' : 'Edit highlight'}
+          </strong>
+          <span>
+            {mark.kind === 'annotation'
+              ? 'Update the note and its appearance'
+              : 'Change the saved selection appearance'}
+          </span>
         </div>
-        <button ref={closeRef} type="button" aria-label="Close mark details" onClick={() => onClose(true)}>×</button>
+        <button
+          ref={closeRef}
+          type="button"
+          aria-label="Close mark details"
+          onClick={() => onClose(true)}
+        >
+          ×
+        </button>
       </header>
       <form onSubmit={save}>
         {mark.kind === 'annotation' ? (
-          <textarea value={body} maxLength={2_000} rows={4} aria-label="Note text" onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setBody(event.currentTarget.value)} />
-        ) : mark.label ? <p className="epub-reader-mark-popover__excerpt">{mark.label}</p> : null}
+          <textarea
+            value={body}
+            maxLength={2_000}
+            rows={4}
+            aria-label="Note text"
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              setBody(event.currentTarget.value)
+            }
+          />
+        ) : mark.label ? (
+          <p className="epub-reader-mark-popover__excerpt">{mark.label}</p>
+        ) : null}
         <fieldset className="epub-reader-mark-popover__field">
           <legend>Color</legend>
-          <div className="epub-reader-mark-popover__colors" role="group" aria-label="Mark color">
-            {COLORS.map(candidate => (
+          <div
+            className="epub-reader-mark-popover__colors"
+            role="group"
+            aria-label="Mark color"
+          >
+            {COLORS.map((candidate) => (
               <button
                 key={candidate}
                 type="button"
@@ -81,7 +129,7 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
         <fieldset className="epub-reader-mark-popover__field">
           <legend>Style</legend>
           <div className="epub-reader-mark-popover__styles">
-            {STYLES.map(option => (
+            {STYLES.map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -95,17 +143,33 @@ export function EpubMarkPopoverContent({ activation, reader, onClose, onChanged 
           </div>
         </fieldset>
         {confirmDelete ? (
-          <div className="epub-reader-mark-popover__delete-confirm" role="alert">
-            <span>Delete this {mark.kind === 'annotation' ? 'note' : 'highlight'}?</span>
+          <div
+            className="epub-reader-mark-popover__delete-confirm"
+            role="alert"
+          >
+            <span>
+              Delete this {mark.kind === 'annotation' ? 'note' : 'highlight'}?
+            </span>
             <div>
-              <button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button type="button" onClick={remove}>Delete</button>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+              <button type="button" onClick={remove}>
+                Delete
+              </button>
             </div>
           </div>
         ) : (
           <footer>
-            <button type="button" onClick={remove}>Delete</button>
-            <button type="submit" disabled={mark.kind === 'annotation' && !body.trim()}>Save</button>
+            <button type="button" onClick={remove}>
+              Delete
+            </button>
+            <button
+              type="submit"
+              disabled={mark.kind === 'annotation' && !body.trim()}
+            >
+              Save
+            </button>
           </footer>
         )}
       </form>

@@ -9,7 +9,11 @@ import type {
 } from '../publication/model';
 import { resolvePublicationReference } from '../publication/path';
 import { inferMediaType } from './mime';
-import { IDPF_FONT_OBFUSCATION, loadContainerEncryption, type EncryptedResourceInfo } from './encryption';
+import {
+  IDPF_FONT_OBFUSCATION,
+  loadContainerEncryption,
+  type EncryptedResourceInfo,
+} from './encryption';
 import type {
   LocalPublicationResource,
   ResolvedResourceRequest,
@@ -39,7 +43,10 @@ export class ResourceResolver {
     readonly publication: Publication,
     readonly compatibilityProfile: CompatibilityProfile,
     options: ResourceResolverOptions = {},
-    private readonly encryptionByPath: ReadonlyMap<PublicationPath, EncryptedResourceInfo> = new Map(),
+    private readonly encryptionByPath: ReadonlyMap<
+      PublicationPath,
+      EncryptedResourceInfo
+    > = new Map(),
   ) {
     this.options = {
       remotePolicy: options.remotePolicy ?? 'block',
@@ -48,10 +55,15 @@ export class ResourceResolver {
     };
     this.manifestByPath = new Map(
       publication.manifest
-        .filter((item): item is ManifestItem & { path: PublicationPath } => !item.remote && item.path !== undefined)
-        .map(item => [item.path, item]),
+        .filter(
+          (item): item is ManifestItem & { path: PublicationPath } =>
+            !item.remote && item.path !== undefined,
+        )
+        .map((item) => [item.path, item]),
     );
-    this.manifestByHref = new Map(publication.manifest.map(item => [item.href, item]));
+    this.manifestByHref = new Map(
+      publication.manifest.map((item) => [item.href, item]),
+    );
   }
 
   static async create(
@@ -62,7 +74,13 @@ export class ResourceResolver {
   ): Promise<ResourceResolverCreateResult> {
     const encryption = await loadContainerEncryption(archive);
     return {
-      resolver: new ResourceResolver(archive, publication, compatibilityProfile, options, encryption.resources),
+      resolver: new ResourceResolver(
+        archive,
+        publication,
+        compatibilityProfile,
+        options,
+        encryption.resources,
+      ),
       diagnostics: encryption.diagnostics,
     };
   }
@@ -95,7 +113,9 @@ export class ResourceResolver {
         fragment: ref.fragment,
         remote: true,
         manifestItem,
-        mediaType: manifestItem?.mediaType ?? (scheme === 'data:' ? mediaTypeFromDataUrl(ref.href) : undefined),
+        mediaType:
+          manifestItem?.mediaType ??
+          (scheme === 'data:' ? mediaTypeFromDataUrl(ref.href) : undefined),
       };
 
       if (scheme === 'file:') {
@@ -108,7 +128,11 @@ export class ResourceResolver {
         });
         return { request: null, diagnostics };
       }
-      if (scheme === 'javascript:' || scheme === 'vbscript:' || scheme === 'blob:') {
+      if (
+        scheme === 'javascript:' ||
+        scheme === 'vbscript:' ||
+        scheme === 'blob:'
+      ) {
         diagnostics.push({
           code: 'RESOURCE_SCHEME_FORBIDDEN',
           severity: 'error',
@@ -146,7 +170,8 @@ export class ResourceResolver {
     const path = ref.path!;
     const manifestItem = this.manifestByPath.get(path);
     if (!manifestItem) {
-      const severity = this.options.unmanifestedPolicy === 'block' ? 'error' : 'warning';
+      const severity =
+        this.options.unmanifestedPolicy === 'block' ? 'error' : 'warning';
       diagnostics.push({
         code: 'RESOURCE_NOT_IN_MANIFEST',
         severity,
@@ -154,7 +179,8 @@ export class ResourceResolver {
         message: `Container resource is referenced but not declared in the package manifest: ${path}.`,
         path,
       });
-      if (this.options.unmanifestedPolicy === 'block') return { request: null, diagnostics };
+      if (this.options.unmanifestedPolicy === 'block')
+        return { request: null, diagnostics };
     }
 
     if (!this.archive.has(path)) {
@@ -167,7 +193,10 @@ export class ResourceResolver {
       });
     }
 
-    const mediaType = manifestItem?.mediaType ?? inferMediaType(path) ?? 'application/octet-stream';
+    const mediaType =
+      manifestItem?.mediaType ??
+      inferMediaType(path) ??
+      'application/octet-stream';
     const request: ResolvedResourceRequest = {
       source,
       basePath,
@@ -182,7 +211,10 @@ export class ResourceResolver {
     return { request, diagnostics };
   }
 
-  async read(basePath: PublicationPath, source: string): Promise<ResourceReadResult> {
+  async read(
+    basePath: PublicationPath,
+    source: string,
+  ): Promise<ResourceReadResult> {
     const resolved = this.resolve(basePath, source);
     if (!resolved.request || resolved.request.remote) {
       return { resource: null, diagnostics: resolved.diagnostics };
@@ -194,7 +226,9 @@ export class ResourceResolver {
     };
   }
 
-  async readRequest(request: ResolvedResourceRequest): Promise<ResourceReadResult> {
+  async readRequest(
+    request: ResolvedResourceRequest,
+  ): Promise<ResourceReadResult> {
     const diagnostics: PublicationDiagnostic[] = [];
     if (request.remote || !request.path) {
       diagnostics.push({
@@ -237,7 +271,10 @@ export class ResourceResolver {
           {
             publication: this.publication,
             path: request.path,
-            mediaType: request.mediaType ?? inferMediaType(request.path) ?? 'application/octet-stream',
+            mediaType:
+              request.mediaType ??
+              inferMediaType(request.path) ??
+              'application/octet-stream',
             encryptionAlgorithm: encryption.algorithm,
             maxOutputBytes: this.options.maxResourceBytes,
           },
@@ -247,7 +284,9 @@ export class ResourceResolver {
         if (compatible.matchedModuleIds.length === 0) {
           const idpfDisabled = encryption.algorithm === IDPF_FONT_OBFUSCATION;
           diagnostics.push({
-            code: idpfDisabled ? 'RESOURCE_FONT_DEOBFUSCATION_DISABLED' : 'RESOURCE_ENCRYPTION_UNSUPPORTED',
+            code: idpfDisabled
+              ? 'RESOURCE_FONT_DEOBFUSCATION_DISABLED'
+              : 'RESOURCE_ENCRYPTION_UNSUPPORTED',
             severity: idpfDisabled ? 'warning' : 'error',
             phase: idpfDisabled ? 'compatibility' : 'resource',
             message: idpfDisabled
@@ -259,9 +298,10 @@ export class ResourceResolver {
         }
         if (compatible.appliedModuleIds.length === 0) {
           diagnostics.push({
-            code: encryption.algorithm === IDPF_FONT_OBFUSCATION
-              ? 'RESOURCE_FONT_DEOBFUSCATION_FAILED'
-              : 'RESOURCE_COMPATIBILITY_TRANSFORM_FAILED',
+            code:
+              encryption.algorithm === IDPF_FONT_OBFUSCATION
+                ? 'RESOURCE_FONT_DEOBFUSCATION_FAILED'
+                : 'RESOURCE_COMPATIBILITY_TRANSFORM_FAILED',
             severity: 'error',
             phase: 'resource',
             message: `Enabled compatibility modules could not transform encrypted resource ${request.path}.`,
@@ -286,7 +326,10 @@ export class ResourceResolver {
         ...request,
         remote: false,
         path: request.path,
-        mediaType: request.mediaType ?? inferMediaType(request.path) ?? 'application/octet-stream',
+        mediaType:
+          request.mediaType ??
+          inferMediaType(request.path) ??
+          'application/octet-stream',
         bytes,
       };
       return { resource, diagnostics };
@@ -305,7 +348,11 @@ export class ResourceResolver {
 }
 
 function safeScheme(href: string): string {
-  try { return new URL(href).protocol.toLowerCase(); } catch { return ''; }
+  try {
+    return new URL(href).protocol.toLowerCase();
+  } catch {
+    return '';
+  }
 }
 
 function mediaTypeFromDataUrl(href: string): string | undefined {

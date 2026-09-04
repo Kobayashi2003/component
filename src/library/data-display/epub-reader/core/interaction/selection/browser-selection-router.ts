@@ -26,12 +26,14 @@ export class BrowserReaderSelectionRouter {
   constructor(
     private readonly publication: Publication,
     private readonly container: HTMLElement,
-    private readonly onChange: (activation: ReaderSelectionActivation | null) => void,
+    private readonly onChange: (
+      activation: ReaderSelectionActivation | null,
+    ) => void,
   ) {}
 
   syncDocuments(contexts: readonly RendererContentDocument[]): void {
     this.assertAlive();
-    const live = new Set(contexts.map(context => context.document));
+    const live = new Set(contexts.map((context) => context.document));
     let removed = false;
     for (const [document, cleanup] of this.cleanups) {
       if (!live.has(document)) {
@@ -55,22 +57,32 @@ export class BrowserReaderSelectionRouter {
     this.assertAlive();
     for (const context of contexts) {
       const native = getDocumentSelection(context.document);
-      const text = native && !native.isCollapsed ? native.toString().trim() : '';
+      const text =
+        native && !native.isCollapsed ? native.toString().trim() : '';
       if (!text || !native?.rangeCount) continue;
       const key = `${context.spineIndex}:${native.anchorOffset}:${native.focusOffset}:${text}`;
       if (key === this.lastPolledSelectionKey) return;
-      const selection = captureReaderSelection(context, this.publication, native);
+      const selection = captureReaderSelection(
+        context,
+        this.publication,
+        native,
+      );
       const rectangle = selectionRectangle(native.getRangeAt(0));
       if (!selection || selection.collapsed || !rectangle) return;
       this.lastPolledSelectionKey = key;
-      this.publish(activationForRectangle(
-        selection,
-        rectangle,
-        context.surfaceElement,
-        context.document,
-        this.container,
-        Boolean((context.document.activeElement as HTMLElement | null)?.isContentEditable),
-      ));
+      this.publish(
+        activationForRectangle(
+          selection,
+          rectangle,
+          context.surfaceElement,
+          context.document,
+          this.container,
+          Boolean(
+            (context.document.activeElement as HTMLElement | null)
+              ?.isContentEditable,
+          ),
+        ),
+      );
       return;
     }
     if (this.lastPolledSelectionKey) {
@@ -101,7 +113,12 @@ export class BrowserReaderSelectionRouter {
       timer = null;
       const selection = captureReaderSelection(context, this.publication);
       const native = getDocumentSelection(document);
-      if (!selection || selection.collapsed || !selection.text.trim() || !native?.rangeCount) {
+      if (
+        !selection ||
+        selection.collapsed ||
+        !selection.text.trim() ||
+        !native?.rangeCount
+      ) {
         focusRequested = false;
         this.publish(null);
         return;
@@ -134,10 +151,18 @@ export class BrowserReaderSelectionRouter {
       pointerActive = false;
       schedule(false);
     };
-    const onPointerCancel = () => { pointerActive = false; };
-    const onSelectionChange = () => { if (!pointerActive) schedule(false); };
+    const onPointerCancel = () => {
+      pointerActive = false;
+    };
+    const onSelectionChange = () => {
+      if (!pointerActive) schedule(false);
+    };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.shiftKey || getDocumentSelection(document)?.isCollapsed === false) schedule(true);
+      if (
+        event.shiftKey ||
+        getDocumentSelection(document)?.isCollapsed === false
+      )
+        schedule(true);
     };
     const onScroll = () => this.publish(null);
 
@@ -165,7 +190,8 @@ export class BrowserReaderSelectionRouter {
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('BrowserReaderSelectionRouter has been disposed.');
+    if (this.disposed)
+      throw new Error('BrowserReaderSelectionRouter has been disposed.');
   }
 
   private publish(activation: ReaderSelectionActivation | null): void {
@@ -175,8 +201,15 @@ export class BrowserReaderSelectionRouter {
 }
 
 function selectionRectangle(range: Range): DOMRect | null {
-  const rectangles = [...range.getClientRects()].filter(rect => rect.width > 0 || rect.height > 0);
-  return rectangles.at(-1) ?? (range.getBoundingClientRect().width > 0 ? range.getBoundingClientRect() : null);
+  const rectangles = [...range.getClientRects()].filter(
+    (rect) => rect.width > 0 || rect.height > 0,
+  );
+  return (
+    rectangles.at(-1) ??
+    (range.getBoundingClientRect().width > 0
+      ? range.getBoundingClientRect()
+      : null)
+  );
 }
 
 function activationForRectangle(
@@ -189,8 +222,14 @@ function activationForRectangle(
 ): ReaderSelectionActivation {
   const surfaceRect = surface.getBoundingClientRect();
   const containerRect = container.getBoundingClientRect();
-  const viewportWidth = document.defaultView?.innerWidth || surface.clientWidth || surfaceRect.width;
-  const viewportHeight = document.defaultView?.innerHeight || surface.clientHeight || surfaceRect.height;
+  const viewportWidth =
+    document.defaultView?.innerWidth ||
+    surface.clientWidth ||
+    surfaceRect.width;
+  const viewportHeight =
+    document.defaultView?.innerHeight ||
+    surface.clientHeight ||
+    surfaceRect.height;
   const scaleX = surfaceRect.width / Math.max(1, viewportWidth);
   const scaleY = surfaceRect.height / Math.max(1, viewportHeight);
   const offsetX = surfaceRect.left - containerRect.left;

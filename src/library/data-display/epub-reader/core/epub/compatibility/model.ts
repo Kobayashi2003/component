@@ -1,9 +1,9 @@
-import type { CompatibilityRepair, PublicationDiagnostic } from '../publication';
+import type {
+  CompatibilityRepair,
+  PublicationDiagnostic,
+} from '../publication';
 export type CompatibilityModuleFamily =
-  | 'publication'
-  | 'content-document'
-  | 'resource'
-  | 'rendition';
+  'publication' | 'content-document' | 'resource' | 'rendition';
 
 export type CompatibilityModuleStage =
   | 'publication.rootfile-selection'
@@ -15,15 +15,16 @@ export type CompatibilityModuleStage =
   | 'rendition.policy';
 
 /** Fixed kernel order; registration order matters only within one stage. */
-export const COMPATIBILITY_MODULE_STAGE_ORDER: readonly CompatibilityModuleStage[] = Object.freeze([
-  'publication.rootfile-selection',
-  'publication.navigation-fallback',
-  'content-document.processing',
-  'resource.binary',
-  'resource.stylesheet',
-  'resource.inline-style',
-  'rendition.policy',
-]);
+export const COMPATIBILITY_MODULE_STAGE_ORDER: readonly CompatibilityModuleStage[] =
+  Object.freeze([
+    'publication.rootfile-selection',
+    'publication.navigation-fallback',
+    'content-document.processing',
+    'resource.binary',
+    'resource.stylesheet',
+    'resource.inline-style',
+    'rendition.policy',
+  ]);
 
 /** Metadata shared by every phase-specific EPUB compatibility contract. */
 export interface CompatibilityModuleDescriptor {
@@ -68,7 +69,10 @@ export interface CompatibilityReport {
 export function compatibilityModuleFailureDiagnostic(
   module: CompatibilityModuleDescriptor,
   error: unknown,
-  location: { readonly path?: import('../publication').PublicationPath; readonly spineIndex?: number } = {},
+  location: {
+    readonly path?: import('../publication').PublicationPath;
+    readonly spineIndex?: number;
+  } = {},
 ): PublicationDiagnostic {
   return {
     code: 'COMPATIBILITY_MODULE_FAILED',

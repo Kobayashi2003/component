@@ -13,7 +13,8 @@ export function buildRenditionCapabilities(
   policy: RenditionPlannerPolicy,
 ): RenditionCapabilities {
   const reflowable = rendition.layout === 'reflowable';
-  const scrolling = overflow === 'scrolled-doc' || overflow === 'scrolled-continuous';
+  const scrolling =
+    overflow === 'scrolled-doc' || overflow === 'scrolled-continuous';
 
   return {
     textCustomization: {

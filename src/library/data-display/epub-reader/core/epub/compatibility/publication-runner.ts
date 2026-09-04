@@ -1,4 +1,9 @@
-import type { ContainerRootfile, NavigationModel, Publication, PublicationPath } from '../publication';
+import type {
+  ContainerRootfile,
+  NavigationModel,
+  Publication,
+  PublicationPath,
+} from '../publication';
 import {
   compatibilityModuleFailureDiagnostic,
   type CompatibilityModuleDescriptor,
@@ -21,7 +26,9 @@ export interface RootfileSelectionCompatibilityRule extends PublicationCompatibi
   apply(
     context: RootfileSelectionCompatibilityContext,
     selected: ContainerRootfile | null,
-  ): CompatibilityRuleResult<ContainerRootfile | null> | Promise<CompatibilityRuleResult<ContainerRootfile | null>>;
+  ):
+    | CompatibilityRuleResult<ContainerRootfile | null>
+    | Promise<CompatibilityRuleResult<ContainerRootfile | null>>;
 }
 
 export interface NavigationFallbackCompatibilityContext {
@@ -39,12 +46,13 @@ export interface NavigationFallbackCompatibilityRule extends PublicationCompatib
   apply(
     context: NavigationFallbackCompatibilityContext,
     navigation: NavigationModel,
-  ): CompatibilityRuleResult<NavigationModel> | Promise<CompatibilityRuleResult<NavigationModel>>;
+  ):
+    | CompatibilityRuleResult<NavigationModel>
+    | Promise<CompatibilityRuleResult<NavigationModel>>;
 }
 
 export type PublicationCompatibilityRule =
-  | RootfileSelectionCompatibilityRule
-  | NavigationFallbackCompatibilityRule;
+  RootfileSelectionCompatibilityRule | NavigationFallbackCompatibilityRule;
 
 export async function runRootfileSelectionCompatibility(
   rules: readonly PublicationCompatibilityRule[],
@@ -60,7 +68,11 @@ export async function runRootfileSelectionCompatibility(
       value = canonicalRootfile(context.rootfiles, result.value);
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, { path: context.containerPath }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.containerPath,
+        }),
+      );
     }
   }
   return freezeRunResult(value, diagnostics);
@@ -81,7 +93,11 @@ export async function runNavigationFallbackCompatibility(
       value = result.value;
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(rule, error, { path: context.publication.packagePath }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(rule, error, {
+          path: context.publication.packagePath,
+        }),
+      );
     }
   }
   return freezeRunResult(value, diagnostics);
@@ -92,22 +108,38 @@ function canonicalRootfile(
   selected: ContainerRootfile | null,
 ): ContainerRootfile | null {
   if (!selected) return null;
-  const candidate = candidates.find(rootfile =>
-    rootfile.fullPath === selected.fullPath && rootfile.mediaType === selected.mediaType,
+  const candidate = candidates.find(
+    (rootfile) =>
+      rootfile.fullPath === selected.fullPath &&
+      rootfile.mediaType === selected.mediaType,
   );
-  if (!candidate) throw new Error(`Selected rootfile ${selected.fullPath} is not one of the validated container candidates.`);
+  if (!candidate)
+    throw new Error(
+      `Selected rootfile ${selected.fullPath} is not one of the validated container candidates.`,
+    );
   return candidate;
 }
 
 function assertNavigationModel(value: NavigationModel): void {
   if (!value || !['epub3-nav', 'ncx', 'none'].includes(value.source)) {
-    throw new TypeError('Compatibility navigation result must be a normalized NavigationModel.');
+    throw new TypeError(
+      'Compatibility navigation result must be a normalized NavigationModel.',
+    );
   }
-  if (!Array.isArray(value.toc) || !Array.isArray(value.landmarks) || !Array.isArray(value.pageList)) {
-    throw new TypeError('Compatibility navigation result must contain normalized navigation collections.');
+  if (
+    !Array.isArray(value.toc) ||
+    !Array.isArray(value.landmarks) ||
+    !Array.isArray(value.pageList)
+  ) {
+    throw new TypeError(
+      'Compatibility navigation result must contain normalized navigation collections.',
+    );
   }
 }
 
-function freezeRunResult<T>(value: T, diagnostics: readonly import('../publication').PublicationDiagnostic[]): CompatibilityRunResult<T> {
+function freezeRunResult<T>(
+  value: T,
+  diagnostics: readonly import('../publication').PublicationDiagnostic[],
+): CompatibilityRunResult<T> {
   return Object.freeze({ value, diagnostics: Object.freeze([...diagnostics]) });
 }

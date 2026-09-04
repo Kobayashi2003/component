@@ -5,7 +5,11 @@ import type { DomPoint } from './model';
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 
-export function createTextQuote(document: Document, point: DomPoint, extent = 48): LocatorTextContext | undefined {
+export function createTextQuote(
+  document: Document,
+  point: DomPoint,
+  extent = 48,
+): LocatorTextContext | undefined {
   const index = buildSemanticTextProjection(document);
   const absolute = absoluteTextOffset(index, point);
   if (absolute == null || index.text.length === 0) return undefined;
@@ -15,11 +19,17 @@ export function createTextQuote(document: Document, point: DomPoint, extent = 48
   return {
     before: index.text.slice(Math.max(0, absolute - size), absolute),
     highlight,
-    after: index.text.slice(absolute + highlight.length, absolute + highlight.length + size),
+    after: index.text.slice(
+      absolute + highlight.length,
+      absolute + highlight.length + size,
+    ),
   };
 }
 
-export function resolveTextQuote(document: Document, quote: LocatorTextContext): DomPoint | null {
+export function resolveTextQuote(
+  document: Document,
+  quote: LocatorTextContext,
+): DomPoint | null {
   const highlight = quote.highlight;
   if (!highlight) return null;
   const index = buildSemanticTextProjection(document);
@@ -36,7 +46,10 @@ export function resolveTextQuote(document: Document, quote: LocatorTextContext):
   if (candidates.length === 0) return null;
 
   const best = candidates
-    .map(offset => ({ offset, score: quoteScore(index.text, offset, highlight.length, quote) }))
+    .map((offset) => ({
+      offset,
+      score: quoteScore(index.text, offset, highlight.length, quote),
+    }))
     .sort((a, b) => b.score - a.score || a.offset - b.offset)[0]!;
   return pointAtAbsoluteOffset(index, best.offset);
 }
@@ -46,9 +59,14 @@ function absoluteTextOffset(
   point: DomPoint,
 ): number | null {
   if (point.node.nodeType === TEXT_NODE) {
-    const entry = index.segments.find(candidate => candidate.node === point.node);
+    const entry = index.segments.find(
+      (candidate) => candidate.node === point.node,
+    );
     if (!entry) return null;
-    const sourceOffset = Math.max(0, Math.min(point.offset, entry.node.data.length));
+    const sourceOffset = Math.max(
+      0,
+      Math.min(point.offset, entry.node.data.length),
+    );
     let normalized = 0;
     for (let i = 0; i < entry.sourceBoundaries.length; i += 1) {
       if ((entry.sourceBoundaries[i] ?? 0) <= sourceOffset) normalized = i;
@@ -58,10 +76,19 @@ function absoluteTextOffset(
   }
   if (point.node.nodeType === ELEMENT_NODE) {
     const element = point.node as Element;
-    const childOffset = Math.max(0, Math.min(point.offset, element.childNodes.length));
-    const child = element.childNodes[childOffset] ?? element.childNodes[childOffset - 1];
+    const childOffset = Math.max(
+      0,
+      Math.min(point.offset, element.childNodes.length),
+    );
+    const child =
+      element.childNodes[childOffset] ?? element.childNodes[childOffset - 1];
     if (!child) return null;
-    const first = index.segments.find(entry => child === entry.node || (child.nodeType === ELEMENT_NODE && (child as Element).contains(entry.node)));
+    const first = index.segments.find(
+      (entry) =>
+        child === entry.node ||
+        (child.nodeType === ELEMENT_NODE &&
+          (child as Element).contains(entry.node)),
+    );
     return first?.start ?? null;
   }
   return null;
@@ -71,18 +98,40 @@ function pointAtAbsoluteOffset(
   index: ReturnType<typeof buildSemanticTextProjection>,
   offset: number,
 ): DomPoint | null {
-  const entry = index.segments.find(candidate => offset >= candidate.start && offset <= candidate.end)
-    ?? index.segments.at(-1);
+  const entry =
+    index.segments.find(
+      (candidate) => offset >= candidate.start && offset <= candidate.end,
+    ) ?? index.segments.at(-1);
   if (!entry) return null;
-  const normalizedOffset = Math.max(0, Math.min(entry.end - entry.start, offset - entry.start));
-  const sourceOffset = entry.sourceBoundaries[normalizedOffset] ?? entry.node.data.length;
-  return { node: entry.node, offset: Math.max(0, Math.min(entry.node.data.length, sourceOffset)) };
+  const normalizedOffset = Math.max(
+    0,
+    Math.min(entry.end - entry.start, offset - entry.start),
+  );
+  const sourceOffset =
+    entry.sourceBoundaries[normalizedOffset] ?? entry.node.data.length;
+  return {
+    node: entry.node,
+    offset: Math.max(0, Math.min(entry.node.data.length, sourceOffset)),
+  };
 }
 
-function quoteScore(text: string, offset: number, length: number, quote: LocatorTextContext): number {
+function quoteScore(
+  text: string,
+  offset: number,
+  length: number,
+  quote: LocatorTextContext,
+): number {
   let score = 0;
-  if (quote.before) score += commonSuffix(text.slice(Math.max(0, offset - quote.before.length), offset), quote.before);
-  if (quote.after) score += commonPrefix(text.slice(offset + length, offset + length + quote.after.length), quote.after);
+  if (quote.before)
+    score += commonSuffix(
+      text.slice(Math.max(0, offset - quote.before.length), offset),
+      quote.before,
+    );
+  if (quote.after)
+    score += commonPrefix(
+      text.slice(offset + length, offset + length + quote.after.length),
+      quote.after,
+    );
   return score;
 }
 

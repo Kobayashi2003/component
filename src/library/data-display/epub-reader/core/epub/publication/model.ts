@@ -9,7 +9,8 @@
  * - keep reading order, text direction, writing mode and spread placement distinct
  */
 
-export type EpubVersion = '2' | '2.0' | '2.0.1' | '3' | '3.0' | '3.1' | '3.2' | '3.3' | (string & {});
+export type EpubVersion =
+  '2' | '2.0' | '2.0.1' | '3' | '3.0' | '3.1' | '3.2' | '3.3' | (string & {});
 
 /** Path inside the EPUB container, normalized to `/` separators and no leading slash. */
 export type PublicationPath = string;
@@ -27,8 +28,10 @@ export type WritingMode = 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
 export type RenditionLayout = 'reflowable' | 'pre-paginated';
 export type RenditionOrientation = 'auto' | 'portrait' | 'landscape';
 /** `portrait` is deprecated in EPUB 3.3 but must be preserved when authored. */
-export type RenditionSpread = 'auto' | 'none' | 'landscape' | 'portrait' | 'both';
-export type RenditionFlow = 'auto' | 'paginated' | 'scrolled-continuous' | 'scrolled-doc';
+export type RenditionSpread =
+  'auto' | 'none' | 'landscape' | 'portrait' | 'both';
+export type RenditionFlow =
+  'auto' | 'paginated' | 'scrolled-continuous' | 'scrolled-doc';
 export type PageSpread = 'left' | 'right' | 'center';
 
 /**
@@ -109,12 +112,7 @@ export interface PublicationMetadata {
  * in `properties` as strings so newer/extension vocabularies are not lost.
  */
 export type KnownManifestProperty =
-  | 'cover-image'
-  | 'nav'
-  | 'scripted'
-  | 'mathml'
-  | 'svg'
-  | 'remote-resources';
+  'cover-image' | 'nav' | 'scripted' | 'mathml' | 'svg' | 'remote-resources';
 
 export interface ManifestItem {
   readonly id: string;
@@ -202,10 +200,7 @@ export interface NavigationModel {
  * This is intentionally separate from page progression direction.
  */
 export type ContentDocumentKind =
-  | 'flowing-text'
-  | 'single-image-page'
-  | 'single-svg-page'
-  | 'unknown';
+  'flowing-text' | 'single-image-page' | 'single-svg-page' | 'unknown';
 
 /**
  * Structural presentation information discovered before the renderer runs.
@@ -264,7 +259,8 @@ export type ReaderDirectionPreference = 'auto' | 'ltr' | 'rtl';
 export type FixedLayoutFit = 'contain' | 'width' | 'height' | 'original';
 export type FixedLayoutGutter = 'none' | 'normal';
 export type TouchNavigationPreference = 'both' | 'tap' | 'swipe' | 'off';
-export type ReaderTheme = 'publisher' | 'light' | 'dark' | 'sepia' | (string & {});
+export type ReaderTheme =
+  'publisher' | 'light' | 'dark' | 'sepia' | (string & {});
 
 export interface ReaderCompatibilityPreferences {
   /** Accept recoverable OCF/ZIP container deviations. */
@@ -283,15 +279,16 @@ export interface ReaderCompatibilityPreferences {
   readonly deobfuscateIdpfFonts: boolean;
 }
 
-export const DEFAULT_READER_COMPATIBILITY_PREFERENCES: ReaderCompatibilityPreferences = Object.freeze({
-  recoverContainerStructure: true,
-  selectPreferredRootfile: true,
-  recoverMalformedXhtml: true,
-  useLegacyNavigationFallback: true,
-  normalizeLegacyCss: true,
-  fitSingleImagePages: true,
-  deobfuscateIdpfFonts: true,
-});
+export const DEFAULT_READER_COMPATIBILITY_PREFERENCES: ReaderCompatibilityPreferences =
+  Object.freeze({
+    recoverContainerStructure: true,
+    selectPreferredRootfile: true,
+    recoverMalformedXhtml: true,
+    useLegacyNavigationFallback: true,
+    normalizeLegacyCss: true,
+    fitSingleImagePages: true,
+    deobfuscateIdpfFonts: true,
+  });
 
 /**
  * User preferences are requests, not commands. The rendition planner decides
@@ -319,7 +316,10 @@ export interface ReaderPreferences {
   readonly theme: ReaderTheme;
 }
 
-export type ReaderPreferencesPatch = Omit<Partial<ReaderPreferences>, 'compatibility'> & {
+export type ReaderPreferencesPatch = Omit<
+  Partial<ReaderPreferences>,
+  'compatibility'
+> & {
   readonly compatibility?: Partial<ReaderCompatibilityPreferences>;
 };
 

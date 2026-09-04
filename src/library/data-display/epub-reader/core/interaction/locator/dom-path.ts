@@ -5,7 +5,10 @@ const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 const CDATA_SECTION_NODE = 4;
 
-export function createDomPath(document: Document, point: DomPoint): LocatorDomPoint | undefined {
+export function createDomPath(
+  document: Document,
+  point: DomPoint,
+): LocatorDomPoint | undefined {
   const root = document.documentElement;
   if (!root) return undefined;
   let node: Node | null = point.node;
@@ -20,11 +23,18 @@ export function createDomPath(document: Document, point: DomPoint): LocatorDomPo
   return {
     path,
     offset: point.offset,
-    nodeType: point.node.nodeType === TEXT_NODE || point.node.nodeType === CDATA_SECTION_NODE ? 'text' : 'element',
+    nodeType:
+      point.node.nodeType === TEXT_NODE ||
+      point.node.nodeType === CDATA_SECTION_NODE
+        ? 'text'
+        : 'element',
   };
 }
 
-export function resolveDomPath(document: Document, point: LocatorDomPoint): DomPoint | null {
+export function resolveDomPath(
+  document: Document,
+  point: LocatorDomPoint,
+): DomPoint | null {
   let node: Node | undefined = document.documentElement ?? undefined;
   if (!node) return null;
   for (const index of point.path) {
@@ -32,8 +42,11 @@ export function resolveDomPath(document: Document, point: LocatorDomPoint): DomP
     node = node.childNodes[index];
     if (!node) return null;
   }
-  const maximum = node.nodeType === TEXT_NODE || node.nodeType === CDATA_SECTION_NODE
-    ? node.nodeValue?.length ?? 0
-    : node.nodeType === ELEMENT_NODE ? node.childNodes.length : 0;
+  const maximum =
+    node.nodeType === TEXT_NODE || node.nodeType === CDATA_SECTION_NODE
+      ? (node.nodeValue?.length ?? 0)
+      : node.nodeType === ELEMENT_NODE
+        ? node.childNodes.length
+        : 0;
   return { node, offset: Math.max(0, Math.min(maximum, point.offset)) };
 }

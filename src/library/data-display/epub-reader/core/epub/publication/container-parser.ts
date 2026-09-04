@@ -25,7 +25,8 @@ export function parseContainerDocument(
       code: 'OCF_CONTAINER_ROOT_INVALID',
       severity: 'fatal',
       phase: 'container',
-      message: 'META-INF/container.xml does not have a <container> root element.',
+      message:
+        'META-INF/container.xml does not have a <container> root element.',
       path,
     });
     return { rootfiles: [], diagnostics };
@@ -70,8 +71,12 @@ export function parseContainerDocument(
 
     try {
       const ref = resolvePublicationReference('', fullPath);
-      if (ref.remote || !ref.path) throw new Error('rootfile must resolve inside the EPUB container');
-      rootfiles.push({ fullPath: normalizePublicationPath(ref.path), mediaType });
+      if (ref.remote || !ref.path)
+        throw new Error('rootfile must resolve inside the EPUB container');
+      rootfiles.push({
+        fullPath: normalizePublicationPath(ref.path),
+        mediaType,
+      });
     } catch (cause) {
       diagnostics.push({
         code: 'OCF_ROOTFILE_PATH_INVALID',

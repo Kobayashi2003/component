@@ -18,6 +18,35 @@ type Route =
 
 type Theme = 'light' | 'dark'
 
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.25 15.13A8.5 8.5 0 0 1 8.87 3.75a8.5 8.5 0 1 0 11.38 11.38Z" />
+    </svg>
+  )
+}
+
+function FullscreenIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {expanded ? (
+        <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
+      ) : (
+        <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
+      )}
+    </svg>
+  )
+}
+
 function parseRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   if (parts[0] === 'category' && parts[1]) return { page: 'category', category: parts[1] }
@@ -70,7 +99,7 @@ function Shell({ children }: { children: ReactNode }) {
           title={`Switch to ${nextTheme} theme`}
         >
           <span className="theme-toggle-icon" aria-hidden="true">
-            {theme === 'dark' ? '☀' : '☾'}
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </span>
           <span>{nextTheme} mode</span>
         </button>
@@ -294,7 +323,7 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
             title={isExpanded ? 'Exit full screen (Esc)' : 'Open full screen'}
           >
             <span className="fullscreen-icon" aria-hidden="true">
-              <i /><i /><i /><i />
+              <FullscreenIcon expanded={isExpanded} />
             </span>
             <span>{isExpanded ? 'Exit full screen' : 'Full screen'}</span>
           </button>

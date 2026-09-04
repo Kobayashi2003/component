@@ -21,7 +21,9 @@ export interface CompatibilityProfile {
 }
 
 /** Registry-only construction keeps every Profile validated and resolved. */
-export function createCompatibilityProfile(modules: readonly CompatibilityModule[]): CompatibilityProfile {
+export function createCompatibilityProfile(
+  modules: readonly CompatibilityModule[],
+): CompatibilityProfile {
   const frozenModules = Object.freeze([...modules]);
   return Object.freeze({
     modules: frozenModules,
@@ -31,33 +33,45 @@ export function createCompatibilityProfile(modules: readonly CompatibilityModule
     renditionPolicies: Object.freeze(modules.filter(isRenditionPolicy)),
     signature: compatibilityProfileSignature(modules),
     has(moduleId: string): boolean {
-      return frozenModules.some(module => module.id === moduleId);
+      return frozenModules.some((module) => module.id === moduleId);
     },
   });
 }
 
-export function compatibilityProfileSignature(modules: readonly CompatibilityModuleDescriptor[]): string {
-  const entries = modules.map(module => [
-    encodeURIComponent(module.family),
-    encodeURIComponent(module.stage),
-    encodeURIComponent(module.id),
-    encodeURIComponent(module.revision),
-  ].join(':'));
+export function compatibilityProfileSignature(
+  modules: readonly CompatibilityModuleDescriptor[],
+): string {
+  const entries = modules.map((module) =>
+    [
+      encodeURIComponent(module.family),
+      encodeURIComponent(module.stage),
+      encodeURIComponent(module.id),
+      encodeURIComponent(module.revision),
+    ].join(':'),
+  );
   return `epub-compat/v1${entries.length > 0 ? `;${entries.join(';')}` : ''}`;
 }
 
-function isPublicationRule(module: CompatibilityModule): module is PublicationCompatibilityRule {
+function isPublicationRule(
+  module: CompatibilityModule,
+): module is PublicationCompatibilityRule {
   return module.family === 'publication';
 }
 
-function isContentDocumentRule(module: CompatibilityModule): module is ContentDocumentCompatibilityRule {
+function isContentDocumentRule(
+  module: CompatibilityModule,
+): module is ContentDocumentCompatibilityRule {
   return module.family === 'content-document';
 }
 
-function isResourceRule(module: CompatibilityModule): module is ResourceCompatibilityRule {
+function isResourceRule(
+  module: CompatibilityModule,
+): module is ResourceCompatibilityRule {
   return module.family === 'resource';
 }
 
-function isRenditionPolicy(module: CompatibilityModule): module is RenditionCompatibilityPolicy {
+function isRenditionPolicy(
+  module: CompatibilityModule,
+): module is RenditionCompatibilityPolicy {
   return module.family === 'rendition';
 }

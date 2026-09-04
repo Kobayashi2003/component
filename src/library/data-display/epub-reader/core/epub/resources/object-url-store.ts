@@ -2,7 +2,9 @@ import type { ObjectUrlFactory } from './model';
 
 export class BrowserObjectUrlFactory implements ObjectUrlFactory {
   create(bytes: Uint8Array, mediaType: string): string {
-    return URL.createObjectURL(new Blob([copyToArrayBuffer(bytes)], { type: mediaType }));
+    return URL.createObjectURL(
+      new Blob([copyToArrayBuffer(bytes)], { type: mediaType }),
+    );
   }
 
   revoke(url: string): void {

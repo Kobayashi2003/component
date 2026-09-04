@@ -3,8 +3,16 @@ import { CloseIcon } from '../../../chrome/reader-icons';
 import type { ReaderSurfaceController } from '../use-reader-surface-controller';
 import { useReaderUiConfiguration } from '../../../configuration/context';
 import { useEpubReaderContext } from '../../context';
-import type { ReaderToolContext, ReaderToolId, ReaderToolModule } from '../../../tools/model';
-import { ReaderToolBoundary, ReaderToolContent, ReaderToolModuleIcon } from '../../../tools/ReaderToolBoundary';
+import type {
+  ReaderToolContext,
+  ReaderToolId,
+  ReaderToolModule,
+} from '../../../tools/model';
+import {
+  ReaderToolBoundary,
+  ReaderToolContent,
+  ReaderToolModuleIcon,
+} from '../../../tools/ReaderToolBoundary';
 
 interface ReaderPanelHostProps {
   readonly panel: ReaderToolId | null;
@@ -37,9 +45,12 @@ export function ReaderPanelHost({
   const reader = useEpubReaderContext();
   const { messages } = useReaderUiConfiguration();
   if (!panel) return null;
-  const activeTool = tools.find(tool => tool.id === panel);
+  const activeTool = tools.find((tool) => tool.id === panel);
   if (!activeTool) return null;
-  const openMarkEditor: ReaderToolContext['openMarkEditor'] = (mark, trigger) => {
+  const openMarkEditor: ReaderToolContext['openMarkEditor'] = (
+    mark,
+    trigger,
+  ) => {
     const shellBounds = shellRef.current?.getBoundingClientRect();
     const triggerBounds = trigger.getBoundingClientRect();
     onShowSurface({
@@ -47,7 +58,10 @@ export function ReaderPanelHost({
       activation: {
         mark,
         anchor: {
-          x: triggerBounds.left + triggerBounds.width / 2 - (shellBounds?.left ?? 0),
+          x:
+            triggerBounds.left +
+            triggerBounds.width / 2 -
+            (shellBounds?.left ?? 0),
           y: triggerBounds.bottom - (shellBounds?.top ?? 0),
         },
         returnFocus: trigger,
@@ -67,18 +81,27 @@ export function ReaderPanelHost({
     >
       <header className="epub-reader-shell__panel-head">
         <div className="epub-reader-shell__panel-context">
-          <span className="epub-reader-shell__panel-icon"><ReaderToolModuleIcon tool={activeTool} /></span>
+          <span className="epub-reader-shell__panel-icon">
+            <ReaderToolModuleIcon tool={activeTool} />
+          </span>
           <div>
             <strong id={panelTitleId}>{activeTool.label}</strong>
             <span>{activeTool.description}</span>
           </div>
         </div>
-        <button type="button" onClick={() => onClose()} aria-label={messages.closePanel(activeTool.label)}>
+        <button
+          type="button"
+          onClick={() => onClose()}
+          aria-label={messages.closePanel(activeTool.label)}
+        >
           <CloseIcon />
         </button>
       </header>
       <div className="epub-reader-shell__panel-content">
-        <ReaderToolBoundary resetKey={activeTool} fallback={<p role="alert">{messages.actionFailed}</p>}>
+        <ReaderToolBoundary
+          resetKey={activeTool}
+          fallback={<p role="alert">{messages.actionFailed}</p>}
+        >
           <ReaderToolContent
             tool={activeTool}
             context={{ reader, shortcutGroups, openMarkEditor }}

@@ -7,7 +7,11 @@ interface TouchNavigationPreviewProps {
   readonly progression: ReaderPreferences['pageProgression'];
 }
 
-export function TouchNavigationPreview({ mode, zonePercent, progression }: TouchNavigationPreviewProps) {
+export function TouchNavigationPreview({
+  mode,
+  zonePercent,
+  progression,
+}: TouchNavigationPreviewProps) {
   const style = { '--touch-zone-width': `${zonePercent}%` } as CSSProperties;
   const tap = mode === 'both' || mode === 'tap';
   const swipe = mode === 'both' || mode === 'swipe';
@@ -18,12 +22,20 @@ export function TouchNavigationPreview({ mode, zonePercent, progression }: Touch
     off: 'OFF',
   }[mode];
   return (
-    <div className={`epub-touch-preview${tap ? ' has-tap' : ''}${swipe ? ' has-swipe' : ''} is-${progression}`} style={style} aria-label={`${modeLabel.toLowerCase()} touch navigation preview`}>
+    <div
+      className={`epub-touch-preview${tap ? ' has-tap' : ''}${swipe ? ' has-swipe' : ''} is-${progression}`}
+      style={style}
+      aria-label={`${modeLabel.toLowerCase()} touch navigation preview`}
+    >
       <span className="epub-touch-preview__mode">{modeLabel}</span>
       <span className="epub-touch-preview__zone is-left" aria-hidden="true" />
       <span className="epub-touch-preview__page" aria-hidden="true" />
       <span className="epub-touch-preview__zone is-right" aria-hidden="true" />
-      {swipe ? <span className="epub-touch-preview__swipe" aria-hidden="true">→</span> : null}
+      {swipe ? (
+        <span className="epub-touch-preview__swipe" aria-hidden="true">
+          →
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -35,7 +47,12 @@ interface ComicLayoutPreviewProps {
   readonly progression: ReaderPreferences['pageProgression'];
 }
 
-export function ComicLayoutPreview({ fit, gutter, spread, progression }: ComicLayoutPreviewProps) {
+export function ComicLayoutPreview({
+  fit,
+  gutter,
+  spread,
+  progression,
+}: ComicLayoutPreviewProps) {
   const fitLabel = {
     contain: 'WHOLE PAGE',
     width: 'FIT WIDTH',
@@ -51,7 +68,13 @@ export function ComicLayoutPreview({ fit, gutter, spread, progression }: ComicLa
       <span className="epub-comic-layout-preview__mode">{fitLabel}</span>
       <div className="epub-comic-layout-preview__viewport" aria-hidden="true">
         <div className="epub-comic-layout-preview__pages">
-          {pages.map(page => <span key={page} data-page={page}><i /><i /><i /></span>)}
+          {pages.map((page) => (
+            <span key={page} data-page={page}>
+              <i />
+              <i />
+              <i />
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -67,7 +90,14 @@ interface TextLayoutPreviewProps {
   readonly vertical: boolean;
 }
 
-export function TextLayoutPreview({ fontFamily, fontSizePercent, lineHeight, marginPercent, theme, vertical }: TextLayoutPreviewProps) {
+export function TextLayoutPreview({
+  fontFamily,
+  fontSizePercent,
+  lineHeight,
+  marginPercent,
+  theme,
+  vertical,
+}: TextLayoutPreviewProps) {
   const style = {
     '--preview-font-family': fontFamily ?? 'Georgia, serif',
     '--preview-font-scale': String(fontSizePercent / 100),
@@ -80,7 +110,9 @@ export function TextLayoutPreview({ fontFamily, fontSizePercent, lineHeight, mar
       style={style}
       aria-label={`${vertical ? 'Vertical' : 'Horizontal'} text layout preview`}
     >
-      <span aria-hidden="true">{vertical ? '静かな読書の時間' : 'A quiet page for focused reading.'}</span>
+      <span aria-hidden="true">
+        {vertical ? '静かな読書の時間' : 'A quiet page for focused reading.'}
+      </span>
     </div>
   );
 }

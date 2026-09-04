@@ -53,7 +53,9 @@ export class EventDispatcher<TEvent> {
       try {
         const result = observer(event);
         if (isPromiseLike(result)) {
-          void Promise.resolve(result).catch(error => this.reportFailure({ observerId, event, error }));
+          void Promise.resolve(result).catch((error) =>
+            this.reportFailure({ observerId, event, error }),
+          );
         }
       } catch (error) {
         this.reportFailure({ observerId, event, error });
@@ -77,5 +79,7 @@ export class EventDispatcher<TEvent> {
 }
 
 function isPromiseLike(value: void | Promise<void>): value is Promise<void> {
-  return value != null && typeof (value as PromiseLike<void>).then === 'function';
+  return (
+    value != null && typeof (value as PromiseLike<void>).then === 'function'
+  );
 }

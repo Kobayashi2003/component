@@ -1,20 +1,23 @@
-import { MemoryPublicationArchive } from '../../core/epub/archive/publication-archive';
-import { loadPublicationFromArchive } from '../../core/epub/publication/loader';
-import { resolvePublicationReference } from '../../core/epub/publication/path';
-import type { ObjectUrlFactory } from '../../core/epub/resources/model';
-import { PublicationResourceSession } from '../../core/epub/resources/resource-session';
-import { ResourceResolver } from '../../core/epub/resources/resource-resolver';
-import { createBuiltInCompatibilityProfile } from '../../core/epub/compatibility';
-import { DEFAULT_READER_COMPATIBILITY_PREFERENCES } from '../../core/epub/publication';
+import { MemoryPublicationArchive } from "../../core/epub/archive/publication-archive";
+import { loadPublicationFromArchive } from "../../core/epub/publication/loader";
+import { resolvePublicationReference } from "../../core/epub/publication/path";
+import type { ObjectUrlFactory } from "../../core/epub/resources/model";
+import { PublicationResourceSession } from "../../core/epub/resources/resource-session";
+import { ResourceResolver } from "../../core/epub/resources/resource-resolver";
+import { createBuiltInCompatibilityProfile } from "../../core/epub/compatibility";
+import { DEFAULT_READER_COMPATIBILITY_PREFERENCES } from "../../core/epub/publication";
 
-const IDENTIFIER = 'urn:uuid:resource-session-fixture';
+const IDENTIFIER = "urn:uuid:resource-session-fixture";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
 class FakeObjectUrlFactory implements ObjectUrlFactory {
-  readonly created = new Map<string, { bytes: Uint8Array; mediaType: string }>();
+  readonly created = new Map<
+    string,
+    { bytes: Uint8Array; mediaType: string }
+  >();
   readonly revoked: string[] = [];
   private counter = 0;
 
@@ -37,24 +40,38 @@ class FakeObjectUrlFactory implements ObjectUrlFactory {
 
 async function main() {
   assertThrows(
-    () => resolvePublicationReference('EPUB/text/ch.xhtml', '../../../outside.txt'),
-    'traversal above the container root must be rejected',
+    () =>
+      resolvePublicationReference("EPUB/text/ch.xhtml", "../../../outside.txt"),
+    "traversal above the container root must be rejected",
   );
   assertThrows(
-    () => resolvePublicationReference('EPUB/text/ch.xhtml', '../%2e%2e/%2e%2e/outside.txt'),
-    'percent-encoded dot traversal must be rejected',
+    () =>
+      resolvePublicationReference(
+        "EPUB/text/ch.xhtml",
+        "../%2e%2e/%2e%2e/outside.txt",
+      ),
+    "percent-encoded dot traversal must be rejected",
   );
   assertThrows(
-    () => resolvePublicationReference('EPUB/text/ch.xhtml', '../images%2Fsecret.png'),
-    'encoded path separators must be rejected',
+    () =>
+      resolvePublicationReference(
+        "EPUB/text/ch.xhtml",
+        "../images%2Fsecret.png",
+      ),
+    "encoded path separators must be rejected",
   );
   assertThrows(
-    () => resolvePublicationReference('EPUB/text/ch.xhtml', '/EPUB/images/root.png'),
-    'root-relative OCF URLs are disallowed by EPUB OCF URL rules',
+    () =>
+      resolvePublicationReference(
+        "EPUB/text/ch.xhtml",
+        "/EPUB/images/root.png",
+      ),
+    "root-relative OCF URLs are disallowed by EPUB OCF URL rules",
   );
   assert(
-    resolvePublicationReference('EPUB/text/ch.xhtml', '../../shared/image.png').path === 'shared/image.png',
-    'legal traversal to the container root must remain valid',
+    resolvePublicationReference("EPUB/text/ch.xhtml", "../../shared/image.png")
+      .path === "shared/image.png",
+    "legal traversal to the container root must remain valid",
   );
 
   const rawFont = new Uint8Array(1600);
@@ -62,130 +79,262 @@ async function main() {
   const obfuscatedFont = await idpfXor(rawFont, IDENTIFIER);
 
   const archive = new MemoryPublicationArchive({
-    'mimetype': 'application/epub+zip',
-    'META-INF/container.xml': containerXml,
-    'META-INF/encryption.xml': encryptionXml,
-    'EPUB/package.opf': packageXml,
-    'EPUB/nav.xhtml': navXml,
-    'EPUB/text/ch.xhtml': '<html xmlns="http://www.w3.org/1999/xhtml"><body>Fixture</body></html>',
-    'EPUB/styles/main.css': mainCss,
-    'EPUB/styles/theme/base.css': baseCss,
-    'EPUB/images/bg.png': new Uint8Array([1, 2, 3, 4]),
-    'EPUB/images/base.png': new Uint8Array([5, 6, 7, 8]),
-    'EPUB/fonts/book.woff2': obfuscatedFont,
-    'EPUB/unmanifested.png': new Uint8Array([9, 9, 9]),
+    mimetype: "application/epub+zip",
+    "META-INF/container.xml": containerXml,
+    "META-INF/encryption.xml": encryptionXml,
+    "EPUB/package.opf": packageXml,
+    "EPUB/nav.xhtml": navXml,
+    "EPUB/text/ch.xhtml":
+      '<html xmlns="http://www.w3.org/1999/xhtml"><body>Fixture</body></html>',
+    "EPUB/styles/main.css": mainCss,
+    "EPUB/styles/theme/base.css": baseCss,
+    "EPUB/images/bg.png": new Uint8Array([1, 2, 3, 4]),
+    "EPUB/images/base.png": new Uint8Array([5, 6, 7, 8]),
+    "EPUB/fonts/book.woff2": obfuscatedFont,
+    "EPUB/unmanifested.png": new Uint8Array([9, 9, 9]),
   });
 
   const loaded = await loadPublicationFromArchive(archive);
-  assert(loaded.publication, 'resource session fixture publication must parse');
-  const compatibilityProfile = createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES);
-  const created = await ResourceResolver.create(archive, loaded.publication, compatibilityProfile, {
-    remotePolicy: 'block',
-    unmanifestedPolicy: 'warn',
-    maxResourceBytes: 1024 * 1024,
-  });
-  assert(created.diagnostics.length === 0, 'valid encryption metadata should parse without diagnostics');
+  assert(loaded.publication, "resource session fixture publication must parse");
+  const compatibilityProfile = createBuiltInCompatibilityProfile(
+    DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+  );
+  const created = await ResourceResolver.create(
+    archive,
+    loaded.publication,
+    compatibilityProfile,
+    {
+      remotePolicy: "block",
+      unmanifestedPolicy: "warn",
+      maxResourceBytes: 1024 * 1024,
+    },
+  );
+  assert(
+    created.diagnostics.length === 0,
+    "valid encryption metadata should parse without diagnostics",
+  );
   const resolver = created.resolver;
 
-  const font = await resolver.read('EPUB/styles/main.css', '../fonts/book.woff2');
-  assert(font.resource, 'obfuscated font should be readable');
-  assert(bytesEqual(font.resource.bytes, rawFont), 'IDPF-obfuscated font must be transparently deobfuscated');
+  const font = await resolver.read(
+    "EPUB/styles/main.css",
+    "../fonts/book.woff2",
+  );
+  assert(font.resource, "obfuscated font should be readable");
+  assert(
+    bytesEqual(font.resource.bytes, rawFont),
+    "IDPF-obfuscated font must be transparently deobfuscated",
+  );
 
   const publisherCompatibilityProfile = createBuiltInCompatibilityProfile({
     ...DEFAULT_READER_COMPATIBILITY_PREFERENCES,
     deobfuscateIdpfFonts: false,
     normalizeLegacyCss: false,
   });
-  const publisherFontResolver = (await ResourceResolver.create(
-    archive,
-    loaded.publication,
-    publisherCompatibilityProfile,
-    { remotePolicy: 'block' },
-  )).resolver;
-  const publisherFont = await publisherFontResolver.read('EPUB/styles/main.css', '../fonts/book.woff2');
-  assert(!publisherFont.resource, 'disabled IDPF font recovery must not expose obfuscated bytes as a browser font');
-  assert(publisherFont.diagnostics.some(diagnostic => diagnostic.code === 'RESOURCE_FONT_DEOBFUSCATION_DISABLED'), 'disabled IDPF font recovery must remain observable');
-
-  const unmanifested = await resolver.read('EPUB/text/ch.xhtml', '../unmanifested.png');
-  assert(unmanifested.resource, 'warn policy should allow an unmanifested container resource');
+  const publisherFontResolver = (
+    await ResourceResolver.create(
+      archive,
+      loaded.publication,
+      publisherCompatibilityProfile,
+      { remotePolicy: "block" },
+    )
+  ).resolver;
+  const publisherFont = await publisherFontResolver.read(
+    "EPUB/styles/main.css",
+    "../fonts/book.woff2",
+  );
   assert(
-    unmanifested.diagnostics.some(d => d.code === 'RESOURCE_NOT_IN_MANIFEST'),
-    'unmanifested fallback must remain observable through diagnostics',
+    !publisherFont.resource,
+    "disabled IDPF font recovery must not expose obfuscated bytes as a browser font",
+  );
+  assert(
+    publisherFont.diagnostics.some(
+      (diagnostic) =>
+        diagnostic.code === "RESOURCE_FONT_DEOBFUSCATION_DISABLED",
+    ),
+    "disabled IDPF font recovery must remain observable",
   );
 
-  const blockedRemote = resolver.resolve('EPUB/styles/main.css', 'https://example.com/tracker.png');
-  assert(blockedRemote.request?.remote === true, 'absolute network URL should remain classified as remote');
+  const unmanifested = await resolver.read(
+    "EPUB/text/ch.xhtml",
+    "../unmanifested.png",
+  );
   assert(
-    blockedRemote.diagnostics.some(d => d.code === 'RESOURCE_REMOTE_BLOCKED'),
-    'default test policy should explicitly diagnose blocked remote resources',
+    unmanifested.resource,
+    "warn policy should allow an unmanifested container resource",
+  );
+  assert(
+    unmanifested.diagnostics.some((d) => d.code === "RESOURCE_NOT_IN_MANIFEST"),
+    "unmanifested fallback must remain observable through diagnostics",
+  );
+
+  const blockedRemote = resolver.resolve(
+    "EPUB/styles/main.css",
+    "https://example.com/tracker.png",
+  );
+  assert(
+    blockedRemote.request?.remote === true,
+    "absolute network URL should remain classified as remote",
+  );
+  assert(
+    blockedRemote.diagnostics.some((d) => d.code === "RESOURCE_REMOTE_BLOCKED"),
+    "default test policy should explicitly diagnose blocked remote resources",
   );
 
   const factory = new FakeObjectUrlFactory();
   const session = new PublicationResourceSession(resolver, factory);
-  const materialized = await session.materialize('EPUB/text/ch.xhtml', '../styles/main.css');
-  assert(materialized.resource?.url, 'stylesheet should materialize to an object URL');
+  const materialized = await session.materialize(
+    "EPUB/text/ch.xhtml",
+    "../styles/main.css",
+  );
+  assert(
+    materialized.resource?.url,
+    "stylesheet should materialize to an object URL",
+  );
   const cssUrl = materialized.resource.url;
   const css = factory.text(cssUrl);
 
-  assert(!css.includes('../images/'), 'materialized CSS must not retain relative image references');
-  assert(!css.includes('../fonts/'), 'materialized CSS must not retain relative font references');
-  assert(css.includes('blob:fixture-'), 'local CSS dependencies should become session-owned object URLs');
-  assert(css.includes('url("#mask")'), 'fragment-only CSS references should remain document-relative');
-  assert(css.includes('data:image/png;base64,AAAA'), 'data URLs should remain inline even when remote network resources are blocked');
-  assert(css.includes('about:blank'), 'blocked remote CSS resources should not leak a network request');
   assert(
-    materialized.diagnostics.some(d => d.code === 'RESOURCE_CSS_IMPORT_CYCLE'),
-    'CSS import cycles must be detected instead of deadlocking recursive materialization',
+    !css.includes("../images/"),
+    "materialized CSS must not retain relative image references",
+  );
+  assert(
+    !css.includes("../fonts/"),
+    "materialized CSS must not retain relative font references",
+  );
+  assert(
+    css.includes("blob:fixture-"),
+    "local CSS dependencies should become session-owned object URLs",
+  );
+  assert(
+    css.includes('url("#mask")'),
+    "fragment-only CSS references should remain document-relative",
+  );
+  assert(
+    css.includes("data:image/png;base64,AAAA"),
+    "data URLs should remain inline even when remote network resources are blocked",
+  );
+  assert(
+    css.includes("about:blank"),
+    "blocked remote CSS resources should not leak a network request",
+  );
+  assert(
+    materialized.diagnostics.some(
+      (d) => d.code === "RESOURCE_CSS_IMPORT_CYCLE",
+    ),
+    "CSS import cycles must be detected instead of deadlocking recursive materialization",
   );
 
   const countBefore = session.objectUrlCount;
-  const again = await session.materialize('EPUB/text/ch.xhtml', '../styles/main.css');
-  assert(again.resource?.url === cssUrl, 'materialized stylesheet URL should be stable within one session');
-  assert(session.objectUrlCount === countBefore, 're-materialization should reuse object URL cache');
-
-  const data = await session.materialize('EPUB/text/ch.xhtml', 'data:image/svg+xml,%3Csvg/%3E');
-  assert(data.resource?.url?.startsWith('data:'), 'data URL materialization should be a passthrough');
-
-  const publisherCssSession = new PublicationResourceSession(publisherFontResolver, new FakeObjectUrlFactory());
-  const publisherCss = await publisherCssSession.rewriteInlineCss('EPUB/text/ch.xhtml', '-epub-writing-mode: vertical-rl');
-  assert(publisherCss.css.trim() === '-epub-writing-mode: vertical-rl', 'disabled legacy CSS recovery must preserve only the authored declaration');
-  assert(!publisherCss.diagnostics.some(diagnostic => diagnostic.code === 'RESOURCE_LEGACY_EPUB_CSS_NORMALIZED'), 'disabled legacy CSS recovery must not report an unapplied repair');
-  publisherCssSession.dispose();
-
-  const generated = session.createGeneratedTextUrl('resource-session-generated', '<html/>');
-  const generatedAgain = session.createGeneratedTextUrl('resource-session-generated', '<html/>');
-  assert(generated === generatedAgain, 'generated renderer-document URLs must be stable within one publication session');
-  assert(factory.text(generated) === '<html/>', 'generated text URL must preserve renderer content bytes');
-  const finalCount = session.objectUrlCount;
-  assert(finalCount === countBefore + 1, 'generated renderer content must participate in the session URL store');
-
-  session.dispose();
-  assert(factory.revoked.length === finalCount, 'disposing a publication session must revoke raw, CSS and generated object URLs');
-  await assertRejects(
-    () => session.materialize('EPUB/text/ch.xhtml', '../styles/main.css'),
-    'disposed sessions must reject further materialization',
+  const again = await session.materialize(
+    "EPUB/text/ch.xhtml",
+    "../styles/main.css",
+  );
+  assert(
+    again.resource?.url === cssUrl,
+    "materialized stylesheet URL should be stable within one session",
+  );
+  assert(
+    session.objectUrlCount === countBefore,
+    "re-materialization should reuse object URL cache",
   );
 
-  console.log('Resource session integration test: PASS');
+  const data = await session.materialize(
+    "EPUB/text/ch.xhtml",
+    "data:image/svg+xml,%3Csvg/%3E",
+  );
+  assert(
+    data.resource?.url?.startsWith("data:"),
+    "data URL materialization should be a passthrough",
+  );
+
+  const publisherCssSession = new PublicationResourceSession(
+    publisherFontResolver,
+    new FakeObjectUrlFactory(),
+  );
+  const publisherCss = await publisherCssSession.rewriteInlineCss(
+    "EPUB/text/ch.xhtml",
+    "-epub-writing-mode: vertical-rl",
+  );
+  assert(
+    publisherCss.css.trim() === "-epub-writing-mode: vertical-rl",
+    "disabled legacy CSS recovery must preserve only the authored declaration",
+  );
+  assert(
+    !publisherCss.diagnostics.some(
+      (diagnostic) => diagnostic.code === "RESOURCE_LEGACY_EPUB_CSS_NORMALIZED",
+    ),
+    "disabled legacy CSS recovery must not report an unapplied repair",
+  );
+  publisherCssSession.dispose();
+
+  const generated = session.createGeneratedTextUrl(
+    "resource-session-generated",
+    "<html/>",
+  );
+  const generatedAgain = session.createGeneratedTextUrl(
+    "resource-session-generated",
+    "<html/>",
+  );
+  assert(
+    generated === generatedAgain,
+    "generated renderer-document URLs must be stable within one publication session",
+  );
+  assert(
+    factory.text(generated) === "<html/>",
+    "generated text URL must preserve renderer content bytes",
+  );
+  const finalCount = session.objectUrlCount;
+  assert(
+    finalCount === countBefore + 1,
+    "generated renderer content must participate in the session URL store",
+  );
+
+  session.dispose();
+  assert(
+    factory.revoked.length === finalCount,
+    "disposing a publication session must revoke raw, CSS and generated object URLs",
+  );
+  await assertRejects(
+    () => session.materialize("EPUB/text/ch.xhtml", "../styles/main.css"),
+    "disposed sessions must reject further materialization",
+  );
+
+  console.log("Resource session integration test: PASS");
   console.log(`Materialized object URLs: ${countBefore}`);
   console.log(`Resource diagnostics: ${materialized.diagnostics.length}`);
 }
 
 function assertThrows(fn: () => unknown, message: string): void {
   let threw = false;
-  try { fn(); } catch { threw = true; }
+  try {
+    fn();
+  } catch {
+    threw = true;
+  }
   if (!threw) throw new Error(message);
 }
 
-async function assertRejects(fn: () => Promise<unknown>, message: string): Promise<void> {
+async function assertRejects(
+  fn: () => Promise<unknown>,
+  message: string,
+): Promise<void> {
   let threw = false;
-  try { await fn(); } catch { threw = true; }
+  try {
+    await fn();
+  } catch {
+    threw = true;
+  }
   if (!threw) throw new Error(message);
 }
 
-async function idpfXor(bytes: Uint8Array, identifier: string): Promise<Uint8Array> {
-  const normalized = identifier.replace(/\s/g, '');
-  const key = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(normalized)));
+async function idpfXor(
+  bytes: Uint8Array,
+  identifier: string,
+): Promise<Uint8Array> {
+  const normalized = identifier.replace(/\s/g, "");
+  const key = new Uint8Array(
+    await crypto.subtle.digest("SHA-1", new TextEncoder().encode(normalized)),
+  );
   const out = bytes.slice();
   const limit = Math.min(1040, out.length);
   for (let i = 0; i < limit; i += 1) out[i] = out[i]! ^ key[i % key.length]!;

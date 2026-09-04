@@ -7,22 +7,30 @@ export interface ReaderFeedbackController {
 }
 
 export function useReaderFeedback(): ReaderFeedbackController {
-  const [feedback, setFeedback] = useState<(ReaderFeedbackSpec & { readonly id: number }) | null>(null);
+  const [feedback, setFeedback] = useState<
+    (ReaderFeedbackSpec & { readonly id: number }) | null
+  >(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef(0);
 
   const show = useCallback((next: ReaderFeedbackSpec) => {
     if (timerRef.current != null) clearTimeout(timerRef.current);
     setFeedback({ ...next, id: ++idRef.current });
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      setFeedback(null);
-    }, next.tone === 'boundary' ? 1500 : 1800);
+    timerRef.current = setTimeout(
+      () => {
+        timerRef.current = null;
+        setFeedback(null);
+      },
+      next.tone === 'boundary' ? 1500 : 1800,
+    );
   }, []);
 
-  useEffect(() => () => {
-    if (timerRef.current != null) clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current != null) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   return { feedback, show };
 }

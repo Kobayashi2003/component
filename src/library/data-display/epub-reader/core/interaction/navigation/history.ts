@@ -17,7 +17,10 @@ export class ReaderNavigationHistory {
   private readonly forwardStack: Locator[] = [];
 
   constructor(private readonly limit = 64) {
-    if (!Number.isInteger(limit) || limit < 1) throw new RangeError('Navigation history limit must be a positive integer.');
+    if (!Number.isInteger(limit) || limit < 1)
+      throw new RangeError(
+        'Navigation history limit must be a positive integer.',
+      );
   }
 
   get snapshot(): ReaderNavigationHistorySnapshot {
@@ -34,8 +37,10 @@ export class ReaderNavigationHistory {
   record(origin: Locator | null, destination: Locator | null): void {
     if (!origin || !destination || sameLocator(origin, destination)) return;
     const latest = this.backStack.at(-1);
-    if (!latest || !sameLocator(latest, origin)) this.backStack.push(copyLocator(origin));
-    if (this.backStack.length > this.limit) this.backStack.splice(0, this.backStack.length - this.limit);
+    if (!latest || !sameLocator(latest, origin))
+      this.backStack.push(copyLocator(origin));
+    if (this.backStack.length > this.limit)
+      this.backStack.splice(0, this.backStack.length - this.limit);
     this.forwardStack.length = 0;
   }
 
@@ -66,7 +71,8 @@ export class ReaderNavigationHistory {
 }
 
 function sameLocator(left: Locator, right: Locator): boolean {
-  if (left.spineIndex !== right.spineIndex || left.href !== right.href) return false;
+  if (left.spineIndex !== right.spineIndex || left.href !== right.href)
+    return false;
   const a = left.locations;
   const b = right.locations;
   if (a.cfi || b.cfi) return a.cfi === b.cfi;
@@ -80,9 +86,15 @@ function copyOptional(locator: Locator | undefined): Locator | null {
 
 function copyLocator(locator: Locator): Locator {
   const dom = locator.locations.dom
-    ? Object.freeze({ ...locator.locations.dom, path: Object.freeze([...locator.locations.dom.path]) })
+    ? Object.freeze({
+        ...locator.locations.dom,
+        path: Object.freeze([...locator.locations.dom.path]),
+      })
     : undefined;
-  const locations = Object.freeze({ ...locator.locations, ...(dom ? { dom } : {}) });
+  const locations = Object.freeze({
+    ...locator.locations,
+    ...(dom ? { dom } : {}),
+  });
   const text = locator.text ? Object.freeze({ ...locator.text }) : undefined;
   return Object.freeze({ ...locator, locations, ...(text ? { text } : {}) });
 }

@@ -38,7 +38,9 @@ export class BrowserIFrameContentSurface implements ContentSurface {
   private loaded = false;
   private readonly loadTimeoutMs: number;
   private readonly stabilityPolicy: LayoutStabilityPolicy;
-  private readonly navigationMode: NonNullable<BrowserIFrameSurfaceOptions['navigationMode']>;
+  private readonly navigationMode: NonNullable<
+    BrowserIFrameSurfaceOptions['navigationMode']
+  >;
   private readonly lifecycle = new LifecycleScope();
 
   constructor(
@@ -47,13 +49,17 @@ export class BrowserIFrameContentSurface implements ContentSurface {
   ) {
     this.id = options.id ?? `epub-surface-${nextSurfaceId++}`;
     this.loadTimeoutMs = options.loadTimeoutMs ?? 10_000;
-    this.stabilityPolicy = options.stabilityPolicy ?? DEFAULT_LAYOUT_STABILITY_POLICY;
+    this.stabilityPolicy =
+      options.stabilityPolicy ?? DEFAULT_LAYOUT_STABILITY_POLICY;
     this.navigationMode = options.navigationMode ?? 'auto';
 
     const frame = ownerDocument.createElement('iframe');
     frame.dataset.epubSurfaceId = this.id;
     frame.title = options.title ?? 'EPUB content';
-    frame.setAttribute('sandbox', (options.sandboxTokens ?? ['allow-same-origin']).join(' '));
+    frame.setAttribute(
+      'sandbox',
+      (options.sandboxTokens ?? ['allow-same-origin']).join(' '),
+    );
     frame.setAttribute('referrerpolicy', 'no-referrer');
     frame.style.border = '0';
     frame.style.width = '100%';
@@ -84,13 +90,20 @@ export class BrowserIFrameContentSurface implements ContentSurface {
     this.currentState = 'mounted';
   }
 
-  async load(source: ContentSurfaceSource, signal: AbortSignal): Promise<ContentSurfaceLoadResult> {
+  async load(
+    source: ContentSurfaceSource,
+    signal: AbortSignal,
+  ): Promise<ContentSurfaceLoadResult> {
     this.assertAlive();
     if (this.currentState !== 'mounted') {
-      throw new Error(`Content surface ${this.id} must be mounted before load().`);
+      throw new Error(
+        `Content surface ${this.id} must be mounted before load().`,
+      );
     }
     if (this.loaded) {
-      throw new Error(`Content surface ${this.id} is single-load and cannot navigate to another document.`);
+      throw new Error(
+        `Content surface ${this.id} is single-load and cannot navigate to another document.`,
+      );
     }
     this.loaded = true;
     this.currentState = 'loading';
@@ -111,7 +124,9 @@ export class BrowserIFrameContentSurface implements ContentSurface {
 
       const document = this.document;
       if (!document) {
-        throw new Error(`Content surface ${this.id} loaded but its document is not accessible.`);
+        throw new Error(
+          `Content surface ${this.id} loaded but its document is not accessible.`,
+        );
       }
 
       this.currentState = 'ready';
@@ -122,10 +137,13 @@ export class BrowserIFrameContentSurface implements ContentSurface {
     }
   }
 
-  async waitForLayoutStable(signal: AbortSignal): Promise<LayoutStabilityReport> {
+  async waitForLayoutStable(
+    signal: AbortSignal,
+  ): Promise<LayoutStabilityReport> {
     this.assertAlive();
     const document = this.document;
-    if (!document) throw new Error(`Content surface ${this.id} has no accessible document.`);
+    if (!document)
+      throw new Error(`Content surface ${this.id} has no accessible document.`);
 
     const operation = new AbortController();
     const unlinkTransaction = linkAbortSignal(signal, operation);
@@ -156,7 +174,10 @@ export class BrowserIFrameContentSurface implements ContentSurface {
     this.element.remove();
   }
 
-  private navigateOnce(source: ContentSurfaceSource, signal: AbortSignal): Promise<void> {
+  private navigateOnce(
+    source: ContentSurfaceSource,
+    signal: AbortSignal,
+  ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       let finished = false;
       const timer = setTimeout(
@@ -178,8 +199,12 @@ export class BrowserIFrameContentSurface implements ContentSurface {
         else resolve();
       };
       const onLoad = () => finish();
-      const onError = () => finish(new Error(`Content surface ${this.id} failed to load.`));
-      const onAbort = () => finish(signal.reason instanceof Error ? signal.reason : createAbortError());
+      const onError = () =>
+        finish(new Error(`Content surface ${this.id} failed to load.`));
+      const onAbort = () =>
+        finish(
+          signal.reason instanceof Error ? signal.reason : createAbortError(),
+        );
 
       this.element.addEventListener('load', onLoad, { once: true });
       this.element.addEventListener('error', onError, { once: true });
@@ -220,14 +245,20 @@ async function selectNavigationSource(
   const fallback: ContentSurfaceSource = {
     kind: 'srcdoc',
     html: source.srcdocFallback.html,
-    ...(source.srcdocFallback.baseHref ? { baseHref: source.srcdocFallback.baseHref } : {}),
+    ...(source.srcdocFallback.baseHref
+      ? { baseHref: source.srcdocFallback.baseHref }
+      : {}),
   };
   if (mode === 'srcdoc') return fallback;
   if (mode === 'url' || !source.url.startsWith('blob:')) return source;
-  return await supportsBlobIframeNavigation(ownerDocument) ? source : fallback;
+  return (await supportsBlobIframeNavigation(ownerDocument))
+    ? source
+    : fallback;
 }
 
-function supportsBlobIframeNavigation(ownerDocument: Document): Promise<boolean> {
+function supportsBlobIframeNavigation(
+  ownerDocument: Document,
+): Promise<boolean> {
   const existing = blobIframeSupport.get(ownerDocument);
   if (existing) return existing;
   const probe = probeBlobIframeNavigation(ownerDocument);
@@ -236,10 +267,14 @@ function supportsBlobIframeNavigation(ownerDocument: Document): Promise<boolean>
 }
 
 function probeBlobIframeNavigation(ownerDocument: Document): Promise<boolean> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const win = ownerDocument.defaultView;
     const parent = ownerDocument.body ?? ownerDocument.documentElement;
-    if (!win || !parent || !('srcdoc' in ownerDocument.createElement('iframe'))) {
+    if (
+      !win ||
+      !parent ||
+      !('srcdoc' in ownerDocument.createElement('iframe'))
+    ) {
       resolve(false);
       return;
     }
@@ -247,13 +282,17 @@ function probeBlobIframeNavigation(ownerDocument: Document): Promise<boolean> {
     const frame = ownerDocument.createElement('iframe');
     frame.setAttribute('sandbox', 'allow-same-origin');
     frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-10000px;top:-10000px;visibility:hidden;';
+    frame.style.cssText =
+      'position:fixed;width:1px;height:1px;left:-10000px;top:-10000px;visibility:hidden;';
     parent.appendChild(frame);
 
     const marker = 'epub-reader-surface-probe';
-    const blob = new win.Blob([
-      `<!doctype html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${marker}</title></head><body></body></html>`,
-    ], { type: 'application/xhtml+xml;charset=utf-8' });
+    const blob = new win.Blob(
+      [
+        `<!doctype html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${marker}</title></head><body></body></html>`,
+      ],
+      { type: 'application/xhtml+xml;charset=utf-8' },
+    );
     const url = win.URL.createObjectURL(blob);
     let finished = false;
     const timer = win.setTimeout(() => finish(false), 750);
@@ -283,10 +322,13 @@ function injectBaseHref(html: string, baseHref: string): string {
   const base = `<base href="${escaped}">`;
 
   if (/<head(?:\s[^>]*)?>/i.test(html)) {
-    return html.replace(/<head(\s[^>]*)?>/i, match => `${match}${base}`);
+    return html.replace(/<head(\s[^>]*)?>/i, (match) => `${match}${base}`);
   }
   if (/<html(?:\s[^>]*)?>/i.test(html)) {
-    return html.replace(/<html(\s[^>]*)?>/i, match => `${match}<head>${base}</head>`);
+    return html.replace(
+      /<html(\s[^>]*)?>/i,
+      (match) => `${match}<head>${base}</head>`,
+    );
   }
   return `<html><head>${base}</head><body>${html}</body></html>`;
 }

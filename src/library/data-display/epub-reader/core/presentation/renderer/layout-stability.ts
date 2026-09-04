@@ -20,7 +20,11 @@ export async function waitForLayoutStability(
   let imageReport = { requested: 0, decoded: 0, failed: 0, timedOut: false };
 
   if (policy.waitForFonts) {
-    const result = await settleBeforeDeadline(() => target.waitForFonts(signal), deadline, signal);
+    const result = await settleBeforeDeadline(
+      () => target.waitForFonts(signal),
+      deadline,
+      signal,
+    );
     fonts = result === 'done' ? 'ready' : 'timed-out';
   }
 
@@ -45,7 +49,8 @@ export async function waitForLayoutStability(
   }
 
   const frames = await waitForStableGeometry(target, signal, policy, deadline);
-  const timedOut = frames.timedOut || fonts === 'timed-out' || imageReport.timedOut;
+  const timedOut =
+    frames.timedOut || fonts === 'timed-out' || imageReport.timedOut;
 
   return {
     status: timedOut ? 'timed-out' : 'stable',
@@ -70,9 +75,12 @@ async function waitForStableGeometry(
 ): Promise<StableGeometryResult> {
   let resizeVersion = 0;
   let seenResizeVersion = 0;
-  const stopObserving = policy.observeResize && target.observeResize
-    ? target.observeResize(() => { resizeVersion += 1; })
-    : () => {};
+  const stopObserving =
+    policy.observeResize && target.observeResize
+      ? target.observeResize(() => {
+          resizeVersion += 1;
+        })
+      : () => {};
 
   let previous = target.measure();
   let stableFrames = 0;
@@ -146,7 +154,9 @@ function waitForFrame(
       if (finished) return;
       finished = true;
       cleanup();
-      reject(signal.reason instanceof Error ? signal.reason : createAbortError());
+      reject(
+        signal.reason instanceof Error ? signal.reason : createAbortError(),
+      );
     };
 
     signal.addEventListener('abort', onAbort, { once: true });
@@ -176,10 +186,14 @@ async function settleBeforeDeadline(
   deadline: number,
   signal: AbortSignal,
 ): Promise<'done' | 'timed-out'> {
-  const result = await settleValueBeforeDeadline(async () => {
-    await operation();
-    return undefined;
-  }, deadline, signal);
+  const result = await settleValueBeforeDeadline(
+    async () => {
+      await operation();
+      return undefined;
+    },
+    deadline,
+    signal,
+  );
   return result.status;
 }
 
@@ -201,10 +215,14 @@ async function settleValueBeforeDeadline<T>(
       finished = true;
       clearTimeout(timer);
       signal.removeEventListener('abort', onAbort);
-      reject(signal.reason instanceof Error ? signal.reason : createAbortError());
+      reject(
+        signal.reason instanceof Error ? signal.reason : createAbortError(),
+      );
     };
 
-    const finish = (value: { status: 'done'; value: T } | { status: 'timed-out' }) => {
+    const finish = (
+      value: { status: 'done'; value: T } | { status: 'timed-out' },
+    ) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
@@ -230,8 +248,8 @@ async function settleValueBeforeDeadline<T>(
     }
 
     pending.then(
-      value => finish({ status: 'done', value }),
-      error => {
+      (value) => finish({ status: 'done', value }),
+      (error) => {
         if (signal.aborted) onAbort();
         else {
           finished = true;
@@ -249,12 +267,14 @@ function remaining(deadline: number): number {
 }
 
 function sameMeasurement(a: LayoutMeasurement, b: LayoutMeasurement): boolean {
-  return a.clientWidth === b.clientWidth
-    && a.clientHeight === b.clientHeight
-    && a.scrollWidth === b.scrollWidth
-    && a.scrollHeight === b.scrollHeight
-    && sameExtent(a.contentWidth, b.contentWidth)
-    && sameExtent(a.contentHeight, b.contentHeight);
+  return (
+    a.clientWidth === b.clientWidth &&
+    a.clientHeight === b.clientHeight &&
+    a.scrollWidth === b.scrollWidth &&
+    a.scrollHeight === b.scrollHeight &&
+    sameExtent(a.contentWidth, b.contentWidth) &&
+    sameExtent(a.contentHeight, b.contentHeight)
+  );
 }
 
 /**
@@ -268,9 +288,13 @@ function sameExtent(a: number | undefined, b: number | undefined): boolean {
 
 function validatePolicy(policy: LayoutStabilityPolicy): void {
   if (!Number.isFinite(policy.timeoutMs) || policy.timeoutMs <= 0) {
-    throw new RangeError('Layout stability timeoutMs must be a positive finite number.');
+    throw new RangeError(
+      'Layout stability timeoutMs must be a positive finite number.',
+    );
   }
   if (!Number.isInteger(policy.stableFrames) || policy.stableFrames < 1) {
-    throw new RangeError('Layout stability stableFrames must be an integer >= 1.');
+    throw new RangeError(
+      'Layout stability stableFrames must be an integer >= 1.',
+    );
   }
 }

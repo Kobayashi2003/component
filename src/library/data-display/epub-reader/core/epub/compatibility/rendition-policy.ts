@@ -44,15 +44,19 @@ export function runRenditionCompatibilityPolicies(
     try {
       const result = policy.apply(context, value);
       if (typeof result.value.fitSingleImagePage !== 'boolean') {
-        throw new TypeError('Rendition compatibility fitSingleImagePage directive must be boolean.');
+        throw new TypeError(
+          'Rendition compatibility fitSingleImagePage directive must be boolean.',
+        );
       }
       value = Object.freeze({ ...result.value });
       diagnostics.push(...(result.diagnostics ?? []));
     } catch (error) {
-      diagnostics.push(compatibilityModuleFailureDiagnostic(policy, error, {
-        path: context.spineItem.path,
-        spineIndex: context.spineItem.index,
-      }));
+      diagnostics.push(
+        compatibilityModuleFailureDiagnostic(policy, error, {
+          path: context.spineItem.path,
+          spineIndex: context.spineItem.index,
+        }),
+      );
     }
   }
   return Object.freeze({ value, diagnostics: Object.freeze(diagnostics) });

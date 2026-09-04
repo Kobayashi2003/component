@@ -11,14 +11,22 @@ export interface ReaderFeedbackSpec {
 
 export function feedbackForReaderEvent(
   event: ReaderEvent,
-  messages?: Pick<ReaderUiMessages, 'bookmarkSaved' | 'beginningOfBook' | 'endOfBook'>,
+  messages?: Pick<
+    ReaderUiMessages,
+    'bookmarkSaved' | 'beginningOfBook' | 'endOfBook'
+  >,
 ): ReaderFeedbackSpec | null {
-  if (event.type === 'bookmark-added') return { message: messages?.bookmarkSaved ?? 'Bookmark saved', tone: 'success' };
+  if (event.type === 'bookmark-added')
+    return {
+      message: messages?.bookmarkSaved ?? 'Bookmark saved',
+      tone: 'success',
+    };
   if (event.type === 'navigation-boundary') {
     return {
-      message: event.edge === 'start'
-        ? messages?.beginningOfBook ?? 'Beginning of book'
-        : messages?.endOfBook ?? 'End of book',
+      message:
+        event.edge === 'start'
+          ? (messages?.beginningOfBook ?? 'Beginning of book')
+          : (messages?.endOfBook ?? 'End of book'),
       tone: 'boundary',
       edge: event.edge,
     };

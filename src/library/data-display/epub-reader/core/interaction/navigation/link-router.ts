@@ -8,7 +8,9 @@ export interface PublicationLinkRouterOptions {
   readonly onExternalLink?: (target: ExternalLinkTarget) => void;
   readonly onUnresolvedPublicationLink?: (href: string) => void;
   /** Return true when the host displayed the referenced note without navigation. */
-  readonly onFootnoteLink?: (activation: FootnoteLinkActivation) => boolean | Promise<boolean>;
+  readonly onFootnoteLink?: (
+    activation: FootnoteLinkActivation,
+  ) => boolean | Promise<boolean>;
 }
 
 export type ExternalLinkKind = 'website' | 'email' | 'phone';
@@ -20,10 +22,13 @@ export interface ExternalLinkTarget {
 }
 
 /** The single protocol-policy decision used before a host receives an external link. */
-export function resolveExternalLinkTarget(href: string): ExternalLinkTarget | null {
+export function resolveExternalLinkTarget(
+  href: string,
+): ExternalLinkTarget | null {
   const normalized = href.trim();
   const scheme = externalScheme(normalized);
-  if (scheme === 'http' || scheme === 'https') return { kind: 'website', href: normalized };
+  if (scheme === 'http' || scheme === 'https')
+    return { kind: 'website', href: normalized };
   if (scheme === 'mailto') return { kind: 'email', href: normalized };
   if (scheme === 'tel') return { kind: 'phone', href: normalized };
   return null;
@@ -41,7 +46,7 @@ export class PublicationLinkRouter {
   ) {}
 
   syncDocuments(contexts: readonly RendererContentDocument[]): void {
-    const live = new Set(contexts.map(context => context.document));
+    const live = new Set(contexts.map((context) => context.document));
     for (const [document, cleanup] of this.cleanups) {
       if (!live.has(document)) {
         cleanup();
@@ -94,7 +99,9 @@ export class PublicationLinkRouter {
       }
     }
     const resource = stripFragment(href);
-    const inSpine = this.publication.spine.some(item => stripFragment(item.href) === resource);
+    const inSpine = this.publication.spine.some(
+      (item) => stripFragment(item.href) === resource,
+    );
     if (!inSpine) {
       this.options.onUnresolvedPublicationLink?.(href);
       return;
@@ -111,7 +118,7 @@ export class PublicationLinkRouter {
 function closestAnchor(target: EventTarget | null): Element | null {
   if (!target || typeof target !== 'object') return null;
   const node = target as Node;
-  const element = node.nodeType === 1 ? node as Element : node.parentElement;
+  const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
   return element?.closest('a[data-epub-href]') ?? null;
 }
 

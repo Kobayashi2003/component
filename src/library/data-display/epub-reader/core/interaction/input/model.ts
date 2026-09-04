@@ -7,13 +7,22 @@ export type ReaderHostCommand =
   | { readonly type: 'escape'; readonly source: InputSource };
 
 export type ReaderCommand =
-  | { readonly type: 'navigate'; readonly direction: 'forward' | 'backward'; readonly source: InputSource }
+  | {
+      readonly type: 'navigate';
+      readonly direction: 'forward' | 'backward';
+      readonly source: InputSource;
+    }
   | ReaderHostCommand
   | { readonly type: 'history-back'; readonly source: InputSource }
   | { readonly type: 'history-forward'; readonly source: InputSource }
-  | { readonly type: 'font-step'; readonly delta: 1 | -1; readonly source: InputSource };
+  | {
+      readonly type: 'font-step';
+      readonly delta: 1 | -1;
+      readonly source: InputSource;
+    };
 
-export type InputSource = 'keyboard' | 'wheel' | 'click-zone' | 'center-tap' | 'swipe';
+export type InputSource =
+  'keyboard' | 'wheel' | 'click-zone' | 'center-tap' | 'swipe';
 
 export interface ReaderInputPolicy {
   readonly keyboard: boolean;
@@ -56,9 +65,23 @@ export interface ReaderInputDispatcher {
 
 export type ReaderInputSignal =
   | ({ readonly kind: 'keyboard' } & import('./commands').KeyLike)
-  | { readonly kind: 'wheel'; readonly deltaY: number; readonly modified: boolean }
-  | { readonly kind: 'page-click'; readonly clientX: number; readonly width: number; readonly ratio: number; readonly edgeNavigation: boolean }
-  | { readonly kind: 'swipe'; readonly deltaX: number; readonly threshold: number };
+  | {
+      readonly kind: 'wheel';
+      readonly deltaY: number;
+      readonly modified: boolean;
+    }
+  | {
+      readonly kind: 'page-click';
+      readonly clientX: number;
+      readonly width: number;
+      readonly ratio: number;
+      readonly edgeNavigation: boolean;
+    }
+  | {
+      readonly kind: 'swipe';
+      readonly deltaX: number;
+      readonly threshold: number;
+    };
 
 export interface ReaderShortcutItem {
   readonly keys: readonly string[];
@@ -85,10 +108,16 @@ export interface ReaderInputBinding {
 
 export interface ReaderInputResolution {
   readonly command: ReaderCommand | null;
-  readonly failures: readonly { readonly bindingId: string; readonly error: unknown }[];
+  readonly failures: readonly {
+    readonly bindingId: string;
+    readonly error: unknown;
+  }[];
 }
 
 export interface ReaderInputMap {
   readonly description: ReaderInputMapDescription;
-  resolve(signal: ReaderInputSignal, state: ReaderInputState): ReaderInputResolution;
+  resolve(
+    signal: ReaderInputSignal,
+    state: ReaderInputState,
+  ): ReaderInputResolution;
 }

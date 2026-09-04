@@ -2,11 +2,7 @@ import type { Locator } from '../../epub/publication';
 import type { RenditionPlan, RendererKind } from '../rendition';
 
 export type RendererHostStatus =
-  | 'idle'
-  | 'rendering'
-  | 'ready'
-  | 'error'
-  | 'disposed';
+  'idle' | 'rendering' | 'ready' | 'error' | 'disposed';
 
 export type ReadingDirection = 'forward' | 'backward';
 
@@ -54,13 +50,14 @@ export interface LayoutStabilityPolicy {
   readonly observeResize: boolean;
 }
 
-export const DEFAULT_LAYOUT_STABILITY_POLICY: LayoutStabilityPolicy = Object.freeze({
-  timeoutMs: 4_000,
-  stableFrames: 2,
-  waitForFonts: true,
-  decodeImages: true,
-  observeResize: true,
-});
+export const DEFAULT_LAYOUT_STABILITY_POLICY: LayoutStabilityPolicy =
+  Object.freeze({
+    timeoutMs: 4_000,
+    stableFrames: 2,
+    waitForFonts: true,
+    decodeImages: true,
+    observeResize: true,
+  });
 
 export interface LayoutStabilityReport {
   readonly status: 'stable' | 'timed-out';
@@ -81,18 +78,16 @@ export interface LayoutStabilityReport {
  */
 export interface LayoutStabilityTarget {
   waitForFonts(signal: AbortSignal): Promise<void>;
-  decodeImages(signal: AbortSignal): Promise<{ decoded: number; failed: number; total: number }>;
+  decodeImages(
+    signal: AbortSignal,
+  ): Promise<{ decoded: number; failed: number; total: number }>;
   measure(): LayoutMeasurement;
   requestFrame(callback: () => void): () => void;
   observeResize?(callback: () => void): () => void;
 }
 
 export type ContentSurfaceState =
-  | 'created'
-  | 'mounted'
-  | 'loading'
-  | 'ready'
-  | 'disposed';
+  'created' | 'mounted' | 'loading' | 'ready' | 'disposed';
 
 export type ContentSurfaceSource =
   | {
@@ -127,7 +122,10 @@ export interface ContentSurface {
   readonly document: Document | null;
 
   mount(parent: HTMLElement): void;
-  load(source: ContentSurfaceSource, signal: AbortSignal): Promise<ContentSurfaceLoadResult>;
+  load(
+    source: ContentSurfaceSource,
+    signal: AbortSignal,
+  ): Promise<ContentSurfaceLoadResult>;
   waitForLayoutStable(signal: AbortSignal): Promise<LayoutStabilityReport>;
   dispose(): void;
 }
@@ -190,21 +188,39 @@ export interface RendererInstance {
   readonly kind: RendererKind;
 
   /** First render for this instance. */
-  mount(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void>;
+  mount(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void>;
 
   /** Relayout the same active renderer (preferences/viewport/etc.). */
-  update(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void>;
+  update(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void>;
 
-  captureLocator(transaction: LayoutTransactionContext): Promise<Locator | null>;
+  captureLocator(
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null>;
   /** Restores and returns a healed locator when a resilient channel was used. */
-  restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null>;
-  navigate(direction: ReadingDirection, transaction: LayoutTransactionContext): Promise<RendererNavigationResult>;
-  waitForLayoutStable(transaction: LayoutTransactionContext): Promise<LayoutStabilityReport>;
+  restoreLocator(
+    locator: Locator,
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null>;
+  navigate(
+    direction: ReadingDirection,
+    transaction: LayoutTransactionContext,
+  ): Promise<RendererNavigationResult>;
+  waitForLayoutStable(
+    transaction: LayoutTransactionContext,
+  ): Promise<LayoutStabilityReport>;
   snapshot(): RendererLayoutSnapshot;
   /** Live documents exposed to non-mutating reader feature layers. */
   contentDocuments?(): readonly RendererContentDocument[];
   /** Native scrolling can change geometry without a navigation transaction. */
-  onLayoutChange?(listener: (layout: RendererLayoutSnapshot) => void): () => void;
+  onLayoutChange?(
+    listener: (layout: RendererLayoutSnapshot) => void,
+  ): () => void;
   /** Optional visual activation gate used for atomic renderer replacement. */
   setVisibility?(visible: boolean): void;
   dispose(): void;

@@ -1,17 +1,10 @@
 import type {
-  ContentPresentationHints,
   PublicationDiagnostic,
   PublicationPath,
   SpineItem,
-  TextDirection,
-  WritingMode,
 } from '../publication';
-import { resolvePublicationDocumentBase, resolvePublicationDocumentReference } from '../publication';
-import { inspectXhtmlIntrinsicViewport } from './intrinsic-viewport';
-import {
-  PublicationResourceSession,
-  rewriteCssReferences,
-} from '../resources';
+import { resolvePublicationDocumentReference } from '../publication';
+import { PublicationResourceSession, rewriteCssReferences } from '../resources';
 import type { ContentDocumentParseMode } from '../compatibility';
 import type {
   BrowserXmlPlatform,
@@ -19,11 +12,25 @@ import type {
   ParsedContentDocument,
   XhtmlMaterializerOptions,
 } from './model';
+import { neutralizeDocumentBases } from './xhtml-materializer/document-base';
+import { annotateNavigationLinks } from './xhtml-materializer/navigation-links';
+import { inspectStaticPresentationHints } from './xhtml-materializer/presentation-hints';
+import { referenceHrefWithFragment } from './xhtml-materializer/reference';
+import {
+  disableAutomaticDocumentNavigation,
+  disableScripts,
+  forceDeterministicImageLoading,
+} from './xhtml-materializer/security';
+import {
+  formatSrcsetCandidate,
+  parseSrcset,
+} from './xhtml-materializer/srcset';
+
+export { parseSrcset } from './xhtml-materializer/srcset';
 
 const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
-const XML_NS = 'http://www.w3.org/XML/1998/namespace';
 
 /**
  * Builds a self-contained browser-loadable XHTML document from a spine item.
@@ -38,10 +45,14 @@ export async function materializeParsedXhtmlSpineItem(
   options: XhtmlMaterializerOptions = {},
 ): Promise<MaterializedContentDocument> {
   if (item.remote || !item.path) {
-    throw new Error(`XHTML materializer requires a container-local spine item: ${item.href}.`);
+    throw new Error(
+      `XHTML materializer requires a container-local spine item: ${item.href}.`,
+    );
   }
   if (!isXhtmlMediaType(item.mediaType)) {
-    throw new Error(`XHTML materializer cannot render media type ${item.mediaType}.`);
+    throw new Error(
+      `XHTML materializer cannot render media type ${item.mediaType}.`,
+    );
   }
 
   const diagnostics: PublicationDiagnostic[] = [...parsedContent.diagnostics];
@@ -52,12 +63,25 @@ export async function materializeParsedXhtmlSpineItem(
   }
   disableAutomaticDocumentNavigation(document, diagnostics, item.path);
 
-  const baseHref = inspectAndNeutralizeDocumentBase(document, item.path, diagnostics);
-  const xmlBases = inspectAndNeutralizeXmlBases(document, item.path, baseHref, diagnostics);
+  const { documentBaseHref: baseHref, elementBaseHrefs } =
+    neutralizeDocumentBases(document, item.path, diagnostics);
   forceDeterministicImageLoading(document);
-  await rewriteDocumentResources(document, item.path, baseHref, xmlBases, session, diagnostics);
+  await rewriteDocumentResources(
+    document,
+    item.path,
+    baseHref,
+    elementBaseHrefs,
+    session,
+    diagnostics,
+  );
   if (options.annotateLinks ?? true) {
-    annotateNavigationLinks(document, item.path, baseHref, xmlBases, diagnostics);
+    annotateNavigationLinks(
+      document,
+      item.path,
+      baseHref,
+      elementBaseHrefs,
+      diagnostics,
+    );
   }
 
   const hints = inspectStaticPresentationHints(document);
@@ -83,8 +107,12 @@ export function parseXhtmlContentDocument(
   path: PublicationPath,
   platform: BrowserXmlPlatform,
   parseMode: ContentDocumentParseMode = 'xml',
-): { readonly document: Document; readonly diagnostics: readonly PublicationDiagnostic[] } {
-  const mediaType = parseMode === 'html-recovery' ? 'text/html' : 'application/xhtml+xml';
+): {
+  readonly document: Document;
+  readonly diagnostics: readonly PublicationDiagnostic[];
+} {
+  const mediaType =
+    parseMode === 'html-recovery' ? 'text/html' : 'application/xhtml+xml';
   const document = platform.parseXml(source, mediaType);
   assertParsedXhtml(document, path);
   return { document, diagnostics: [] };
@@ -105,41 +133,107 @@ async function rewriteDocumentResources(
     const local = element.localName.toLowerCase();
     const elementBaseHref = xmlBases.get(element) ?? baseHref;
 
-    if (namespace === XHTML_NS && local === 'link' && hasRelToken(element, 'stylesheet')) {
-      await rewriteUrlAttribute(element, 'href', basePath, elementBaseHref, session, diagnostics);
+    if (
+      namespace === XHTML_NS &&
+      local === 'link' &&
+      hasRelToken(element, 'stylesheet')
+    ) {
+      await rewriteUrlAttribute(
+        element,
+        'href',
+        basePath,
+        elementBaseHref,
+        session,
+        diagnostics,
+      );
       continue;
     }
 
     if ((namespace === XHTML_NS || namespace === SVG_NS) && local === 'style') {
-      const css = await rewriteDocumentInlineCss(basePath, elementBaseHref, element.textContent ?? '', session);
+      const css = await rewriteDocumentInlineCss(
+        basePath,
+        elementBaseHref,
+        element.textContent ?? '',
+        session,
+      );
       diagnostics.push(...css.diagnostics);
       element.textContent = css.css;
       continue;
     }
 
     if (element.hasAttribute('style')) {
-      const css = await rewriteDocumentInlineCss(basePath, elementBaseHref, element.getAttribute('style') ?? '', session);
+      const css = await rewriteDocumentInlineCss(
+        basePath,
+        elementBaseHref,
+        element.getAttribute('style') ?? '',
+        session,
+      );
       diagnostics.push(...css.diagnostics);
       element.setAttribute('style', css.css);
     }
 
     if (namespace === XHTML_NS) {
-      if (['img', 'audio', 'video', 'source', 'track', 'input', 'embed', 'iframe'].includes(local)) {
-        await rewriteUrlAttribute(element, 'src', basePath, elementBaseHref, session, diagnostics);
+      if (
+        [
+          'img',
+          'audio',
+          'video',
+          'source',
+          'track',
+          'input',
+          'embed',
+          'iframe',
+        ].includes(local)
+      ) {
+        await rewriteUrlAttribute(
+          element,
+          'src',
+          basePath,
+          elementBaseHref,
+          session,
+          diagnostics,
+        );
       }
       if (local === 'video') {
-        await rewriteUrlAttribute(element, 'poster', basePath, elementBaseHref, session, diagnostics);
+        await rewriteUrlAttribute(
+          element,
+          'poster',
+          basePath,
+          elementBaseHref,
+          session,
+          diagnostics,
+        );
       }
       if (local === 'object') {
-        await rewriteUrlAttribute(element, 'data', basePath, elementBaseHref, session, diagnostics);
+        await rewriteUrlAttribute(
+          element,
+          'data',
+          basePath,
+          elementBaseHref,
+          session,
+          diagnostics,
+        );
       }
       if (local === 'img' || local === 'source') {
-        await rewriteSrcsetAttribute(element, basePath, elementBaseHref, session, diagnostics);
+        await rewriteSrcsetAttribute(
+          element,
+          basePath,
+          elementBaseHref,
+          session,
+          diagnostics,
+        );
       }
     }
 
     if (namespace === SVG_NS && ['image', 'use'].includes(local)) {
-      await rewriteUrlAttribute(element, 'href', basePath, elementBaseHref, session, diagnostics);
+      await rewriteUrlAttribute(
+        element,
+        'href',
+        basePath,
+        elementBaseHref,
+        session,
+        diagnostics,
+      );
       if (element.hasAttributeNS(XLINK_NS, 'href')) {
         await rewriteNamespacedUrlAttribute(
           element,
@@ -168,7 +262,12 @@ async function rewriteUrlAttribute(
   if (!authored) return;
   if (authored.startsWith('#') && !baseHref) return;
 
-  const result = await materializeDocumentReference(basePath, baseHref, authored, session);
+  const result = await materializeDocumentReference(
+    basePath,
+    baseHref,
+    authored,
+    session,
+  );
   diagnostics.push(...result.diagnostics);
   element.setAttribute(attribute, result.resource?.url ?? 'about:blank');
 }
@@ -185,9 +284,18 @@ async function rewriteNamespacedUrlAttribute(
   const authored = element.getAttributeNS(namespace, 'href')?.trim() ?? '';
   if (!authored) return;
   if (authored.startsWith('#') && !baseHref) return;
-  const result = await materializeDocumentReference(basePath, baseHref, authored, session);
+  const result = await materializeDocumentReference(
+    basePath,
+    baseHref,
+    authored,
+    session,
+  );
   diagnostics.push(...result.diagnostics);
-  element.setAttributeNS(namespace, qualifiedName, result.resource?.url ?? 'about:blank');
+  element.setAttributeNS(
+    namespace,
+    qualifiedName,
+    result.resource?.url ?? 'about:blank',
+  );
 }
 
 async function rewriteSrcsetAttribute(
@@ -204,31 +312,48 @@ async function rewriteSrcsetAttribute(
   const rewritten: string[] = [];
   for (const candidate of candidates) {
     if (/^data:/i.test(candidate.url)) {
-      rewritten.push(formatSrcsetCandidate(candidate.url, candidate.descriptor));
+      rewritten.push(formatSrcsetCandidate(candidate));
       continue;
     }
-    const result = await materializeDocumentReference(basePath, baseHref, candidate.url, session);
+    const result = await materializeDocumentReference(
+      basePath,
+      baseHref,
+      candidate.url,
+      session,
+    );
     diagnostics.push(...result.diagnostics);
-    rewritten.push(formatSrcsetCandidate(result.resource?.url ?? 'about:blank', candidate.descriptor));
+    rewritten.push(
+      formatSrcsetCandidate({
+        url: result.resource?.url ?? 'about:blank',
+        descriptor: candidate.descriptor,
+      }),
+    );
   }
   element.setAttribute('srcset', rewritten.join(', '));
 }
-
 
 async function rewriteDocumentInlineCss(
   basePath: PublicationPath,
   baseHref: string | undefined,
   cssText: string,
   session: PublicationResourceSession,
-): Promise<{ readonly css: string; readonly diagnostics: readonly PublicationDiagnostic[] }> {
+): Promise<{
+  readonly css: string;
+  readonly diagnostics: readonly PublicationDiagnostic[];
+}> {
   const diagnostics: PublicationDiagnostic[] = [];
-  const rewritten = await rewriteCssReferences(cssText, async source => {
+  const rewritten = await rewriteCssReferences(cssText, async (source) => {
     const trimmed = source.trim();
     if (/^data:/i.test(trimmed)) return source;
     if (trimmed.startsWith('#') && !baseHref) return source;
 
     try {
-      const result = await materializeDocumentReference(basePath, baseHref, source, session);
+      const result = await materializeDocumentReference(
+        basePath,
+        baseHref,
+        source,
+        session,
+      );
       diagnostics.push(...result.diagnostics);
       return result.resource?.url ?? 'about:blank';
     } catch (cause) {
@@ -252,301 +377,18 @@ async function materializeDocumentReference(
   source: string,
   session: PublicationResourceSession,
 ) {
-  const resolved = resolvePublicationDocumentReference(basePath, baseHref, source);
-  return session.materialize('', referenceHrefWithFragment(resolved));
-}
-
-
-function referenceHrefWithFragment(
-  resolved: ReturnType<typeof resolvePublicationDocumentReference>,
-): string {
-  if (!resolved.remote || !resolved.fragment) return resolved.href;
-  const url = new URL(resolved.href);
-  url.hash = resolved.fragment;
-  return url.href;
-}
-
-function inspectAndNeutralizeDocumentBase(
-  document: Document,
-  path: PublicationPath,
-  diagnostics: PublicationDiagnostic[],
-): string | undefined {
-  const bases = Array.from(document.getElementsByTagNameNS(XHTML_NS, 'base'));
-  for (const candidate of bases) {
-    const target = candidate.getAttribute('target');
-    if (target) {
-      candidate.setAttribute('data-epub-authored-target', target);
-      candidate.removeAttribute('target');
-    }
-  }
-  const base = bases.find(element => element.hasAttribute('href'));
-  const href = base?.getAttribute('href')?.trim() || undefined;
-  if (!base || !href) return undefined;
-
-  try {
-    // Validate now so every later resource rewrite has the same failure boundary.
-    resolvePublicationDocumentReference(path, href, '');
-    base.setAttribute('data-epub-authored-href', href);
-    base.removeAttribute('href');
-    diagnostics.push({
-      code: 'CONTENT_BASE_ELEMENT_USED',
-      severity: 'info',
-      phase: 'content',
-      message: `Honored and neutralized authored <base href> while materializing ${path}.`,
-      path,
-    });
-    return href;
-  } catch (cause) {
-    base.setAttribute('data-epub-authored-href', href);
-    base.removeAttribute('href');
-    diagnostics.push({
-      code: 'CONTENT_BASE_REFERENCE_INVALID',
-      severity: 'warning',
-      phase: 'content',
-      message: `Ignored invalid <base href> in ${path}: ${href}.`,
-      path,
-      cause,
-    });
-    return undefined;
-  }
-}
-
-function inspectAndNeutralizeXmlBases(
-  document: Document,
-  path: PublicationPath,
-  documentBaseHref: string | undefined,
-  diagnostics: PublicationDiagnostic[],
-): ReadonlyMap<Element, string | undefined> {
-  const resolvedBases = new Map<Element, string | undefined>();
-  let applied = 0;
-
-  for (const element of Array.from(document.getElementsByTagName('*'))) {
-    const parentBase = element.parentElement
-      ? resolvedBases.get(element.parentElement) ?? documentBaseHref
-      : documentBaseHref;
-    const authored = element.getAttributeNS(XML_NS, 'base')?.trim();
-    let effective = parentBase;
-
-    if (authored) {
-      element.setAttribute('data-epub-authored-xml-base', authored);
-      element.removeAttributeNS(XML_NS, 'base');
-      try {
-        effective = resolvePublicationDocumentBase(path, parentBase, authored);
-        applied += 1;
-      } catch (cause) {
-        diagnostics.push({
-          code: 'CONTENT_XML_BASE_REFERENCE_INVALID',
-          severity: 'warning',
-          phase: 'content',
-          message: `Ignored invalid xml:base in ${path}: ${authored}.`,
-          path,
-          cause,
-        });
-      }
-    }
-
-    resolvedBases.set(element, effective);
-  }
-
-  if (applied > 0) {
-    diagnostics.push({
-      code: 'CONTENT_XML_BASE_APPLIED',
-      severity: 'info',
-      phase: 'compatibility',
-      message: `Applied and neutralized ${applied} inherited xml:base declaration(s) while materializing ${path}.`,
-      path,
-      repair: {
-        strategy: 'apply-nested-xml-base-semantics',
-        description: 'Resolve descendant resources and links against inherited XML Base declarations before generating isolated reader markup.',
-        confidence: 0.99,
-      },
-    });
-  }
-
-  return resolvedBases;
-}
-
-function forceDeterministicImageLoading(document: Document): void {
-  for (const image of Array.from(document.getElementsByTagNameNS(XHTML_NS, 'img'))) {
-    // Pagination measures the entire document. Lazy images outside the initial
-    // viewport can otherwise acquire intrinsic dimensions after a page count
-    // has already been committed and shift every following column.
-    image.setAttribute('loading', 'eager');
-  }
-}
-
-/**
- * Small deterministic srcset tokenizer. It intentionally treats data: URLs as
- * a single URL token up to whitespace so their payload comma is not mistaken
- * for a candidate separator.
- */
-export function parseSrcset(input: string): readonly { readonly url: string; readonly descriptor?: string }[] {
-  const out: { url: string; descriptor?: string }[] = [];
-  let i = 0;
-
-  while (i < input.length) {
-    while (i < input.length && (isAsciiWhitespace(input[i]!) || input[i] === ',')) i += 1;
-    if (i >= input.length) break;
-
-    const start = i;
-    const dataUrl = input.slice(i, i + 5).toLowerCase() === 'data:';
-    if (dataUrl) {
-      while (i < input.length && !isAsciiWhitespace(input[i]!)) i += 1;
-    } else {
-      while (i < input.length && !isAsciiWhitespace(input[i]!) && input[i] !== ',') i += 1;
-    }
-    const url = input.slice(start, i).replace(/,+$/, '');
-
-    while (i < input.length && isAsciiWhitespace(input[i]!)) i += 1;
-    const descriptorStart = i;
-    while (i < input.length && input[i] !== ',') i += 1;
-    const descriptor = input.slice(descriptorStart, i).trim() || undefined;
-    if (i < input.length && input[i] === ',') i += 1;
-
-    if (url) out.push({ url, descriptor });
-  }
-
-  return out;
-}
-
-function annotateNavigationLinks(
-  document: Document,
-  basePath: PublicationPath,
-  baseHref: string | undefined,
-  xmlBases: ReadonlyMap<Element, string | undefined>,
-  diagnostics: PublicationDiagnostic[],
-): void {
-  for (const anchor of Array.from(document.getElementsByTagNameNS(XHTML_NS, 'a'))) {
-    const href = anchor.getAttribute('href')?.trim();
-    if (!href) continue;
-    const target = anchor.getAttribute('target');
-    if (target) {
-      anchor.setAttribute('data-epub-authored-target', target);
-      anchor.removeAttribute('target');
-    }
-    try {
-      const effectiveBaseHref = xmlBases.get(anchor) ?? baseHref;
-      const resolved = resolvePublicationDocumentReference(basePath, effectiveBaseHref, href);
-      anchor.setAttribute('data-epub-href', referenceHrefWithFragment(resolved));
-      if (!resolved.remote && resolved.path === basePath && resolved.fragment) {
-        // Same-document fragments remain native browser navigation targets.
-        anchor.setAttribute('href', `#${encodeURIComponent(resolved.fragment)}`);
-      } else if (href.startsWith('#')) {
-        // An authored <base href> can make a fragment-only URL target another
-        // resource. The base is neutralized in the generated Blob document, so
-        // do not accidentally reinterpret it as a native fragment here.
-        anchor.setAttribute('href', 'about:blank');
-      }
-    } catch (cause) {
-      diagnostics.push({
-        code: 'CONTENT_LINK_REFERENCE_INVALID',
-        severity: 'warning',
-        phase: 'content',
-        message: `Hyperlink could not be resolved: ${href}.`,
-        path: basePath,
-        cause,
-      });
-    }
-  }
-}
-
-function disableScripts(
-  document: Document,
-  diagnostics: PublicationDiagnostic[],
-  path: PublicationPath,
-): void {
-  const scripts = [
-    ...Array.from(document.getElementsByTagNameNS(XHTML_NS, 'script')),
-    ...Array.from(document.getElementsByTagNameNS(SVG_NS, 'script')),
-  ];
-  if (scripts.length === 0) return;
-
-  for (const script of scripts) {
-    // Removing the element avoids both execution and external script fetches.
-    script.remove();
-  }
-
-  diagnostics.push({
-    code: 'CONTENT_SCRIPTING_DISABLED',
-    severity: 'info',
-    phase: 'content',
-    message: `Disabled ${scripts.length} authored script element(s) in ${path}.`,
-    path,
-  });
-}
-
-
-function disableAutomaticDocumentNavigation(
-  document: Document,
-  diagnostics: PublicationDiagnostic[],
-  path: PublicationPath,
-): void {
-  const refresh = Array.from(document.getElementsByTagNameNS(XHTML_NS, 'meta'))
-    .filter(meta => (meta.getAttribute('http-equiv') ?? '').trim().toLowerCase() === 'refresh');
-  for (const meta of refresh) {
-    meta.setAttribute('data-epub-disabled-http-equiv', 'refresh');
-    meta.removeAttribute('http-equiv');
-    meta.removeAttribute('content');
-  }
-
-  for (const anchor of Array.from(document.getElementsByTagNameNS(XHTML_NS, 'a'))) {
-    // Ping URLs are side-effecting network requests unrelated to reading
-    // navigation and remain unnecessary even when the anchor itself is routed.
-    anchor.removeAttribute('ping');
-  }
-
-  if (refresh.length > 0) {
-    diagnostics.push({
-      code: 'CONTENT_AUTOMATIC_NAVIGATION_DISABLED',
-      severity: 'info',
-      phase: 'content',
-      message: `Disabled ${refresh.length} meta refresh navigation directive(s) in ${path}.`,
-      path,
-    });
-  }
-}
-
-function inspectStaticPresentationHints(document: Document): ContentPresentationHints {
-  const root = document.documentElement;
-  const direction = normalizeDirection(root?.getAttribute('dir'));
-  const writingMode = normalizeWritingMode(
-    inlineStyleValue(root?.getAttribute('style') ?? '', 'writing-mode'),
+  const resolved = resolvePublicationDocumentReference(
+    basePath,
+    baseHref,
+    source,
   );
-  const viewport = inspectXhtmlIntrinsicViewport(document);
-  return {
-    ...(direction ? { direction } : {}),
-    ...(writingMode ? { writingMode } : {}),
-    ...(viewport ? { viewport } : {}),
-  };
-}
-
-function inlineStyleValue(style: string, property: string): string | undefined {
-  for (const declaration of style.split(';')) {
-    const colon = declaration.indexOf(':');
-    if (colon < 0) continue;
-    if (declaration.slice(0, colon).trim().toLowerCase() !== property) continue;
-    return declaration.slice(colon + 1).trim().replace(/\s*!important\s*$/i, '');
-  }
-  return undefined;
-}
-
-function normalizeDirection(value: string | null): TextDirection | undefined {
-  const normalized = value?.trim().toLowerCase();
-  return normalized === 'ltr' || normalized === 'rtl' || normalized === 'auto'
-    ? normalized
-    : undefined;
-}
-
-function normalizeWritingMode(value: string | undefined): WritingMode | undefined {
-  const normalized = value?.trim().toLowerCase();
-  return normalized === 'horizontal-tb' || normalized === 'vertical-rl' || normalized === 'vertical-lr'
-    ? normalized
-    : undefined;
+  return session.materialize('', referenceHrefWithFragment(resolved));
 }
 
 function assertParsedXhtml(document: Document, path: PublicationPath): void {
   const root = document.documentElement;
-  if (!root) throw new Error(`XHTML content document has no root element: ${path}.`);
+  if (!root)
+    throw new Error(`XHTML content document has no root element: ${path}.`);
 
   const parserErrors = Array.from(document.getElementsByTagName('parsererror'));
   if (parserErrors.length > 0) {
@@ -554,22 +396,16 @@ function assertParsedXhtml(document: Document, path: PublicationPath): void {
   }
 
   if (root.localName.toLowerCase() !== 'html') {
-    throw new Error(`Expected XHTML html root element in ${path}, found ${root.localName}.`);
+    throw new Error(
+      `Expected XHTML html root element in ${path}, found ${root.localName}.`,
+    );
   }
 }
 
 function hasRelToken(element: Element, token: string): boolean {
   return (element.getAttribute('rel') ?? '')
     .split(/\s+/)
-    .some(value => value.toLowerCase() === token);
-}
-
-function formatSrcsetCandidate(url: string, descriptor: string | undefined): string {
-  return descriptor ? `${url} ${descriptor}` : url;
-}
-
-function isAsciiWhitespace(char: string): boolean {
-  return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
+    .some((value) => value.toLowerCase() === token);
 }
 
 function ensureXmlDeclaration(source: string): string {

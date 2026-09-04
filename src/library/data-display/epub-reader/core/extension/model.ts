@@ -27,7 +27,9 @@ export class ExtensionDependencyUnavailableError extends Error {
     readonly extensionId: string,
     readonly dependencyIds: readonly string[],
   ) {
-    super(`Extension ${extensionId} requires unavailable dependencies: ${dependencyIds.join(', ')}.`);
+    super(
+      `Extension ${extensionId} requires unavailable dependencies: ${dependencyIds.join(', ')}.`,
+    );
     this.name = 'ExtensionDependencyUnavailableError';
   }
 }
@@ -43,8 +45,15 @@ export class RequiredExtensionStartError extends Error {
 }
 
 export function assertExtensionId(value: string, label = 'Extension id'): void {
-  if (typeof value !== 'string' || value.length === 0 || value.trim() !== value || /\s/.test(value)) {
-    throw new TypeError(`${label} must be a non-empty string without whitespace.`);
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.trim() !== value ||
+    /\s/.test(value)
+  ) {
+    throw new TypeError(
+      `${label} must be a non-empty string without whitespace.`,
+    );
   }
 }
 
@@ -52,11 +61,14 @@ export function assertExtensionId(value: string, label = 'Extension id'): void {
  * Stable topological ordering. Registration order breaks ties between otherwise
  * independent extensions, while dependencies always precede their consumers.
  */
-export function orderExtensions<T extends OrderedExtension>(extensions: readonly T[]): readonly T[] {
+export function orderExtensions<T extends OrderedExtension>(
+  extensions: readonly T[],
+): readonly T[] {
   const byId = new Map<string, T>();
   for (const extension of extensions) {
     assertExtensionId(extension.id);
-    if (byId.has(extension.id)) throw new DuplicateExtensionIdError(extension.id);
+    if (byId.has(extension.id))
+      throw new DuplicateExtensionIdError(extension.id);
     byId.set(extension.id, extension);
     for (const dependency of extension.dependencies ?? []) {
       assertExtensionId(dependency, `Dependency id for ${extension.id}`);

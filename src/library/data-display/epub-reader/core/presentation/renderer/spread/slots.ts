@@ -14,22 +14,27 @@ export function resolveSpreadSlotAssignment(
   isEligible: (item: SpineItem) => boolean = defaultEligibility(publication),
 ): SpreadSlotAssignment {
   if (activePlan.spread.execution !== 'cross-spine') {
-    throw new Error('Physical left/right spine-slot assignment requires a cross-spine spread plan.');
+    throw new Error(
+      'Physical left/right spine-slot assignment requires a cross-spine spread plan.',
+    );
   }
 
   // An authored true-spread pair is honored directly, but only once both halves
   // are things this compositor may mount. Taking the hint unconditionally let a
   // pair that spans a layout boundary bypass the eligibility rule below.
   const trueSpread = activePlan.spread.trueSpread;
-  if (trueSpread && [trueSpread.leftSpineIndex, trueSpread.rightSpineIndex]
-    .every(index => {
+  if (
+    trueSpread &&
+    [trueSpread.leftSpineIndex, trueSpread.rightSpineIndex].every((index) => {
       const item = publication.spine[index];
       return item != null && isEligible(item);
-    })) {
+    })
+  ) {
     return {
       leftSpineIndex: trueSpread.leftSpineIndex,
       rightSpineIndex: trueSpread.rightSpineIndex,
-      activeSlot: activePlan.spineIndex === trueSpread.leftSpineIndex ? 'left' : 'right',
+      activeSlot:
+        activePlan.spineIndex === trueSpread.leftSpineIndex ? 'left' : 'right',
       trueSpread: true,
     };
   }
@@ -38,7 +43,11 @@ export function resolveSpreadSlotAssignment(
   let current: MutableSpread = emptySpread();
 
   const flushIfContainsActive = (): SpreadSlotAssignment | null => {
-    if (current.left !== activePlan.spineIndex && current.right !== activePlan.spineIndex) return null;
+    if (
+      current.left !== activePlan.spineIndex &&
+      current.right !== activePlan.spineIndex
+    )
+      return null;
     return {
       leftSpineIndex: current.left,
       rightSpineIndex: current.right,
@@ -61,9 +70,10 @@ export function resolveSpreadSlotAssignment(
       continue;
     }
 
-    const desired = placement === 'left' || placement === 'right'
-      ? placement
-      : nextAvailableSlot(current, progression);
+    const desired =
+      placement === 'left' || placement === 'right'
+        ? placement
+        : nextAvailableSlot(current, progression);
 
     if (current[desired] != null) {
       const existing = flushIfContainsActive();
@@ -73,9 +83,13 @@ export function resolveSpreadSlotAssignment(
 
     current[desired] = item.index;
 
-    const placedSecondWithBlankFirst = isSecondSlot(desired, progression)
-      && current[firstSlot(progression)] == null;
-    if (current.left != null && current.right != null || placedSecondWithBlankFirst) {
+    const placedSecondWithBlankFirst =
+      isSecondSlot(desired, progression) &&
+      current[firstSlot(progression)] == null;
+    if (
+      (current.left != null && current.right != null) ||
+      placedSecondWithBlankFirst
+    ) {
       const result = flushIfContainsActive();
       if (result) return result;
       current = emptySpread();
@@ -84,11 +98,15 @@ export function resolveSpreadSlotAssignment(
 
   const tail = flushIfContainsActive();
   if (tail) return tail;
-  throw new RangeError(`Active spine item ${activePlan.spineIndex} could not be assigned to a synthetic spread.`);
+  throw new RangeError(
+    `Active spine item ${activePlan.spineIndex} could not be assigned to a synthetic spread.`,
+  );
 }
 
-function defaultEligibility(publication: Publication): (item: SpineItem) => boolean {
-  return item => {
+function defaultEligibility(
+  publication: Publication,
+): (item: SpineItem) => boolean {
+  return (item) => {
     const rendition = resolveSpineRendition(publication, item);
     return rendition.spread !== 'none' && rendition.pageSpread !== 'center';
   };
@@ -111,16 +129,25 @@ function secondSlot(progression: ResolvedPageProgression): SpreadSlotName {
   return progression === 'rtl' ? 'left' : 'right';
 }
 
-function nextAvailableSlot(spread: MutableSpread, progression: ResolvedPageProgression): SpreadSlotName {
+function nextAvailableSlot(
+  spread: MutableSpread,
+  progression: ResolvedPageProgression,
+): SpreadSlotName {
   const first = firstSlot(progression);
   return spread[first] == null ? first : secondSlot(progression);
 }
 
-function isSecondSlot(slot: SpreadSlotName, progression: ResolvedPageProgression): boolean {
+function isSecondSlot(
+  slot: SpreadSlotName,
+  progression: ResolvedPageProgression,
+): boolean {
   return slot === secondSlot(progression);
 }
 
-function centeredFallback(index: number, progression: ResolvedPageProgression): SpreadSlotAssignment {
+function centeredFallback(
+  index: number,
+  progression: ResolvedPageProgression,
+): SpreadSlotAssignment {
   const slot = firstSlot(progression);
   return {
     leftSpineIndex: slot === 'left' ? index : null,

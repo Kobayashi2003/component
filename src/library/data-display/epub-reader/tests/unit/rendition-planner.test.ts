@@ -2,13 +2,13 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Publication,
   type SpineItem,
-} from '../../core/epub/publication';
+} from "../../core/epub/publication";
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
   detectTrueSpreadPair,
   planRendition,
   type RenditionPlannerPolicy,
-} from '../../core/presentation/rendition';
+} from "../../core/presentation/rendition";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -16,33 +16,33 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function makePublication(overrides: Partial<Publication> = {}): Publication {
   const spine: SpineItem[] = [
-    makeSpine(0, 'chapter-1', { layout: 'reflowable' }),
-    makeSpine(1, 'plate-right', {
-      layout: 'pre-paginated',
-      pageSpread: 'right',
+    makeSpine(0, "chapter-1", { layout: "reflowable" }),
+    makeSpine(1, "plate-right", {
+      layout: "pre-paginated",
+      pageSpread: "right",
     }),
-    makeSpine(2, 'plate-left', {
-      layout: 'pre-paginated',
-      pageSpread: 'left',
+    makeSpine(2, "plate-left", {
+      layout: "pre-paginated",
+      pageSpread: "left",
     }),
-    makeSpine(3, 'chapter-2', {
-      layout: 'reflowable',
-      flow: 'scrolled-continuous',
+    makeSpine(3, "chapter-2", {
+      layout: "reflowable",
+      flow: "scrolled-continuous",
     }),
   ];
 
   return {
-    version: '3.3',
-    packagePath: 'EPUB/package.opf',
+    version: "3.3",
+    packagePath: "EPUB/package.opf",
     metadata: {
-      title: 'Planner fixture',
+      title: "Planner fixture",
       creators: [],
       contributors: [],
       entries: [],
     },
-    manifest: spine.map(item => ({
+    manifest: spine.map((item) => ({
       id: item.idref,
-      sourceHref: item.href.replace('EPUB/', ''),
+      sourceHref: item.href.replace("EPUB/", ""),
       href: item.href,
       path: item.path,
       remote: false,
@@ -51,17 +51,17 @@ function makePublication(overrides: Partial<Publication> = {}): Publication {
     })),
     spine,
     navigation: {
-      source: 'none',
+      source: "none",
       toc: [],
       landmarks: [],
       pageList: [],
     },
-    pageProgressionDirection: 'rtl',
+    pageProgressionDirection: "rtl",
     rendition: {
-      layout: 'reflowable',
-      orientation: 'auto',
-      spread: 'auto',
-      flow: 'auto',
+      layout: "reflowable",
+      orientation: "auto",
+      spread: "auto",
+      flow: "auto",
     },
     ...overrides,
   };
@@ -70,7 +70,7 @@ function makePublication(overrides: Partial<Publication> = {}): Publication {
 function makeSpine(
   index: number,
   idref: string,
-  rendition: SpineItem['rendition'] = {},
+  rendition: SpineItem["rendition"] = {},
 ): SpineItem {
   return {
     index,
@@ -78,7 +78,7 @@ function makeSpine(
     href: `EPUB/${idref}.xhtml`,
     path: `EPUB/${idref}.xhtml`,
     remote: false,
-    mediaType: 'application/xhtml+xml',
+    mediaType: "application/xhtml+xml",
     linear: true,
     properties: [],
     rendition,
@@ -104,14 +104,26 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 1200, height: 800 },
     policy: SPREAD_CAPABLE_POLICY,
     contentHints: {
-      writingMode: 'vertical-rl',
-      direction: 'rtl',
+      writingMode: "vertical-rl",
+      direction: "rtl",
     },
   });
-  assert(plan.pageProgression.value === 'rtl', 'publication page progression must resolve to RTL');
-  assert(plan.writingMode.value === 'vertical-rl', 'content writing mode must remain vertical-rl');
-  assert(plan.renderer === 'reflowable-paginated', 'wide reflowable content remains paginated');
-  assert(plan.spread.mode === 'double', 'auto spread may use a wide landscape viewport');
+  assert(
+    plan.pageProgression.value === "rtl",
+    "publication page progression must resolve to RTL",
+  );
+  assert(
+    plan.writingMode.value === "vertical-rl",
+    "content writing mode must remain vertical-rl",
+  );
+  assert(
+    plan.renderer === "reflowable-paginated",
+    "wide reflowable content remains paginated",
+  );
+  assert(
+    plan.spread.mode === "double",
+    "auto spread may use a wide landscape viewport",
+  );
 }
 
 // 2. User page progression can override publication progression without
@@ -124,11 +136,18 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 800, height: 1200 },
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      pageProgression: 'ltr',
+      pageProgression: "ltr",
     },
   });
-  assert(plan.pageProgression.value === 'ltr' && plan.pageProgression.source === 'user', 'user progression must win');
-  assert(plan.textDirection.value === 'auto', 'text direction must not be inferred from user page progression');
+  assert(
+    plan.pageProgression.value === "ltr" &&
+      plan.pageProgression.source === "user",
+    "user progression must win",
+  );
+  assert(
+    plan.textDirection.value === "auto",
+    "text direction must not be inferred from user page progression",
+  );
 }
 
 // 3. Fixed layout is exactly one page per spine item and ignores authored/user
@@ -138,7 +157,7 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
   const original = base.spine[1]!;
   const item: SpineItem = {
     ...original,
-    rendition: { ...original.rendition, flow: 'scrolled-continuous' },
+    rendition: { ...original.rendition, flow: "scrolled-continuous" },
   };
   const fixedSpine = [...base.spine];
   fixedSpine[1] = item;
@@ -150,21 +169,52 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     policy: SPREAD_CAPABLE_POLICY,
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      flow: 'scrolled',
+      flow: "scrolled",
     },
     contentHints: {
       viewport: { width: 1200, height: 1600 },
     },
   });
-  assert(plan.overflow.value === 'fixed-page', 'fixed layout must ignore flow settings');
-  assert(plan.renderer === 'fixed-layout', 'fixed content must select the fixed-layout renderer independently from spread composition');
-  assert(plan.spread.mode === 'double', 'true spread should request double-slot composition in auto mode');
-  assert(plan.spread.trueSpread?.leftSpineIndex === 2, 'true spread must preserve left slot');
-  assert(plan.spread.trueSpread?.rightSpineIndex === 1, 'true spread must preserve right slot');
-  assert(plan.spread.gap === 'none', 'fixed-layout spread must not inject a gutter');
-  assert(plan.capabilities.textCustomization.fontSize === false, 'fixed layout must disable font resizing capability');
-  assert(plan.diagnostics.some(d => d.code === 'RENDITION_FLOW_IGNORED_FOR_FIXED_LAYOUT'), 'authored fixed flow must be diagnosed as ignored');
-  assert(plan.diagnostics.some(d => d.code === 'RENDITION_USER_FLOW_IGNORED_FOR_FIXED_LAYOUT'), 'user fixed flow must be diagnosed as ignored');
+  assert(
+    plan.overflow.value === "fixed-page",
+    "fixed layout must ignore flow settings",
+  );
+  assert(
+    plan.renderer === "fixed-layout",
+    "fixed content must select the fixed-layout renderer independently from spread composition",
+  );
+  assert(
+    plan.spread.mode === "double",
+    "true spread should request double-slot composition in auto mode",
+  );
+  assert(
+    plan.spread.trueSpread?.leftSpineIndex === 2,
+    "true spread must preserve left slot",
+  );
+  assert(
+    plan.spread.trueSpread?.rightSpineIndex === 1,
+    "true spread must preserve right slot",
+  );
+  assert(
+    plan.spread.gap === "none",
+    "fixed-layout spread must not inject a gutter",
+  );
+  assert(
+    plan.capabilities.textCustomization.fontSize === false,
+    "fixed layout must disable font resizing capability",
+  );
+  assert(
+    plan.diagnostics.some(
+      (d) => d.code === "RENDITION_FLOW_IGNORED_FOR_FIXED_LAYOUT",
+    ),
+    "authored fixed flow must be diagnosed as ignored",
+  );
+  assert(
+    plan.diagnostics.some(
+      (d) => d.code === "RENDITION_USER_FLOW_IGNORED_FOR_FIXED_LAYOUT",
+    ),
+    "user fixed flow must be diagnosed as ignored",
+  );
 
   const narrowPlan = planRendition({
     publication: fixedWithFlow,
@@ -173,8 +223,14 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     policy: SPREAD_CAPABLE_POLICY,
     preferences: DEFAULT_READER_PREFERENCES,
   });
-  assert(narrowPlan.spread.mode === 'single', 'auto true spreads should collapse to one page when a mobile viewport cannot fit both pages');
-  assert(narrowPlan.spread.trueSpread !== undefined, 'responsive single-page mode must retain true-spread pairing metadata');
+  assert(
+    narrowPlan.spread.mode === "single",
+    "auto true spreads should collapse to one page when a mobile viewport cannot fit both pages",
+  );
+  assert(
+    narrowPlan.spread.trueSpread !== undefined,
+    "responsive single-page mode must retain true-spread pairing metadata",
+  );
 }
 
 // 4. User single-page mode is allowed to opt out of a SHOULD-level true spread.
@@ -186,22 +242,31 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 1400, height: 900 },
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      spread: 'single',
+      spread: "single",
     },
   });
-  assert(plan.renderer === 'fixed-layout', 'single/double composition must not change the fixed content renderer');
-  assert(plan.spread.mode === 'single', 'explicit user single mode should keep one fixed page visible');
-  assert(plan.spread.trueSpread !== undefined, 'true-spread metadata must remain available even when user opts out');
+  assert(
+    plan.renderer === "fixed-layout",
+    "single/double composition must not change the fixed content renderer",
+  );
+  assert(
+    plan.spread.mode === "single",
+    "explicit user single mode should keep one fixed page visible",
+  );
+  assert(
+    plan.spread.trueSpread !== undefined,
+    "true-spread metadata must remain available even when user opts out",
+  );
 }
 
 // 5. rendition:spread=none is a MUST-level constraint and blocks user double.
 {
   const nonePublication = makePublication({
     rendition: {
-      layout: 'reflowable',
-      orientation: 'auto',
-      spread: 'none',
-      flow: 'auto',
+      layout: "reflowable",
+      orientation: "auto",
+      spread: "none",
+      flow: "auto",
     },
   });
   const item = nonePublication.spine[0]!;
@@ -211,31 +276,41 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 1600, height: 900 },
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      spread: 'double',
+      spread: "double",
     },
   });
-  assert(plan.spread.mode === 'single', 'publication spread=none must prevent a synthetic spread');
-  assert(plan.diagnostics.some(d => d.code === 'RENDITION_USER_SPREAD_BLOCKED_BY_PUBLICATION_NONE'), 'blocked user spread must be explainable');
+  assert(
+    plan.spread.mode === "single",
+    "publication spread=none must prevent a synthetic spread",
+  );
+  assert(
+    plan.diagnostics.some(
+      (d) => d.code === "RENDITION_USER_SPREAD_BLOCKED_BY_PUBLICATION_NONE",
+    ),
+    "blocked user spread must be explainable",
+  );
 }
 
 // 6. page-spread-center disables spread for only that item.
 {
-  const centered = makeSpine(0, 'centered', {
-    layout: 'pre-paginated',
-    spread: 'both',
-    pageSpread: 'center',
+  const centered = makeSpine(0, "centered", {
+    layout: "pre-paginated",
+    spread: "both",
+    pageSpread: "center",
   });
   const centeredPublication = makePublication({
     spine: [centered],
-    manifest: [{
-      id: centered.idref,
-      sourceHref: 'centered.xhtml',
-      href: centered.href,
-      path: centered.path,
-      remote: false,
-      mediaType: centered.mediaType,
-      properties: [],
-    }],
+    manifest: [
+      {
+        id: centered.idref,
+        sourceHref: "centered.xhtml",
+        href: centered.href,
+        path: centered.path,
+        remote: false,
+        mediaType: centered.mediaType,
+        properties: [],
+      },
+    ],
   });
   const plan = planRendition({
     publication: centeredPublication,
@@ -243,12 +318,21 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 1600, height: 900 },
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      spread: 'double',
+      spread: "double",
     },
   });
-  assert(plan.renderer === 'fixed-layout', 'page-spread-center must not alter the content renderer');
-  assert(plan.spread.mode === 'single', 'page-spread-center must render the item alone');
-  assert(plan.spread.placement === 'center', 'center placement must be preserved');
+  assert(
+    plan.renderer === "fixed-layout",
+    "page-spread-center must not alter the content renderer",
+  );
+  assert(
+    plan.spread.mode === "single",
+    "page-spread-center must render the item alone",
+  );
+  assert(
+    plan.spread.placement === "center",
+    "center placement must be preserved",
+  );
 }
 
 // 7. Reflowable authored scrolling is respected; spread placement is preserved
@@ -260,9 +344,18 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     spineItem: item,
     viewport: { width: 1200, height: 800 },
   });
-  assert(plan.renderer === 'reflowable-scroll', 'authored scrolled-continuous must select scroll renderer');
-  assert(plan.overflow.value === 'scrolled-continuous', 'authored continuous scroll must be preserved');
-  assert(plan.spread.synthetic === false, 'scrolled rendition must not create a synthetic spread');
+  assert(
+    plan.renderer === "reflowable-scroll",
+    "authored scrolled-continuous must select scroll renderer",
+  );
+  assert(
+    plan.overflow.value === "scrolled-continuous",
+    "authored continuous scroll must be preserved",
+  );
+  assert(
+    plan.spread.synthetic === false,
+    "scrolled rendition must not create a synthetic spread",
+  );
 }
 
 // 8. User flow may override an authored reflowable flow.
@@ -274,21 +367,27 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 900, height: 1200 },
     preferences: {
       ...DEFAULT_READER_PREFERENCES,
-      flow: 'paginated',
+      flow: "paginated",
     },
   });
-  assert(plan.overflow.value === 'paginated' && plan.overflow.source === 'user', 'user paginated mode should override authored reflowable scrolling');
-  assert(plan.renderer === 'reflowable-paginated', 'flow override must change renderer selection');
+  assert(
+    plan.overflow.value === "paginated" && plan.overflow.source === "user",
+    "user paginated mode should override authored reflowable scrolling",
+  );
+  assert(
+    plan.renderer === "reflowable-paginated",
+    "flow override must change renderer selection",
+  );
 }
 
 // 9. Deprecated spread=portrait is interpreted by RS rules as both.
 {
   const portraitPublication = makePublication({
     rendition: {
-      layout: 'reflowable',
-      orientation: 'auto',
-      spread: 'portrait',
-      flow: 'paginated',
+      layout: "reflowable",
+      orientation: "auto",
+      spread: "portrait",
+      flow: "paginated",
     },
   });
   const item = portraitPublication.spine[0]!;
@@ -298,7 +397,10 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 700, height: 1100 },
     policy: SPREAD_CAPABLE_POLICY,
   });
-  assert(plan.spread.mode === 'double', 'deprecated spread=portrait must be treated as both by the reading system');
+  assert(
+    plan.spread.mode === "double",
+    "deprecated spread=portrait must be treated as both by the reading system",
+  );
 }
 
 // 10. Auto spread policy is deterministic and configurable.
@@ -308,7 +410,7 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     syntheticSpreads: {
       ...DEFAULT_RENDITION_PLANNER_POLICY.syntheticSpreads,
       supported: true,
-      autoMode: 'never',
+      autoMode: "never",
     },
   };
   const item = publication.spine[0]!;
@@ -318,7 +420,10 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 2000, height: 1000 },
     policy,
   });
-  assert(plan.spread.mode === 'single', 'policy autoMode=never must disable automatic spread creation');
+  assert(
+    plan.spread.mode === "single",
+    "policy autoMode=never must disable automatic spread creation",
+  );
 }
 
 // 11. Orientation declaration produces an intent signal rather than conflating
@@ -326,10 +431,10 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
 {
   const orientationPublication = makePublication({
     rendition: {
-      layout: 'reflowable',
-      orientation: 'portrait',
-      spread: 'auto',
-      flow: 'auto',
+      layout: "reflowable",
+      orientation: "portrait",
+      spread: "auto",
+      flow: "auto",
     },
   });
   const item = orientationPublication.spine[0]!;
@@ -338,36 +443,48 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     spineItem: item,
     viewport: { width: 1200, height: 800 },
   });
-  assert(plan.orientation.preference === 'prefer-portrait', 'portrait must be surfaced as an orientation preference');
-  assert(plan.orientation.matchesRequested === false, 'landscape viewport must report an orientation mismatch');
-  assert(plan.pageProgression.value === 'rtl', 'orientation must not affect page progression');
+  assert(
+    plan.orientation.preference === "prefer-portrait",
+    "portrait must be surfaced as an orientation preference",
+  );
+  assert(
+    plan.orientation.matchesRequested === false,
+    "landscape viewport must report an orientation mismatch",
+  );
+  assert(
+    plan.pageProgression.value === "rtl",
+    "orientation must not affect page progression",
+  );
 }
 
 // 12. Pair detection follows spine reading order as well as authored slots.
 {
   const pair = detectTrueSpreadPair(publication, publication.spine[2]!);
-  assert(pair?.leftSpineIndex === 2 && pair.rightSpineIndex === 1, 'pair detection must retain physical left/right slot identity');
+  assert(
+    pair?.leftSpineIndex === 2 && pair.rightSpineIndex === 1,
+    "pair detection must retain physical left/right slot identity",
+  );
 }
 
 // 13. Spread composition is independent from per-slot renderer selection. This
 // permits a mixed-layout publication to honor explicit left/right placement
 // without pretending both slots belong to one fixed-layout renderer.
 {
-  const fixed = makeSpine(0, 'mixed-fixed', {
-    layout: 'pre-paginated',
-    pageSpread: 'left',
+  const fixed = makeSpine(0, "mixed-fixed", {
+    layout: "pre-paginated",
+    pageSpread: "left",
   });
-  const reflowable = makeSpine(1, 'mixed-reflowable', {
-    layout: 'reflowable',
-    flow: 'paginated',
-    pageSpread: 'right',
+  const reflowable = makeSpine(1, "mixed-reflowable", {
+    layout: "reflowable",
+    flow: "paginated",
+    pageSpread: "right",
   });
   const mixed: Publication = {
     ...makePublication(),
     spine: [fixed, reflowable],
-    manifest: [fixed, reflowable].map(item => ({
+    manifest: [fixed, reflowable].map((item) => ({
       id: item.idref,
-      sourceHref: item.href.replace('EPUB/', ''),
+      sourceHref: item.href.replace("EPUB/", ""),
       href: item.href,
       path: item.path,
       remote: false,
@@ -387,9 +504,18 @@ const SPREAD_CAPABLE_POLICY: RenditionPlannerPolicy = {
     viewport: { width: 1400, height: 900 },
     policy: SPREAD_CAPABLE_POLICY,
   });
-  assert(fixedPlan.renderer === 'fixed-layout', 'fixed slot must retain its own renderer');
-  assert(reflowPlan.renderer === 'reflowable-paginated', 'reflowable slot must retain its own renderer');
-  assert(fixedPlan.spread.mode === 'double' && reflowPlan.spread.mode === 'double', 'both slots should independently request the authored true-spread composition');
+  assert(
+    fixedPlan.renderer === "fixed-layout",
+    "fixed slot must retain its own renderer",
+  );
+  assert(
+    reflowPlan.renderer === "reflowable-paginated",
+    "reflowable slot must retain its own renderer",
+  );
+  assert(
+    fixedPlan.spread.mode === "double" && reflowPlan.spread.mode === "double",
+    "both slots should independently request the authored true-spread composition",
+  );
 }
 
-console.log('Rendition planner unit test: PASS');
+console.log("Rendition planner unit test: PASS");

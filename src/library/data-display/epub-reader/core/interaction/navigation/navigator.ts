@@ -54,8 +54,12 @@ export class ReaderNavigator {
     return this.enqueue(async () => {
       if ('kind' in target) {
         return target.kind === 'href'
-          ? this.performGoToLocator(locatorFromHref(this.publication, target.href))
-          : this.performGoToLocator(locatorFromCfi(this.publication, target.cfi));
+          ? this.performGoToLocator(
+              locatorFromHref(this.publication, target.href),
+            )
+          : this.performGoToLocator(
+              locatorFromCfi(this.publication, target.cfi),
+            );
       }
       return this.performGoToLocator(target);
     });
@@ -74,21 +78,39 @@ export class ReaderNavigator {
     });
   }
 
-  private async performMove(direction: NavigationDirection): Promise<ReaderNavigationResult> {
+  private async performMove(
+    direction: NavigationDirection,
+  ): Promise<ReaderNavigationResult> {
     const currentPlan = this.host.state.plan;
     if (!currentPlan) {
-      const first = this.findSequentialSpine(direction === 'forward' ? -1 : this.publication.spine.length, direction);
-      if (first == null) return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
-      const locator = direction === 'forward'
-        ? locatorAtResourceStart(this.publication, first)
-        : locatorAtResourceEnd(this.publication, first);
+      const first = this.findSequentialSpine(
+        direction === 'forward' ? -1 : this.publication.spine.length,
+        direction,
+      );
+      if (first == null)
+        return {
+          status: 'boundary',
+          edge: direction === 'forward' ? 'end' : 'start',
+        };
+      const locator =
+        direction === 'forward'
+          ? locatorAtResourceStart(this.publication, first)
+          : locatorAtResourceEnd(this.publication, first);
       await this.performGoToLocator(locator);
-      return { status: 'moved', locator: await this.host.captureLocator(), spineChanged: true };
+      return {
+        status: 'moved',
+        locator: await this.host.captureLocator(),
+        spineChanged: true,
+      };
     }
 
     const within = await this.host.navigateWithin(direction);
     if (within.status === 'moved') {
-      return { status: 'moved', locator: await this.host.captureLocator(), spineChanged: false };
+      return {
+        status: 'moved',
+        locator: await this.host.captureLocator(),
+        spineChanged: false,
+      };
     }
 
     // A page turn has to reach content that is not already on screen. When a
@@ -96,36 +118,59 @@ export class ReaderNavigator {
     // starts from the far edge of what is visible rather than from the active
     // item — advancing to the other half of the spread the reader is looking at
     // would re-compose the same spread and spend the turn showing nothing new.
-    const visible = visibleSpineIndices(this.host.state.layout, currentPlan.spineIndex);
-    const anchor = direction === 'forward' ? Math.max(...visible) : Math.min(...visible);
+    const visible = visibleSpineIndices(
+      this.host.state.layout,
+      currentPlan.spineIndex,
+    );
+    const anchor =
+      direction === 'forward' ? Math.max(...visible) : Math.min(...visible);
     const nextIndex = this.findSequentialSpine(anchor, direction);
     if (nextIndex == null) {
-      return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
+      return {
+        status: 'boundary',
+        edge: direction === 'forward' ? 'end' : 'start',
+      };
     }
 
-    const locator = direction === 'forward'
-      ? locatorAtResourceStart(this.publication, nextIndex)
-      : locatorAtResourceEnd(this.publication, nextIndex);
+    const locator =
+      direction === 'forward'
+        ? locatorAtResourceStart(this.publication, nextIndex)
+        : locatorAtResourceEnd(this.publication, nextIndex);
     await this.performGoToLocator(locator);
-    return { status: 'moved', locator: await this.host.captureLocator(), spineChanged: true };
+    return {
+      status: 'moved',
+      locator: await this.host.captureLocator(),
+      spineChanged: true,
+    };
   }
 
   private async performGoToLocator(locator: Locator): Promise<Locator | null> {
     const item = this.publication.spine[locator.spineIndex];
     if (!item || item.href !== locator.href) {
-      throw new RangeError('Locator does not resolve to this publication spine.');
+      throw new RangeError(
+        'Locator does not resolve to this publication spine.',
+      );
     }
     const plan = await this.plans.planForSpine(locator.spineIndex);
     if (plan.spineIndex !== locator.spineIndex || plan.href !== locator.href) {
-      throw new Error('Navigation plan provider returned a plan for the wrong spine item.');
+      throw new Error(
+        'Navigation plan provider returned a plan for the wrong spine item.',
+      );
     }
     const presented = await this.host.present(plan, 'navigation', locator);
     return presented.locator ?? this.host.captureLocator();
   }
 
-  private findSequentialSpine(anchor: number, direction: NavigationDirection): number | null {
+  private findSequentialSpine(
+    anchor: number,
+    direction: NavigationDirection,
+  ): number | null {
     const delta = direction === 'forward' ? 1 : -1;
-    for (let index = anchor + delta; index >= 0 && index < this.publication.spine.length; index += delta) {
+    for (
+      let index = anchor + delta;
+      index >= 0 && index < this.publication.spine.length;
+      index += delta
+    ) {
       const item = this.publication.spine[index]!;
       if (!this.policy.skipNonLinear || item.linear) return index;
     }
@@ -134,13 +179,18 @@ export class ReaderNavigator {
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const run = this.queue.then(operation, operation);
-    this.queue = run.then(() => undefined, () => undefined);
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
     return run;
   }
 }
 
 function visibleSpineIndices(layout: unknown, fallback: number): number[] {
-  const reported = (layout as { visibleSpineIndices?: readonly number[] } | null | undefined)?.visibleSpineIndices;
+  const reported = (
+    layout as { visibleSpineIndices?: readonly number[] } | null | undefined
+  )?.visibleSpineIndices;
   if (!reported || reported.length === 0) return [fallback];
-  return reported.filter(index => Number.isInteger(index));
+  return reported.filter((index) => Number.isInteger(index));
 }

@@ -2,10 +2,20 @@ import type { PublicationArchive } from '../archive/publication-archive';
 import { OcfZipArchive, type OcfZipLimits } from '../archive/ocf-zip';
 import { createBuiltInCompatibilityProfile } from '../compatibility/built-in-rules';
 import type { CompatibilityProfile } from '../compatibility/profile';
-import { runNavigationFallbackCompatibility, runRootfileSelectionCompatibility } from '../compatibility/publication-runner';
+import {
+  runNavigationFallbackCompatibility,
+  runRootfileSelectionCompatibility,
+} from '../compatibility/publication-runner';
 import { parseContainerDocument } from './container-parser';
 import { validatePublicationModel } from './invariants';
-import { DEFAULT_READER_COMPATIBILITY_PREFERENCES, type NavigationModel, type Publication, type PublicationDiagnostic, type PublicationLoadResult, type PublicationPath } from './model';
+import {
+  DEFAULT_READER_COMPATIBILITY_PREFERENCES,
+  type NavigationModel,
+  type Publication,
+  type PublicationDiagnostic,
+  type PublicationLoadResult,
+  type PublicationPath,
+} from './model';
 import { parseNavigationDocument } from './navigation-parser';
 import { parseNcxDocument } from './ncx-parser';
 import { parsePackageDocument } from './package-parser';
@@ -18,11 +28,12 @@ export interface PublicationControlDocumentLimits {
   readonly maxNavigationDocumentBytes: number;
 }
 
-export const DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS: PublicationControlDocumentLimits = Object.freeze({
-  maxContainerXmlBytes: 1024 * 1024,
-  maxPackageDocumentBytes: 8 * 1024 * 1024,
-  maxNavigationDocumentBytes: 16 * 1024 * 1024,
-});
+export const DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS: PublicationControlDocumentLimits =
+  Object.freeze({
+    maxContainerXmlBytes: 1024 * 1024,
+    maxPackageDocumentBytes: 8 * 1024 * 1024,
+    maxNavigationDocumentBytes: 16 * 1024 * 1024,
+  });
 
 export interface LoadEpubOptions {
   readonly archiveLimits?: Partial<OcfZipLimits>;
@@ -35,7 +46,8 @@ export async function loadEpub(
   options: LoadEpubOptions = {},
 ): Promise<PublicationLoadResult> {
   const opened = await OcfZipArchive.open(source, options.archiveLimits);
-  if (!opened.archive) return { publication: null, diagnostics: opened.diagnostics };
+  if (!opened.archive)
+    return { publication: null, diagnostics: opened.diagnostics };
   return loadPublicationFromArchive(opened.archive, opened.diagnostics, {
     controlDocumentLimits: options.controlDocumentLimits,
     compatibilityProfile: options.compatibilityProfile,
@@ -58,9 +70,13 @@ export async function loadPublicationFromArchive(
   options: LoadPublicationFromArchiveOptions = {},
 ): Promise<PublicationLoadResult> {
   const diagnostics: PublicationDiagnostic[] = [...initialDiagnostics];
-  const controlLimits = { ...DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS, ...options.controlDocumentLimits };
-  const compatibilityProfile = options.compatibilityProfile
-    ?? createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES);
+  const controlLimits = {
+    ...DEFAULT_PUBLICATION_CONTROL_DOCUMENT_LIMITS,
+    ...options.controlDocumentLimits,
+  };
+  const compatibilityProfile =
+    options.compatibilityProfile ??
+    createBuiltInCompatibilityProfile(DEFAULT_READER_COMPATIBILITY_PREFERENCES);
 
   if (!archive.has(CONTAINER_PATH)) {
     diagnostics.push({
@@ -118,10 +134,14 @@ export async function loadPublicationFromArchive(
       message: `container.xml declares ${container.rootfiles.length} package documents; the reading system selects ${preferred.fullPath}.`,
       path: CONTAINER_PATH,
       repair: {
-        strategy: preferred === container.rootfiles[0] ? 'select-first-rootfile' : 'select-preferred-rootfile',
-        description: preferred === container.rootfiles[0]
-          ? 'Use the first package rootfile in publisher order.'
-          : 'Select a compatible package rootfile from the validated container candidates.',
+        strategy:
+          preferred === container.rootfiles[0]
+            ? 'select-first-rootfile'
+            : 'select-preferred-rootfile',
+        description:
+          preferred === container.rootfiles[0]
+            ? 'Use the first package rootfile in publisher order.'
+            : 'Select a compatible package rootfile from the validated container candidates.',
         confidence: 0.8,
       },
     });
@@ -173,20 +193,31 @@ export async function loadPublicationFromArchive(
   // EPUB 3 Navigation Document is authoritative when available.
   const nav = parsedPackage.navigationItem;
   if (nav?.path) {
-    const result = await tryParseNavigation(archive, nav.path, diagnostics, controlLimits.maxNavigationDocumentBytes);
+    const result = await tryParseNavigation(
+      archive,
+      nav.path,
+      diagnostics,
+      controlLimits.maxNavigationDocumentBytes,
+    );
     if (result) navigation = result;
   }
 
   let legacyNavigation: NavigationModel | undefined;
-  const hasNavigationFallbackRules = compatibilityProfile.publicationRules
-    .some(rule => rule.stage === 'publication.navigation-fallback');
-  if (hasNavigationFallbackRules && navigation.toc.length === 0 && parsedPackage.ncxItem?.path) {
-    legacyNavigation = await tryParseNcx(
-      archive,
-      parsedPackage.ncxItem.path,
-      diagnostics,
-      controlLimits.maxNavigationDocumentBytes,
-    ) ?? undefined;
+  const hasNavigationFallbackRules = compatibilityProfile.publicationRules.some(
+    (rule) => rule.stage === 'publication.navigation-fallback',
+  );
+  if (
+    hasNavigationFallbackRules &&
+    navigation.toc.length === 0 &&
+    parsedPackage.ncxItem?.path
+  ) {
+    legacyNavigation =
+      (await tryParseNcx(
+        archive,
+        parsedPackage.ncxItem.path,
+        diagnostics,
+        controlLimits.maxNavigationDocumentBytes,
+      )) ?? undefined;
   }
   const compatibleNavigation = await runNavigationFallbackCompatibility(
     compatibilityProfile.publicationRules,
@@ -229,10 +260,19 @@ async function tryParseNavigation(
   try {
     const bytes = await archive.read(path);
     if (bytes.byteLength > maxBytes) {
-      diagnostics.push({ code: 'NAV_DOCUMENT_LIMIT_EXCEEDED', severity: 'error', phase: 'navigation', message: `Navigation Document ${path} is ${bytes.byteLength} bytes, above the configured ${maxBytes}-byte limit.`, path });
+      diagnostics.push({
+        code: 'NAV_DOCUMENT_LIMIT_EXCEEDED',
+        severity: 'error',
+        phase: 'navigation',
+        message: `Navigation Document ${path} is ${bytes.byteLength} bytes, above the configured ${maxBytes}-byte limit.`,
+        path,
+      });
       return null;
     }
-    const parsed = parseNavigationDocument(new TextDecoder('utf-8').decode(bytes), path);
+    const parsed = parseNavigationDocument(
+      new TextDecoder('utf-8').decode(bytes),
+      path,
+    );
     diagnostics.push(...parsed.diagnostics);
     return parsed.navigation;
   } catch (cause) {
@@ -267,10 +307,19 @@ async function tryParseNcx(
   try {
     const bytes = await archive.read(path);
     if (bytes.byteLength > maxBytes) {
-      diagnostics.push({ code: 'NCX_DOCUMENT_LIMIT_EXCEEDED', severity: 'warning', phase: 'navigation', message: `NCX document ${path} is ${bytes.byteLength} bytes, above the configured ${maxBytes}-byte limit.`, path });
+      diagnostics.push({
+        code: 'NCX_DOCUMENT_LIMIT_EXCEEDED',
+        severity: 'warning',
+        phase: 'navigation',
+        message: `NCX document ${path} is ${bytes.byteLength} bytes, above the configured ${maxBytes}-byte limit.`,
+        path,
+      });
       return null;
     }
-    const parsed = parseNcxDocument(new TextDecoder('utf-8').decode(bytes), path);
+    const parsed = parseNcxDocument(
+      new TextDecoder('utf-8').decode(bytes),
+      path,
+    );
     diagnostics.push(...parsed.diagnostics);
     return parsed.navigation;
   } catch (cause) {

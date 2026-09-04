@@ -2,7 +2,16 @@ import type { ReaderNavigator } from '../../interaction/navigation';
 import type { RendererHost } from '../../presentation/renderer';
 import type { LocatorRange } from '../../epub/publication';
 import { createMarkId } from './store';
-import type { Annotation, AnnotationColor, AnnotationHighlightStyle, Bookmark, Highlight, ReaderMark, ReaderMarkPatch, ReaderMarkStore } from './model';
+import type {
+  Annotation,
+  AnnotationColor,
+  AnnotationHighlightStyle,
+  Bookmark,
+  Highlight,
+  ReaderMark,
+  ReaderMarkPatch,
+  ReaderMarkStore,
+} from './model';
 
 export class ReaderMarkController {
   constructor(
@@ -16,7 +25,14 @@ export class ReaderMarkController {
     const locator = await this.host.captureLocator();
     if (!locator) return null;
     const stamp = this.now().toISOString();
-    const mark: Bookmark = { id: createMarkId('bookmark'), kind: 'bookmark', locator, createdAt: stamp, updatedAt: stamp, ...(label ? { label } : {}) };
+    const mark: Bookmark = {
+      id: createMarkId('bookmark'),
+      kind: 'bookmark',
+      locator,
+      createdAt: stamp,
+      updatedAt: stamp,
+      ...(label ? { label } : {}),
+    };
     this.store.put(mark);
     return mark;
   }
@@ -30,9 +46,15 @@ export class ReaderMarkController {
   ): Highlight {
     const stamp = this.now().toISOString();
     const mark: Highlight = {
-      id: createMarkId('highlight'), kind: 'highlight', range, highlight, color,
-      createdAt: stamp, updatedAt: stamp,
-      ...(label ? { label } : {}), ...(tags?.length ? { tags: [...tags] } : {}),
+      id: createMarkId('highlight'),
+      kind: 'highlight',
+      range,
+      highlight,
+      color,
+      createdAt: stamp,
+      updatedAt: stamp,
+      ...(label ? { label } : {}),
+      ...(tags?.length ? { tags: [...tags] } : {}),
     };
     this.store.put(mark);
     return mark;
@@ -48,16 +70,23 @@ export class ReaderMarkController {
   ): Annotation {
     const stamp = this.now().toISOString();
     const mark: Annotation = {
-      id: createMarkId('annotation'), kind: 'annotation', range, body, highlight, color,
-      createdAt: stamp, updatedAt: stamp,
-      ...(label ? { label } : {}), ...(tags?.length ? { tags: [...tags] } : {}),
+      id: createMarkId('annotation'),
+      kind: 'annotation',
+      range,
+      body,
+      highlight,
+      color,
+      createdAt: stamp,
+      updatedAt: stamp,
+      ...(label ? { label } : {}),
+      ...(tags?.length ? { tags: [...tags] } : {}),
     };
     this.store.put(mark);
     return mark;
   }
 
   update(id: string, patch: ReaderMarkPatch): ReaderMark | null {
-    const existing = this.store.snapshot().marks.find(mark => mark.id === id);
+    const existing = this.store.snapshot().marks.find((mark) => mark.id === id);
     if (!existing) return null;
     const updatedAt = this.now().toISOString();
     let updated: ReaderMark;
@@ -66,7 +95,9 @@ export class ReaderMarkController {
         ...existing,
         updatedAt,
         ...(patch.label !== undefined ? { label: patch.label } : {}),
-        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
+        ...(patch.tags !== undefined
+          ? { tags: normalizeTags(patch.tags) }
+          : {}),
       };
     } else if (existing.kind === 'highlight') {
       updated = {
@@ -75,7 +106,9 @@ export class ReaderMarkController {
         ...(patch.color ? { color: patch.color } : {}),
         ...(patch.highlight ? { highlight: patch.highlight } : {}),
         ...(patch.label !== undefined ? { label: patch.label } : {}),
-        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
+        ...(patch.tags !== undefined
+          ? { tags: normalizeTags(patch.tags) }
+          : {}),
       };
     } else {
       updated = {
@@ -85,18 +118,24 @@ export class ReaderMarkController {
         ...(patch.color ? { color: patch.color } : {}),
         ...(patch.highlight ? { highlight: patch.highlight } : {}),
         ...(patch.label !== undefined ? { label: patch.label } : {}),
-        ...(patch.tags !== undefined ? { tags: normalizeTags(patch.tags) } : {}),
+        ...(patch.tags !== undefined
+          ? { tags: normalizeTags(patch.tags) }
+          : {}),
       };
     }
     this.store.put(updated);
     return updated;
   }
 
-  async goToMark(mark: Bookmark | Highlight | Annotation): Promise<import('../../epub/publication').Locator | null> {
-    return this.navigator.goToLocator(mark.kind === 'bookmark' ? mark.locator : mark.range.start);
+  async goToMark(
+    mark: Bookmark | Highlight | Annotation,
+  ): Promise<import('../../epub/publication').Locator | null> {
+    return this.navigator.goToLocator(
+      mark.kind === 'bookmark' ? mark.locator : mark.range.start,
+    );
   }
 }
 
 function normalizeTags(tags: readonly string[]): readonly string[] {
-  return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
+  return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
 }

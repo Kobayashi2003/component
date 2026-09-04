@@ -14,3 +14,4 @@ fixtures/real-world/manifest.local.json
 .performance-dist/
 .w3c-observe-dist/
 .realworld-dist/
+.pagination-dist/

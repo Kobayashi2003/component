@@ -10,9 +10,13 @@ export function useCompactReaderLayout(
   useEffect(() => {
     const element = target.current;
     if (!element) return;
-    const update = () => setCompact(
-      readerLayoutForWidth(element.getBoundingClientRect().width, compactBreakpointPx) === 'compact',
-    );
+    const update = () =>
+      setCompact(
+        readerLayoutForWidth(
+          element.getBoundingClientRect().width,
+          compactBreakpointPx,
+        ) === 'compact',
+      );
     update();
     if (typeof ResizeObserver !== 'function') {
       window.addEventListener('resize', update);

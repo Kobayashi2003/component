@@ -1,5 +1,9 @@
 import type { PublicationArchive } from '../archive/publication-archive';
-import type { Publication, PublicationDiagnostic, PublicationPath } from '../publication/model';
+import type {
+  Publication,
+  PublicationDiagnostic,
+  PublicationPath,
+} from '../publication/model';
 import { resolvePublicationReference } from '../publication/path';
 import { attr, descendants, firstChild, parseXml } from '../xml/xml';
 
@@ -45,7 +49,9 @@ export async function loadContainerEncryption(
   for (const encryptedData of descendants(parsed.root, 'EncryptedData')) {
     const method = firstChild(encryptedData, 'EncryptionMethod');
     const cipherData = firstChild(encryptedData, 'CipherData');
-    const reference = cipherData ? firstChild(cipherData, 'CipherReference') : undefined;
+    const reference = cipherData
+      ? firstChild(cipherData, 'CipherReference')
+      : undefined;
     const algorithm = method ? attr(method, 'Algorithm') : undefined;
     const uri = reference ? attr(reference, 'URI') : undefined;
     if (!algorithm || !uri) {
@@ -53,7 +59,8 @@ export async function loadContainerEncryption(
         code: 'ENCRYPTION_ENTRY_INCOMPLETE',
         severity: 'warning',
         phase: 'resource',
-        message: 'EncryptedData entry is missing EncryptionMethod@Algorithm or CipherReference@URI.',
+        message:
+          'EncryptedData entry is missing EncryptionMethod@Algorithm or CipherReference@URI.',
         path: ENCRYPTION_PATH,
       });
       continue;
@@ -94,13 +101,20 @@ export async function deobfuscateIdpfFont(
   publication: Publication,
 ): Promise<Uint8Array> {
   const identifier = publication.metadata.identifier?.value;
-  if (!identifier) throw new Error('IDPF font obfuscation requires the package unique identifier.');
+  if (!identifier)
+    throw new Error(
+      'IDPF font obfuscation requires the package unique identifier.',
+    );
 
   const normalized = identifier.replace(/\s/g, '');
-  const keyBuffer = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(normalized));
+  const keyBuffer = await crypto.subtle.digest(
+    'SHA-1',
+    new TextEncoder().encode(normalized),
+  );
   const key = new Uint8Array(keyBuffer);
   const output = bytes.slice();
   const limit = Math.min(1040, output.length);
-  for (let i = 0; i < limit; i += 1) output[i] = output[i]! ^ key[i % key.length]!;
+  for (let i = 0; i < limit; i += 1)
+    output[i] = output[i]! ^ key[i % key.length]!;
   return output;
 }

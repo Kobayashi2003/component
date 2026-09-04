@@ -11,7 +11,11 @@ import type { ReaderToolId } from '../tools/model';
 /** The one surface the reader is showing over its page, if any. */
 export type ReaderSurface =
   | { readonly kind: 'none' }
-  | { readonly kind: 'panel'; readonly panel: ReaderToolId; readonly returnFocus: HTMLElement | null }
+  | {
+      readonly kind: 'panel';
+      readonly panel: ReaderToolId;
+      readonly returnFocus: HTMLElement | null;
+    }
   | {
       readonly kind: 'footnote';
       /** Guards against a note outliving the publication it was opened from. */
@@ -19,7 +23,10 @@ export type ReaderSurface =
       readonly footnote: ReaderFootnote;
       readonly returnFocus: HTMLElement | null;
     }
-  | { readonly kind: 'selection'; readonly activation: ReaderSelectionActivation }
+  | {
+      readonly kind: 'selection';
+      readonly activation: ReaderSelectionActivation;
+    }
   | { readonly kind: 'mark'; readonly activation: ReaderMarkActivation }
   | { readonly kind: 'image'; readonly activation: ReaderImageActivation }
   | {

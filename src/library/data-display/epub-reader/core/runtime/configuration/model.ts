@@ -1,6 +1,12 @@
 import type { CompatibilityModule } from '../../epub/compatibility';
-import type { ReaderInputBinding, ReaderInputMap } from '../../interaction/input';
-import type { ReaderThemeCatalog, ReaderThemeDefinition } from '../../presentation/appearance';
+import type {
+  ReaderInputBinding,
+  ReaderInputMap,
+} from '../../interaction/input';
+import type {
+  ReaderThemeCatalog,
+  ReaderThemeDefinition,
+} from '../../presentation/appearance';
 
 /** Typed, authority-limited contributions supplied by one host application. */
 export interface ReaderExtensionContributions {

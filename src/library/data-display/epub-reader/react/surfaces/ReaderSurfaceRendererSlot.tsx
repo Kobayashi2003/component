@@ -28,7 +28,11 @@ export function ReaderSurfaceRendererSlot<K extends ReaderSurfaceRendererKind>({
   resetKey,
 }: ReaderSurfaceRendererSlotProps<K>) {
   return (
-    <ReaderContributionBoundary resetKey={resetKey} resetVersion={renderer} fallback={fallback}>
+    <ReaderContributionBoundary
+      resetKey={resetKey}
+      resetVersion={renderer}
+      fallback={fallback}
+    >
       <ReaderSurfaceRendererContent renderer={renderer} context={context} />
     </ReaderContributionBoundary>
   );

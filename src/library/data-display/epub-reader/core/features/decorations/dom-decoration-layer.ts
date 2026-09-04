@@ -1,7 +1,11 @@
 import type { Publication } from '../../epub/publication';
 import type { RendererContentDocument } from '../../presentation/renderer';
 import { resolveLocatorRangeInDocument } from '../../interaction/selection';
-import type { DecorationTheme, ReaderDecoration, ReaderDecorationActivation } from './model';
+import type {
+  DecorationTheme,
+  ReaderDecoration,
+  ReaderDecorationActivation,
+} from './model';
 import { DEFAULT_DECORATION_THEME } from './model';
 
 const OVERLAY_ATTR = 'data-epub-reader-decoration-overlay';
@@ -15,14 +19,19 @@ export class DomDecorationLayer {
   private overlay: HTMLElement | null = null;
   private disposeScroll: (() => void) | null = null;
   private frameCancel: (() => void) | null = null;
-  private hitBoxes: readonly { readonly decoration: ReaderDecoration; readonly rectangle: DOMRect }[] = [];
+  private hitBoxes: readonly {
+    readonly decoration: ReaderDecoration;
+    readonly rectangle: DOMRect;
+  }[] = [];
   private disposeActivation: (() => void) | null = null;
 
   constructor(
     private readonly context: RendererContentDocument,
     private readonly publication: Publication,
     private readonly theme: DecorationTheme = DEFAULT_DECORATION_THEME,
-    private readonly onActivate?: (activation: ReaderDecorationActivation) => boolean,
+    private readonly onActivate?: (
+      activation: ReaderDecorationActivation,
+    ) => boolean,
   ) {
     this.installRefreshHooks();
     this.installActivation();
@@ -30,7 +39,8 @@ export class DomDecorationLayer {
 
   setDecorations(decorations: readonly ReaderDecoration[]): void {
     this.entries.clear();
-    for (const decoration of decorations) this.entries.set(decoration.id, decoration);
+    for (const decoration of decorations)
+      this.entries.set(decoration.id, decoration);
     this.refresh();
   }
 
@@ -67,7 +77,11 @@ export class DomDecorationLayer {
     const hitBoxes: { decoration: ReaderDecoration; rectangle: DOMRect }[] = [];
 
     for (const decoration of this.entries.values()) {
-      const range = resolveLocatorRangeInDocument(this.context, this.publication, decoration.range);
+      const range = resolveLocatorRangeInDocument(
+        this.context,
+        this.publication,
+        decoration.range,
+      );
       if (!range) continue;
       for (const rect of Array.from(range.getClientRects())) {
         if (rect.width <= 0 || rect.height <= 0) continue;
@@ -84,7 +98,9 @@ export class DomDecorationLayer {
         style.pointerEvents = 'none';
         style.boxSizing = 'border-box';
         style.borderRadius = '0.12em';
-        const semantic = decoration.color ? this.theme.semanticColors[decoration.color] : this.theme.semanticColors.yellow;
+        const semantic = decoration.color
+          ? this.theme.semanticColors[decoration.color]
+          : this.theme.semanticColors.yellow;
         if (decoration.intent === 'underline') {
           style.borderBottom = `2px solid ${semantic}`;
         } else if (decoration.intent === 'strikethrough') {
@@ -94,11 +110,12 @@ export class DomDecorationLayer {
         } else if (decoration.intent === 'outline') {
           style.border = `1.5px solid ${semantic}`;
         } else {
-          style.background = decoration.intent === 'search-current'
-            ? this.theme.searchCurrentFill
-            : decoration.intent === 'search'
-              ? this.theme.searchFill
-              : semantic;
+          style.background =
+            decoration.intent === 'search-current'
+              ? this.theme.searchCurrentFill
+              : decoration.intent === 'search'
+                ? this.theme.searchFill
+                : semantic;
         }
         overlay.appendChild(box);
         hitBoxes.push({ decoration, rectangle: rect });
@@ -142,8 +159,19 @@ export class DomDecorationLayer {
   private installActivation(): void {
     if (!this.onActivate) return;
     const listener = (event: MouseEvent) => {
-      if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      const hit = [...this.hitBoxes].reverse().find(candidate => containsPoint(candidate.rectangle, event.clientX, event.clientY));
+      if (
+        event.button !== 0 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
+      const hit = [...this.hitBoxes]
+        .reverse()
+        .find((candidate) =>
+          containsPoint(candidate.rectangle, event.clientX, event.clientY),
+        );
       if (!hit) return;
       const handled = this.onActivate?.({
         decoration: hit.decoration,
@@ -156,7 +184,8 @@ export class DomDecorationLayer {
       event.stopImmediatePropagation();
     };
     this.context.document.addEventListener('click', listener, true);
-    this.disposeActivation = () => this.context.document.removeEventListener('click', listener, true);
+    this.disposeActivation = () =>
+      this.context.document.removeEventListener('click', listener, true);
   }
 
   private cancelFrame(): void {
@@ -166,5 +195,10 @@ export class DomDecorationLayer {
 }
 
 function containsPoint(rectangle: DOMRect, x: number, y: number): boolean {
-  return x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom;
+  return (
+    x >= rectangle.left &&
+    x <= rectangle.right &&
+    y >= rectangle.top &&
+    y <= rectangle.bottom
+  );
 }

@@ -1,8 +1,4 @@
-import type {
-  EffectiveSpineRendition,
-  Publication,
-  SpineItem,
-} from './model';
+import type { EffectiveSpineRendition, Publication, SpineItem } from './model';
 
 /**
  * Resolve publication-level rendition declarations with one spine item's local
@@ -15,7 +11,8 @@ export function resolveSpineRendition(
 ): EffectiveSpineRendition {
   return {
     layout: item.rendition.layout ?? publication.rendition.layout,
-    orientation: item.rendition.orientation ?? publication.rendition.orientation,
+    orientation:
+      item.rendition.orientation ?? publication.rendition.orientation,
     spread: item.rendition.spread ?? publication.rendition.spread,
     flow: item.rendition.flow ?? publication.rendition.flow,
     pageSpread: item.rendition.pageSpread,
@@ -41,12 +38,15 @@ export function isFixedLayout(
  */
 export type PublicationLayoutProfile = 'reflowable' | 'fixed-layout' | 'mixed';
 
-export function resolvePublicationLayoutProfile(publication: Publication): PublicationLayoutProfile {
+export function resolvePublicationLayoutProfile(
+  publication: Publication,
+): PublicationLayoutProfile {
   let sawReflowable = false;
   let sawFixed = false;
 
   for (const item of publication.spine) {
-    if (resolveSpineRendition(publication, item).layout === 'pre-paginated') sawFixed = true;
+    if (resolveSpineRendition(publication, item).layout === 'pre-paginated')
+      sawFixed = true;
     else sawReflowable = true;
     if (sawFixed && sawReflowable) return 'mixed';
   }

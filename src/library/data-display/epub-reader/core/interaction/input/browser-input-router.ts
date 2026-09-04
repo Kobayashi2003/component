@@ -1,9 +1,22 @@
 import type { RendererContentDocument } from '../../presentation/renderer';
 import { touchNavigationAllows } from './commands';
 import { createDefaultReaderInputMap } from './built-in-bindings';
-import { DEFAULT_READER_INPUT_POLICY, type ReaderCommand, type ReaderInputDispatcher, type ReaderInputMap, type ReaderInputPolicy, type ReaderInputSignal, type ReaderInputState } from './model';
+import {
+  DEFAULT_READER_INPUT_POLICY,
+  type ReaderCommand,
+  type ReaderInputDispatcher,
+  type ReaderInputMap,
+  type ReaderInputPolicy,
+  type ReaderInputSignal,
+  type ReaderInputState,
+} from './model';
 
-interface PointerStart { readonly id: number; readonly x: number; readonly y: number; readonly target: EventTarget | null }
+interface PointerStart {
+  readonly id: number;
+  readonly x: number;
+  readonly y: number;
+  readonly target: EventTarget | null;
+}
 
 /**
  * DOM adapter only. It produces semantic commands and never calls a renderer
@@ -23,7 +36,10 @@ export class BrowserReaderInputRouter {
     private readonly state: () => ReaderInputState,
     private readonly dispatcher: ReaderInputDispatcher,
     policy: Partial<ReaderInputPolicy> = {},
-    private readonly onError: (error: unknown, command: ReaderCommand | null) => void = () => {},
+    private readonly onError: (
+      error: unknown,
+      command: ReaderCommand | null,
+    ) => void = () => {},
     private readonly inputMap: ReaderInputMap = createDefaultReaderInputMap(),
   ) {
     this.policy = { ...DEFAULT_READER_INPUT_POLICY, ...policy };
@@ -44,7 +60,7 @@ export class BrowserReaderInputRouter {
 
   syncDocuments(contexts: readonly RendererContentDocument[]): void {
     this.assertAlive();
-    const live = new Set(contexts.map(context => context.document));
+    const live = new Set(contexts.map((context) => context.document));
     for (const [document, cleanup] of this.documentCleanups) {
       if (!live.has(document)) {
         cleanup();
@@ -53,7 +69,10 @@ export class BrowserReaderInputRouter {
     }
     for (const context of contexts) {
       if (this.documentCleanups.has(context.document)) continue;
-      this.documentCleanups.set(context.document, this.attachTarget(context.document, context.surfaceElement));
+      this.documentCleanups.set(
+        context.document,
+        this.attachTarget(context.document, context.surfaceElement),
+      );
     }
     this.recaptureAbandonedFocus();
   }
@@ -129,7 +148,10 @@ export class BrowserReaderInputRouter {
     this.pointer = null;
   }
 
-  private attachTarget(target: EventTarget, surfaceElement?: HTMLElement): () => void {
+  private attachTarget(
+    target: EventTarget,
+    surfaceElement?: HTMLElement,
+  ): () => void {
     const cursorElement = semanticCursorElement(target);
     const originalCursor = cursorElement?.style.cursor ?? '';
     const onKeyDown = (event: Event) => this.dispatchKeyCommand(event);
@@ -150,20 +172,31 @@ export class BrowserReaderInputRouter {
         // Nested overflow regions remain eligible, as does a fixed-layout
         // container outside the iframe.
         const targetDocument = targetElement?.ownerDocument;
-        const documentScrollingElement = targetDocument?.scrollingElement ?? null;
-        const scrollOwner = findVerticalScrollOwner(targetElement, documentScrollingElement)
-          ?? (surfaceElement && state.contentKind === 'fixed-layout' ? findVerticalScrollOwner(surfaceElement) : null);
+        const documentScrollingElement =
+          targetDocument?.scrollingElement ?? null;
+        const scrollOwner =
+          findVerticalScrollOwner(targetElement, documentScrollingElement) ??
+          (surfaceElement && state.contentKind === 'fixed-layout'
+            ? findVerticalScrollOwner(surfaceElement)
+            : null);
         if (scrollOwner && consumeVerticalWheel(scrollOwner, wheel)) {
           if (wheel.cancelable) wheel.preventDefault();
           return;
         }
-        if (state.presentation === 'scrolled' && !state.wheelBoundaryNavigation) {
+        if (
+          state.presentation === 'scrolled' &&
+          !state.wheelBoundaryNavigation
+        ) {
           // Keep the complete scroll chain inside the reader. A nested overflow
           // region gets first refusal above; once it reaches an edge, continue
           // on the publication document's scrolling element. Claiming the
           // event even at the document boundary prevents the host page behind
           // the reader from moving.
-          if (surfaceElement && documentScrollingElement && hasVerticalScrollMetrics(documentScrollingElement)) {
+          if (
+            surfaceElement &&
+            documentScrollingElement &&
+            hasVerticalScrollMetrics(documentScrollingElement)
+          ) {
             consumeVerticalWheel(documentScrollingElement, wheel);
           }
           if (wheel.cancelable) wheel.preventDefault();
@@ -179,8 +212,13 @@ export class BrowserReaderInputRouter {
 
       if (Math.abs(wheel.deltaY) < this.policy.wheelThreshold) return;
       const now = Date.now();
-      if (!modified && now - this.lastWheelAt < this.policy.wheelCooldownMs) return;
-      const command = this.resolve({ kind: 'wheel', deltaY: wheel.deltaY, modified });
+      if (!modified && now - this.lastWheelAt < this.policy.wheelCooldownMs)
+        return;
+      const command = this.resolve({
+        kind: 'wheel',
+        deltaY: wheel.deltaY,
+        modified,
+      });
       if (!command) return;
       if (!modified) this.lastWheelAt = now;
       if (modified && wheel.cancelable) wheel.preventDefault();
@@ -192,30 +230,79 @@ export class BrowserReaderInputRouter {
       if (!state.enabled) return;
       const click = event as MouseEvent;
       if (Date.now() < this.suppressClickUntil) return;
-      if (click.button !== 0 || isInteractivePublicationTarget(click.target) || hasMeaningfulSelection(click.target)) return;
-      const viewport = viewportWidthForTarget(target, this.hostElement, surfaceElement);
-      const x = clientXForTarget(click, target, this.hostElement, surfaceElement);
-      const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
-      const edgeNavigation = this.policy.clickZones
-        && state.presentation !== 'scrolled'
-        && touchNavigationAllows(state.touchNavigation, 'tap');
-      const command = this.resolve({ kind: 'page-click', clientX: x, width: viewport, ratio, edgeNavigation });
+      if (
+        click.button !== 0 ||
+        isInteractivePublicationTarget(click.target) ||
+        hasMeaningfulSelection(click.target)
+      )
+        return;
+      const viewport = viewportWidthForTarget(
+        target,
+        this.hostElement,
+        surfaceElement,
+      );
+      const x = clientXForTarget(
+        click,
+        target,
+        this.hostElement,
+        surfaceElement,
+      );
+      const ratio =
+        state.pageTurnZonePercent == null
+          ? this.policy.clickZoneRatio
+          : state.pageTurnZonePercent / 100;
+      const edgeNavigation =
+        this.policy.clickZones &&
+        state.presentation !== 'scrolled' &&
+        touchNavigationAllows(state.touchNavigation, 'tap');
+      const command = this.resolve({
+        kind: 'page-click',
+        clientX: x,
+        width: viewport,
+        ratio,
+        edgeNavigation,
+      });
       if (!command) return;
-      if (command.type === 'navigate' && click.cancelable) click.preventDefault();
+      if (command.type === 'navigate' && click.cancelable)
+        click.preventDefault();
       this.send(command);
     };
 
     const onPointerDown = (event: Event) => {
       const state = this.state();
-      if (!this.policy.swipe || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'swipe')) return;
+      if (
+        !this.policy.swipe ||
+        !state.enabled ||
+        state.presentation === 'scrolled' ||
+        !touchNavigationAllows(state.touchNavigation, 'swipe')
+      )
+        return;
       const pointer = event as PointerEvent;
-      if (pointer.button !== 0 || isInteractivePublicationTarget(pointer.target)) return;
-      this.pointer = { id: pointer.pointerId, x: pointer.clientX, y: pointer.clientY, target: pointer.target };
+      if (
+        pointer.button !== 0 ||
+        isInteractivePublicationTarget(pointer.target)
+      )
+        return;
+      this.pointer = {
+        id: pointer.pointerId,
+        x: pointer.clientX,
+        y: pointer.clientY,
+        target: pointer.target,
+      };
     };
 
     const onPointerUp = (event: Event) => {
       const state = this.state();
-      if (!this.pointer || !this.policy.swipe || !state.enabled || state.presentation === 'scrolled' || !touchNavigationAllows(state.touchNavigation, 'swipe')) { this.pointer = null; return; }
+      if (
+        !this.pointer ||
+        !this.policy.swipe ||
+        !state.enabled ||
+        state.presentation === 'scrolled' ||
+        !touchNavigationAllows(state.touchNavigation, 'swipe')
+      ) {
+        this.pointer = null;
+        return;
+      }
       const pointer = event as PointerEvent;
       if (pointer.pointerId !== this.pointer.id) return;
       const start = this.pointer;
@@ -224,49 +311,84 @@ export class BrowserReaderInputRouter {
       const dx = pointer.clientX - start.x;
       const dy = pointer.clientY - start.y;
       if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
-      const command = this.resolve({ kind: 'swipe', deltaX: dx, threshold: this.policy.swipeThresholdPx });
+      const command = this.resolve({
+        kind: 'swipe',
+        deltaX: dx,
+        threshold: this.policy.swipeThresholdPx,
+      });
       if (!command) return;
       if (pointer.cancelable) pointer.preventDefault();
       this.suppressClickUntil = Date.now() + 450;
       this.send(command);
     };
 
-    const onPointerCancel = () => { this.pointer = null; };
+    const onPointerCancel = () => {
+      this.pointer = null;
+    };
 
     const onPointerMove = (event: Event) => {
       if (!cursorElement) return;
       const pointer = event as PointerEvent;
       const state = this.state();
       if (
-        pointer.pointerType && pointer.pointerType !== 'mouse'
-        || !this.policy.clickZones
-        || !state.enabled
-        || state.contentKind !== 'fixed-layout'
-        || state.presentation === 'scrolled'
-        || !touchNavigationAllows(state.touchNavigation, 'tap')
-        || isInteractivePublicationTarget(pointer.target)
+        (pointer.pointerType && pointer.pointerType !== 'mouse') ||
+        !this.policy.clickZones ||
+        !state.enabled ||
+        state.contentKind !== 'fixed-layout' ||
+        state.presentation === 'scrolled' ||
+        !touchNavigationAllows(state.touchNavigation, 'tap') ||
+        isInteractivePublicationTarget(pointer.target)
       ) {
         cursorElement.style.cursor = originalCursor;
         return;
       }
-      const viewport = viewportWidthForTarget(target, this.hostElement, surfaceElement);
-      const x = clientXForTarget(pointer, target, this.hostElement, surfaceElement);
-      const ratio = state.pageTurnZonePercent == null ? this.policy.clickZoneRatio : state.pageTurnZonePercent / 100;
-      cursorElement.style.cursor = semanticCursorForClickZone(x, viewport, ratio) ?? originalCursor;
+      const viewport = viewportWidthForTarget(
+        target,
+        this.hostElement,
+        surfaceElement,
+      );
+      const x = clientXForTarget(
+        pointer,
+        target,
+        this.hostElement,
+        surfaceElement,
+      );
+      const ratio =
+        state.pageTurnZonePercent == null
+          ? this.policy.clickZoneRatio
+          : state.pageTurnZonePercent / 100;
+      cursorElement.style.cursor =
+        semanticCursorForClickZone(x, viewport, ratio) ?? originalCursor;
     };
 
     const resetCursor = () => {
       if (cursorElement) cursorElement.style.cursor = originalCursor;
     };
 
-    target.addEventListener('keydown', onKeyDown as EventListener, { passive: false });
-    target.addEventListener('wheel', onWheel as EventListener, { passive: false });
-    target.addEventListener('click', onClick as EventListener, { passive: false });
-    target.addEventListener('pointerdown', onPointerDown as EventListener, { passive: true });
-    target.addEventListener('pointermove', onPointerMove as EventListener, { passive: true });
-    target.addEventListener('pointerup', onPointerUp as EventListener, { passive: false });
-    target.addEventListener('pointercancel', onPointerCancel as EventListener, { passive: true });
-    target.addEventListener('pointerleave', resetCursor as EventListener, { passive: true });
+    target.addEventListener('keydown', onKeyDown as EventListener, {
+      passive: false,
+    });
+    target.addEventListener('wheel', onWheel as EventListener, {
+      passive: false,
+    });
+    target.addEventListener('click', onClick as EventListener, {
+      passive: false,
+    });
+    target.addEventListener('pointerdown', onPointerDown as EventListener, {
+      passive: true,
+    });
+    target.addEventListener('pointermove', onPointerMove as EventListener, {
+      passive: true,
+    });
+    target.addEventListener('pointerup', onPointerUp as EventListener, {
+      passive: false,
+    });
+    target.addEventListener('pointercancel', onPointerCancel as EventListener, {
+      passive: true,
+    });
+    target.addEventListener('pointerleave', resetCursor as EventListener, {
+      passive: true,
+    });
 
     const cleanup = () => {
       target.removeEventListener('keydown', onKeyDown as EventListener);
@@ -275,7 +397,10 @@ export class BrowserReaderInputRouter {
       target.removeEventListener('pointerdown', onPointerDown as EventListener);
       target.removeEventListener('pointermove', onPointerMove as EventListener);
       target.removeEventListener('pointerup', onPointerUp as EventListener);
-      target.removeEventListener('pointercancel', onPointerCancel as EventListener);
+      target.removeEventListener(
+        'pointercancel',
+        onPointerCancel as EventListener,
+      );
       target.removeEventListener('pointerleave', resetCursor as EventListener);
       resetCursor();
     };
@@ -287,67 +412,101 @@ export class BrowserReaderInputRouter {
     try {
       const result = this.dispatcher.dispatch(command);
       if (result && typeof (result as Promise<void>).catch === 'function') {
-        void (result as Promise<void>).catch(error => this.onError(error, command));
+        void (result as Promise<void>).catch((error) =>
+          this.onError(error, command),
+        );
       }
-    } catch (error) { this.onError(error, command); }
+    } catch (error) {
+      this.onError(error, command);
+    }
   }
 
   private resolve(signal: ReaderInputSignal): ReaderCommand | null {
     const resolution = this.inputMap.resolve(signal, this.state());
-    for (const failure of resolution.failures) this.onError(failure.error, null);
+    for (const failure of resolution.failures)
+      this.onError(failure.error, null);
     return resolution.command;
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('BrowserReaderInputRouter has been disposed.');
+    if (this.disposed)
+      throw new Error('BrowserReaderInputRouter has been disposed.');
   }
 }
 
-export function semanticCursorForClickZone(clientX: number, width: number, ratio: number): 'pointer' | null {
+export function semanticCursorForClickZone(
+  clientX: number,
+  width: number,
+  ratio: number,
+): 'pointer' | null {
   if (!(width > 0) || !Number.isFinite(clientX)) return null;
   const edge = Math.max(0.05, Math.min(0.45, ratio));
-  return clientX <= width * edge || clientX >= width * (1 - edge) ? 'pointer' : null;
+  return clientX <= width * edge || clientX >= width * (1 - edge)
+    ? 'pointer'
+    : null;
 }
 
-function semanticCursorElement(target: EventTarget): (Element & { style: CSSStyleDeclaration }) | null {
+function semanticCursorElement(
+  target: EventTarget,
+): (Element & { style: CSSStyleDeclaration }) | null {
   const element = target as Element;
-  if (element.nodeType === 1 && 'style' in element) return element as Element & { style: CSSStyleDeclaration };
+  if (element.nodeType === 1 && 'style' in element)
+    return element as Element & { style: CSSStyleDeclaration };
   const document = target as Document;
   const root = document.documentElement;
-  return root && 'style' in root ? root as Element & { style: CSSStyleDeclaration } : null;
+  return root && 'style' in root
+    ? (root as Element & { style: CSSStyleDeclaration })
+    : null;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
   const element = asElement(target);
   if (!element) return false;
   const local = element.localName.toLowerCase();
-  return element.hasAttribute('contenteditable') || ['input', 'textarea', 'select', 'option'].includes(local);
+  return (
+    element.hasAttribute('contenteditable') ||
+    ['input', 'textarea', 'select', 'option'].includes(local)
+  );
 }
 
-export function isInteractivePublicationTarget(target: EventTarget | null): boolean {
+export function isInteractivePublicationTarget(
+  target: EventTarget | null,
+): boolean {
   const element = asElement(target);
   if (!element) return false;
-  return element.closest('a, button, input, textarea, select, option, label, summary, audio, video, object, embed, iframe, [controls], [contenteditable], [role="button"], [role="link"], [data-epub-image-viewer]') != null;
+  return (
+    element.closest(
+      'a, button, input, textarea, select, option, label, summary, audio, video, object, embed, iframe, [controls], [contenteditable], [role="button"], [role="link"], [data-epub-image-viewer]',
+    ) != null
+  );
 }
 
 function hasMeaningfulSelection(target: EventTarget | null): boolean {
   const element = asElement(target);
   const document = element?.ownerDocument;
   const selection = document
-    ? (typeof document.getSelection === 'function' ? document.getSelection() : null)
-      ?? document.defaultView?.getSelection()
+    ? ((typeof document.getSelection === 'function'
+        ? document.getSelection()
+        : null) ?? document.defaultView?.getSelection())
     : null;
-  return Boolean(selection && !selection.isCollapsed && selection.toString().trim());
+  return Boolean(
+    selection && !selection.isCollapsed && selection.toString().trim(),
+  );
 }
 
 function shouldPreserveNativeSelectionCommand(event: KeyboardEvent): boolean {
-  return event.shiftKey && (event.key.startsWith('Arrow') || event.key === 'PageUp' || event.key === 'PageDown');
+  return (
+    event.shiftKey &&
+    (event.key.startsWith('Arrow') ||
+      event.key === 'PageUp' ||
+      event.key === 'PageDown')
+  );
 }
 
 function asElement(target: EventTarget | null): Element | null {
   if (!target || typeof target !== 'object') return null;
   const node = target as Node;
-  return node.nodeType === 1 ? node as Element : node.parentElement;
+  return node.nodeType === 1 ? (node as Element) : node.parentElement;
 }
 
 function viewportWidthForTarget(
@@ -362,7 +521,9 @@ function viewportWidthForTarget(
     // the left edge of the other, so a centre tap turns the page.
     if (surfaceElement) return fallback.getBoundingClientRect().width;
     const document = target as Document;
-    return document.defaultView?.innerWidth ?? document.documentElement.clientWidth;
+    return (
+      document.defaultView?.innerWidth ?? document.documentElement.clientWidth
+    );
   }
 
   return fallback.getBoundingClientRect().width;
@@ -393,25 +554,48 @@ export function mapContentClientXToViewport(
   surface: Pick<DOMRect, 'left' | 'width'>,
   viewport: Pick<DOMRect, 'left' | 'width'>,
 ): number {
-  if (!Number.isFinite(clientX) || !(surfaceLayoutWidth > 0) || !(surface.width > 0) || !(viewport.width > 0)) return clientX;
+  if (
+    !Number.isFinite(clientX) ||
+    !(surfaceLayoutWidth > 0) ||
+    !(surface.width > 0) ||
+    !(viewport.width > 0)
+  )
+    return clientX;
   // A real pointer event inside a transformed iframe reports coordinates in
   // that browsing context's untransformed CSS pixels. Translate through the
   // iframe's visual/layout scale before adding its position in the shared
   // reader viewport. Without this scale, fit-width pages classify their inner
   // half as an outer page-turn edge.
-  return surface.left - viewport.left + clientX * surface.width / surfaceLayoutWidth;
+  return (
+    surface.left -
+    viewport.left +
+    (clientX * surface.width) / surfaceLayoutWidth
+  );
 }
 
-function findVerticalScrollOwner(start: Element | null, excluded: Element | null = null): HTMLElement | null {
+function findVerticalScrollOwner(
+  start: Element | null,
+  excluded: Element | null = null,
+): HTMLElement | null {
   let current: Element | null = start;
   while (current) {
     // Content elements belong to the iframe realm, where `instanceof` against
     // the host window's HTMLElement constructor is false. Scroll metrics are a
     // sufficient structural check and work in both realms.
-    if (current !== excluded && hasVerticalScrollMetrics(current) && current.scrollHeight > current.clientHeight + 1) {
-      const style = current.ownerDocument.defaultView?.getComputedStyle(current);
+    if (
+      current !== excluded &&
+      hasVerticalScrollMetrics(current) &&
+      current.scrollHeight > current.clientHeight + 1
+    ) {
+      const style =
+        current.ownerDocument.defaultView?.getComputedStyle(current);
       const overflowY = style?.overflowY ?? 'visible';
-      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return current;
+      if (
+        overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay'
+      )
+        return current;
     }
     current = current.parentElement;
   }
@@ -420,21 +604,37 @@ function findVerticalScrollOwner(start: Element | null, excluded: Element | null
 
 function hasVerticalScrollMetrics(element: Element): element is HTMLElement {
   const candidate = element as Partial<HTMLElement>;
-  return typeof candidate.scrollTop === 'number'
-    && typeof candidate.scrollHeight === 'number'
-    && typeof candidate.clientHeight === 'number';
+  return (
+    typeof candidate.scrollTop === 'number' &&
+    typeof candidate.scrollHeight === 'number' &&
+    typeof candidate.clientHeight === 'number'
+  );
 }
 
 function consumeVerticalWheel(owner: HTMLElement, event: WheelEvent): boolean {
   const delta = wheelDeltaPixels(event, owner.clientHeight);
-  const target = verticalScrollTarget(owner.scrollTop, owner.scrollHeight - owner.clientHeight, delta);
+  const target = verticalScrollTarget(
+    owner.scrollTop,
+    owner.scrollHeight - owner.clientHeight,
+    delta,
+  );
   if (target == null) return false;
   owner.scrollTop = target;
   return true;
 }
 
-export function verticalScrollTarget(current: number, extent: number, delta: number): number | null {
-  if (!Number.isFinite(current) || !Number.isFinite(extent) || !Number.isFinite(delta) || delta === 0) return null;
+export function verticalScrollTarget(
+  current: number,
+  extent: number,
+  delta: number,
+): number | null {
+  if (
+    !Number.isFinite(current) ||
+    !Number.isFinite(extent) ||
+    !Number.isFinite(delta) ||
+    delta === 0
+  )
+    return null;
   const maximum = Math.max(0, extent);
   const before = Math.max(0, Math.min(maximum, current));
   const target = Math.max(0, Math.min(maximum, before + delta));

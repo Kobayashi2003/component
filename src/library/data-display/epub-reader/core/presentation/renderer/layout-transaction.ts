@@ -24,7 +24,9 @@ export class LayoutTransactionCoordinator {
     operation: (transaction: LayoutTransactionContext) => Promise<T>,
   ): Promise<LayoutTransactionResult<T>> {
     this.assertAlive();
-    this.active?.abort(createAbortError('Superseded by a newer layout transaction.'));
+    this.active?.abort(
+      createAbortError('Superseded by a newer layout transaction.'),
+    );
 
     const generation = ++this.generation;
     const controller = new AbortController();
@@ -35,7 +37,11 @@ export class LayoutTransactionCoordinator {
       reason,
       signal: controller.signal,
       throwIfSuperseded: () => {
-        if (controller.signal.aborted || this.disposed || generation !== this.generation) {
+        if (
+          controller.signal.aborted ||
+          this.disposed ||
+          generation !== this.generation
+        ) {
           throw controller.signal.reason instanceof Error
             ? controller.signal.reason
             : createAbortError('Layout transaction was superseded.');
@@ -52,7 +58,11 @@ export class LayoutTransactionCoordinator {
       context.throwIfSuperseded();
       return { status: 'committed', generation, value };
     } catch (error) {
-      if (isAbortError(error) || controller.signal.aborted || generation !== this.generation) {
+      if (
+        isAbortError(error) ||
+        controller.signal.aborted ||
+        generation !== this.generation
+      ) {
         return { status: 'superseded', generation };
       }
       throw error;
@@ -71,12 +81,15 @@ export class LayoutTransactionCoordinator {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.active?.abort(createAbortError('Layout transaction coordinator disposed.'));
+    this.active?.abort(
+      createAbortError('Layout transaction coordinator disposed.'),
+    );
     this.active = null;
     this.generation += 1;
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('LayoutTransactionCoordinator has been disposed.');
+    if (this.disposed)
+      throw new Error('LayoutTransactionCoordinator has been disposed.');
   }
 }

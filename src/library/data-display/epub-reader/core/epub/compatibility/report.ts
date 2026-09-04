@@ -1,5 +1,9 @@
 import type { PublicationDiagnostic } from '../publication';
-import type { AppliedCompatibilityRepair, CompatibilityReport, CompatibilityStatus } from './model';
+import type {
+  AppliedCompatibilityRepair,
+  CompatibilityReport,
+  CompatibilityStatus,
+} from './model';
 
 /**
  * Convert the engine's explicit diagnostics into a stable compatibility summary.
@@ -16,7 +20,7 @@ export function createCompatibilityReport(
   const warnings: PublicationDiagnostic[] = [];
   const infos: PublicationDiagnostic[] = [];
   const resolvedCodes = new Set(
-    diagnostics.flatMap(diagnostic => diagnostic.repair?.resolvesCodes ?? []),
+    diagnostics.flatMap((diagnostic) => diagnostic.repair?.resolvesCodes ?? []),
   );
 
   for (const diagnostic of diagnostics) {
@@ -25,13 +29,25 @@ export function createCompatibilityReport(
         code: diagnostic.code,
         strategy: diagnostic.repair.strategy,
         description: diagnostic.repair.description,
-        ...(diagnostic.repair.confidence == null ? {} : { confidence: diagnostic.repair.confidence }),
-        ...(diagnostic.repair.resolvesCodes == null ? {} : { resolvesCodes: Object.freeze([...diagnostic.repair.resolvesCodes]) }),
+        ...(diagnostic.repair.confidence == null
+          ? {}
+          : { confidence: diagnostic.repair.confidence }),
+        ...(diagnostic.repair.resolvesCodes == null
+          ? {}
+          : {
+              resolvesCodes: Object.freeze([
+                ...diagnostic.repair.resolvesCodes,
+              ]),
+            }),
         diagnostic,
       });
     }
 
-    if ((diagnostic.severity === 'error' || diagnostic.severity === 'fatal') && !diagnostic.repair && !resolvedCodes.has(diagnostic.code)) {
+    if (
+      (diagnostic.severity === 'error' || diagnostic.severity === 'fatal') &&
+      !diagnostic.repair &&
+      !resolvedCodes.has(diagnostic.code)
+    ) {
       unresolved.push(diagnostic);
     } else if (diagnostic.severity === 'warning') {
       warnings.push(diagnostic);
@@ -54,7 +70,8 @@ function compatibilityStatus(
   repairs: readonly AppliedCompatibilityRepair[],
   unresolved: readonly PublicationDiagnostic[],
 ): CompatibilityStatus {
-  if (diagnostics.some(diagnostic => diagnostic.severity === 'fatal')) return 'blocked';
+  if (diagnostics.some((diagnostic) => diagnostic.severity === 'fatal'))
+    return 'blocked';
   if (unresolved.length > 0) return 'degraded';
   if (repairs.length > 0) return 'repaired';
   return 'clean';

@@ -1,4 +1,8 @@
-import type { DiagnosticPhase, PublicationDiagnostic, PublicationPath } from '../publication/model';
+import type {
+  DiagnosticPhase,
+  PublicationDiagnostic,
+  PublicationPath,
+} from '../publication/model';
 
 export interface XmlTextNode {
   readonly type: 'text';
@@ -68,7 +72,15 @@ export function parseXml(
     if (text.startsWith('<!--', i)) {
       const end = text.indexOf('-->', i + 4);
       if (end < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_COMMENT', 'error', 'Unterminated XML comment.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_COMMENT',
+            'error',
+            'Unterminated XML comment.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
       i = end + 3;
@@ -78,7 +90,15 @@ export function parseXml(
     if (text.startsWith('<![CDATA[', i)) {
       const end = text.indexOf(']]>', i + 9);
       if (end < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_CDATA', 'error', 'Unterminated CDATA section.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_CDATA',
+            'error',
+            'Unterminated CDATA section.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
       addText(text.slice(i + 9, end));
@@ -89,7 +109,15 @@ export function parseXml(
     if (text.startsWith('<?', i)) {
       const end = text.indexOf('?>', i + 2);
       if (end < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_PI', 'error', 'Unterminated XML processing instruction.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_PI',
+            'error',
+            'Unterminated XML processing instruction.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
       i = end + 2;
@@ -99,16 +127,26 @@ export function parseXml(
     if (/^<!DOCTYPE\b/i.test(text.slice(i, i + 16))) {
       const end = findDoctypeEnd(text, i + 9);
       if (end < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_DOCTYPE', 'error', 'Unterminated XML doctype.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_DOCTYPE',
+            'error',
+            'Unterminated XML doctype.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
-      diagnostics.push(diag(
-        'XML_DOCTYPE_IGNORED',
-        'info',
-        'DOCTYPE declaration was ignored; external entities are never resolved.',
-        path,
-        phase,
-      ));
+      diagnostics.push(
+        diag(
+          'XML_DOCTYPE_IGNORED',
+          'info',
+          'DOCTYPE declaration was ignored; external entities are never resolved.',
+          path,
+          phase,
+        ),
+      );
       i = end + 1;
       continue;
     }
@@ -116,19 +154,29 @@ export function parseXml(
     if (text.startsWith('</', i)) {
       const close = text.indexOf('>', i + 2);
       if (close < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_END_TAG', 'error', 'Unterminated XML end tag.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_END_TAG',
+            'error',
+            'Unterminated XML end tag.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
       const name = text.slice(i + 2, close).trim();
       const current = stack.pop();
       if (!current || current.name !== name) {
-        diagnostics.push(diag(
-          'XML_MISMATCHED_END_TAG',
-          'error',
-          `Unexpected end tag </${name}>${current ? `; expected </${current.name}>` : ''}.`,
-          path,
-          phase,
-        ));
+        diagnostics.push(
+          diag(
+            'XML_MISMATCHED_END_TAG',
+            'error',
+            `Unexpected end tag </${name}>${current ? `; expected </${current.name}>` : ''}.`,
+            path,
+            phase,
+          ),
+        );
       }
       i = close + 1;
       continue;
@@ -137,17 +185,41 @@ export function parseXml(
     if (text.startsWith('<!', i)) {
       const close = text.indexOf('>', i + 2);
       if (close < 0) {
-        diagnostics.push(diag('XML_UNTERMINATED_DECLARATION', 'error', 'Unterminated XML declaration.', path, phase));
+        diagnostics.push(
+          diag(
+            'XML_UNTERMINATED_DECLARATION',
+            'error',
+            'Unterminated XML declaration.',
+            path,
+            phase,
+          ),
+        );
         break;
       }
-      diagnostics.push(diag('XML_DECLARATION_IGNORED', 'warning', 'Unsupported XML declaration was ignored.', path, phase));
+      diagnostics.push(
+        diag(
+          'XML_DECLARATION_IGNORED',
+          'warning',
+          'Unsupported XML declaration was ignored.',
+          path,
+          phase,
+        ),
+      );
       i = close + 1;
       continue;
     }
 
     const tagEnd = findTagEnd(text, i + 1);
     if (tagEnd < 0) {
-      diagnostics.push(diag('XML_UNTERMINATED_START_TAG', 'error', 'Unterminated XML start tag.', path, phase));
+      diagnostics.push(
+        diag(
+          'XML_UNTERMINATED_START_TAG',
+          'error',
+          'Unterminated XML start tag.',
+          path,
+          phase,
+        ),
+      );
       break;
     }
 
@@ -178,38 +250,61 @@ export function parseXml(
       children: [],
     };
 
-    if (stack.length > 0) stack[stack.length - 1]!.children.push(element as XmlElementNode);
+    if (stack.length > 0)
+      stack[stack.length - 1]!.children.push(element as XmlElementNode);
     else if (root === null) root = element;
-    else diagnostics.push(diag('XML_MULTIPLE_ROOTS', 'error', 'XML document contains multiple root elements.', path, phase));
+    else
+      diagnostics.push(
+        diag(
+          'XML_MULTIPLE_ROOTS',
+          'error',
+          'XML document contains multiple root elements.',
+          path,
+          phase,
+        ),
+      );
 
     if (!selfClosing) stack.push(element);
     i = tagEnd + 1;
   }
 
   if (stack.length > 0) {
-    diagnostics.push(diag(
-      'XML_UNCLOSED_ELEMENTS',
-      'error',
-      `XML ended with unclosed element <${stack[stack.length - 1]!.name}>.`,
-      path,
-      phase,
-    ));
+    diagnostics.push(
+      diag(
+        'XML_UNCLOSED_ELEMENTS',
+        'error',
+        `XML ended with unclosed element <${stack[stack.length - 1]!.name}>.`,
+        path,
+        phase,
+      ),
+    );
   }
 
   return { root: root as XmlElementNode | null, diagnostics };
 }
 
-export function childElements(element: XmlElementNode, name?: string): XmlElementNode[] {
+export function childElements(
+  element: XmlElementNode,
+  name?: string,
+): XmlElementNode[] {
   return element.children.filter(
-    (node): node is XmlElementNode => node.type === 'element' && (name === undefined || node.localName === name),
+    (node): node is XmlElementNode =>
+      node.type === 'element' &&
+      (name === undefined || node.localName === name),
   );
 }
 
-export function firstChild(element: XmlElementNode, name: string): XmlElementNode | undefined {
+export function firstChild(
+  element: XmlElementNode,
+  name: string,
+): XmlElementNode | undefined {
   return childElements(element, name)[0];
 }
 
-export function descendants(element: XmlElementNode, name?: string): XmlElementNode[] {
+export function descendants(
+  element: XmlElementNode,
+  name?: string,
+): XmlElementNode[] {
   const out: XmlElementNode[] = [];
   const visit = (node: XmlElementNode) => {
     for (const child of childElements(node)) {
@@ -221,12 +316,15 @@ export function descendants(element: XmlElementNode, name?: string): XmlElementN
   return out;
 }
 
-export function attr(element: XmlElementNode, ...names: string[]): string | undefined {
+export function attr(
+  element: XmlElementNode,
+  ...names: string[]
+): string | undefined {
   for (const name of names) {
     if (element.attributes[name] !== undefined) return element.attributes[name];
   }
 
-  const localCandidates = names.filter(name => !name.includes(':'));
+  const localCandidates = names.filter((name) => !name.includes(':'));
   for (const [key, value] of Object.entries(element.attributes)) {
     const local = localName(key);
     if (localCandidates.includes(local)) return value;
@@ -256,7 +354,12 @@ export function navigationLabel(element: XmlElementNode): string {
 
     const alt = attr(node, 'alt');
     const title = attr(node, 'title');
-    if ((node.localName === 'img' || node.localName === 'area' || node.localName === 'input') && (alt || title)) {
+    if (
+      (node.localName === 'img' ||
+        node.localName === 'area' ||
+        node.localName === 'input') &&
+      (alt || title)
+    ) {
       out += alt ?? title ?? '';
       return;
     }
@@ -288,7 +391,15 @@ function parseStartTag(
   skipWs();
   const name = readName();
   if (!name) {
-    diagnostics.push(diag('XML_INVALID_START_TAG', 'error', 'Start tag has no element name.', path, phase));
+    diagnostics.push(
+      diag(
+        'XML_INVALID_START_TAG',
+        'error',
+        'Start tag has no element name.',
+        path,
+        phase,
+      ),
+    );
     return null;
   }
 
@@ -299,13 +410,29 @@ function parseStartTag(
 
     const attrName = readName();
     if (!attrName) {
-      diagnostics.push(diag('XML_INVALID_ATTRIBUTE', 'error', `Invalid attribute syntax in <${name}>.`, path, phase));
+      diagnostics.push(
+        diag(
+          'XML_INVALID_ATTRIBUTE',
+          'error',
+          `Invalid attribute syntax in <${name}>.`,
+          path,
+          phase,
+        ),
+      );
       break;
     }
 
     skipWs();
     if (source[i] !== '=') {
-      diagnostics.push(diag('XML_ATTRIBUTE_MISSING_EQUALS', 'error', `Attribute ${attrName} is missing '='.`, path, phase));
+      diagnostics.push(
+        diag(
+          'XML_ATTRIBUTE_MISSING_EQUALS',
+          'error',
+          `Attribute ${attrName} is missing '='.`,
+          path,
+          phase,
+        ),
+      );
       attributes[attrName] = '';
       continue;
     }
@@ -314,10 +441,23 @@ function parseStartTag(
 
     const quote = source[i];
     if (quote !== '"' && quote !== "'") {
-      diagnostics.push(diag('XML_ATTRIBUTE_NOT_QUOTED', 'error', `Attribute ${attrName} is not quoted.`, path, phase));
+      diagnostics.push(
+        diag(
+          'XML_ATTRIBUTE_NOT_QUOTED',
+          'error',
+          `Attribute ${attrName} is not quoted.`,
+          path,
+          phase,
+        ),
+      );
       const start = i;
       while (i < source.length && !/\s/.test(source[i]!)) i += 1;
-      attributes[attrName] = decodeEntities(source.slice(start, i), diagnostics, path, phase);
+      attributes[attrName] = decodeEntities(
+        source.slice(start, i),
+        diagnostics,
+        path,
+        phase,
+      );
       continue;
     }
 
@@ -325,11 +465,29 @@ function parseStartTag(
     const start = i;
     const end = source.indexOf(quote, i);
     if (end < 0) {
-      diagnostics.push(diag('XML_UNTERMINATED_ATTRIBUTE', 'error', `Attribute ${attrName} has no closing quote.`, path, phase));
-      attributes[attrName] = decodeEntities(source.slice(start), diagnostics, path, phase);
+      diagnostics.push(
+        diag(
+          'XML_UNTERMINATED_ATTRIBUTE',
+          'error',
+          `Attribute ${attrName} has no closing quote.`,
+          path,
+          phase,
+        ),
+      );
+      attributes[attrName] = decodeEntities(
+        source.slice(start),
+        diagnostics,
+        path,
+        phase,
+      );
       break;
     }
-    attributes[attrName] = decodeEntities(source.slice(start, end), diagnostics, path, phase);
+    attributes[attrName] = decodeEntities(
+      source.slice(start, end),
+      diagnostics,
+      path,
+      phase,
+    );
     i = end + 1;
   }
 
@@ -381,26 +539,38 @@ function decodeEntities(
   path?: PublicationPath,
   phase: DiagnosticPhase = 'package',
 ): string {
-  return value.replace(/&(#x[0-9A-Fa-f]+|#\d+|amp|lt|gt|quot|apos|[A-Za-z_:][\w.:-]*);/g, (whole, entity: string) => {
-    switch (entity) {
-      case 'amp': return '&';
-      case 'lt': return '<';
-      case 'gt': return '>';
-      case 'quot': return '"';
-      case 'apos': return "'";
-      default:
-        if (entity.startsWith('#x')) return codePoint(entity.slice(2), 16, whole);
-        if (entity.startsWith('#')) return codePoint(entity.slice(1), 10, whole);
-        diagnostics.push(diag(
-          'XML_EXTERNAL_OR_UNKNOWN_ENTITY',
-          'warning',
-          `Entity &${entity}; was not expanded because external/custom entities are disabled.`,
-          path,
-          phase,
-        ));
-        return whole;
-    }
-  });
+  return value.replace(
+    /&(#x[0-9A-Fa-f]+|#\d+|amp|lt|gt|quot|apos|[A-Za-z_:][\w.:-]*);/g,
+    (whole, entity: string) => {
+      switch (entity) {
+        case 'amp':
+          return '&';
+        case 'lt':
+          return '<';
+        case 'gt':
+          return '>';
+        case 'quot':
+          return '"';
+        case 'apos':
+          return "'";
+        default:
+          if (entity.startsWith('#x'))
+            return codePoint(entity.slice(2), 16, whole);
+          if (entity.startsWith('#'))
+            return codePoint(entity.slice(1), 10, whole);
+          diagnostics.push(
+            diag(
+              'XML_EXTERNAL_OR_UNKNOWN_ENTITY',
+              'warning',
+              `Entity &${entity}; was not expanded because external/custom entities are disabled.`,
+              path,
+              phase,
+            ),
+          );
+          return whole;
+      }
+    },
+  );
 
   function codePoint(raw: string, radix: number, fallback: string): string {
     const cp = Number.parseInt(raw, radix);

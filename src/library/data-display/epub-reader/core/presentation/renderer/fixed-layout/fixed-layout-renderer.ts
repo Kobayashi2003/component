@@ -34,9 +34,13 @@ export interface FixedLayoutRendererEnvironment {
   readonly publication: Publication;
   readonly contentDocumentCache: PublicationContentDocumentCache;
   readonly policy?: FixedLayoutRendererPolicy;
-  readonly resolveHorizontalAlignment?: (plan: RenditionPlan) => FixedLayoutHorizontalAlignment;
+  readonly resolveHorizontalAlignment?: (
+    plan: RenditionPlan,
+  ) => FixedLayoutHorizontalAlignment;
   readonly createSurface?: () => ContentSurface;
-  readonly onDiagnostics?: (diagnostics: readonly PublicationDiagnostic[]) => void;
+  readonly onDiagnostics?: (
+    diagnostics: readonly PublicationDiagnostic[],
+  ) => void;
   readonly onPresentationHints?: (hints: ContentPresentationHints) => void;
 }
 
@@ -67,28 +71,42 @@ export class FixedLayoutRenderer implements RendererInstance {
     this.policy = environment.policy ?? DEFAULT_FIXED_LAYOUT_RENDERER_POLICY;
   }
 
-  async mount(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async mount(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (this.surface) throw new Error('FixedLayoutRenderer.mount() can only be called once.');
+    if (this.surface)
+      throw new Error('FixedLayoutRenderer.mount() can only be called once.');
 
     const item = this.environment.publication.spine[plan.spineIndex];
-    if (!item || item.href !== plan.href) throw new Error(`Rendition plan does not resolve to spine item ${plan.spineIndex}.`);
+    if (!item || item.href !== plan.href)
+      throw new Error(
+        `Rendition plan does not resolve to spine item ${plan.spineIndex}.`,
+      );
 
     const ownerDocument = this.environment.container.ownerDocument;
     const mediaType = item.mediaType.split(';', 1)[0]?.trim().toLowerCase();
-    const materialized = await this.environment.contentDocumentCache.materialize(item);
+    const materialized =
+      await this.environment.contentDocumentCache.materialize(item);
     transaction.throwIfSuperseded();
     this.environment.onDiagnostics?.(materialized.diagnostics);
     this.environment.onPresentationHints?.(materialized.hints);
 
-    const surface = this.environment.createSurface?.()
-      ?? new BrowserIFrameContentSurface(ownerDocument, { title: `EPUB fixed page: ${item.href}` });
+    const surface =
+      this.environment.createSurface?.() ??
+      new BrowserIFrameContentSurface(ownerDocument, {
+        title: `EPUB fixed page: ${item.href}`,
+      });
     const stage = ownerDocument.createElement('div');
     let mounted = false;
     try {
       transaction.mutate(() => {
-        prepareContainer(this.environment.container, plan.preferences.fixedLayoutFit);
+        prepareContainer(
+          this.environment.container,
+          plan.preferences.fixedLayoutFit,
+        );
         prepareStage(stage);
         this.environment.container.appendChild(stage);
         surface.mount(stage);
@@ -99,13 +117,20 @@ export class FixedLayoutRenderer implements RendererInstance {
         mounted = true;
       });
 
-      const loaded = await surface.load({
-        kind: 'url',
-        url: materialized.url,
-        srcdocFallback: { html: materialized.markup },
-      }, transaction.signal);
+      const loaded = await surface.load(
+        {
+          kind: 'url',
+          url: materialized.url,
+          srcdocFallback: { html: materialized.markup },
+        },
+        transaction.signal,
+      );
       transaction.throwIfSuperseded();
-      const intrinsic = resolveIntrinsicViewport(loaded.document, mediaType ?? '', plan);
+      const intrinsic = resolveIntrinsicViewport(
+        loaded.document,
+        mediaType ?? '',
+        plan,
+      );
       if (!intrinsic) {
         const diagnostic: PublicationDiagnostic = {
           code: 'FXL_INTRINSIC_VIEWPORT_MISSING',
@@ -115,19 +140,24 @@ export class FixedLayoutRenderer implements RendererInstance {
           message: `Fixed-layout spine item ${plan.href} does not expose a usable intrinsic viewport; using the content slot size as an explicit compatibility fallback.`,
           repair: {
             strategy: 'use-content-slot-as-icb',
-            description: 'Use the current content slot dimensions as the missing fixed-layout initial containing block.',
+            description:
+              'Use the current content slot dimensions as the missing fixed-layout initial containing block.',
             confidence: 0.25,
           },
         };
         this.environment.onDiagnostics?.([diagnostic]);
       }
-      const effectiveIntrinsic = intrinsic ?? { width: plan.viewport.width, height: plan.viewport.height };
+      const effectiveIntrinsic = intrinsic ?? {
+        width: plan.viewport.width,
+        height: plan.viewport.height,
+      };
 
       transaction.mutate(() => {
         this.document = loaded.document;
         this.plan = plan;
         this.intrinsic = effectiveIntrinsic;
-        if (mediaType !== 'image/svg+xml') installFixedLayoutClipStyle(loaded.document);
+        if (mediaType !== 'image/svg+xml')
+          installFixedLayoutClipStyle(loaded.document);
         this.applyPlacement(plan, effectiveIntrinsic);
         this.installNavigationGuard(loaded.document);
         this.installFormGuard(loaded.document);
@@ -141,12 +171,21 @@ export class FixedLayoutRenderer implements RendererInstance {
     }
   }
 
-  async update(plan: RenditionPlan, transaction: LayoutTransactionContext): Promise<void> {
+  async update(
+    plan: RenditionPlan,
+    transaction: LayoutTransactionContext,
+  ): Promise<void> {
     this.assertAlive();
     this.assertPlan(plan);
-    if (!this.document || !this.plan || !this.intrinsic) throw new Error('FixedLayoutRenderer must be mounted before update().');
-    if (this.plan.spineIndex !== plan.spineIndex || this.plan.href !== plan.href) {
-      throw new Error('FixedLayoutRenderer cannot update to a different spine document.');
+    if (!this.document || !this.plan || !this.intrinsic)
+      throw new Error('FixedLayoutRenderer must be mounted before update().');
+    if (
+      this.plan.spineIndex !== plan.spineIndex ||
+      this.plan.href !== plan.href
+    ) {
+      throw new Error(
+        'FixedLayoutRenderer cannot update to a different spine document.',
+      );
     }
     transaction.mutate(() => {
       this.plan = plan;
@@ -154,24 +193,37 @@ export class FixedLayoutRenderer implements RendererInstance {
     });
   }
 
-  async captureLocator(transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async captureLocator(
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     const plan = this.plan;
     if (!plan) return null;
-    return { href: plan.href, spineIndex: plan.spineIndex, locations: { progression: 0 } };
+    return {
+      href: plan.href,
+      spineIndex: plan.spineIndex,
+      locations: { progression: 0 },
+    };
   }
 
-  async restoreLocator(locator: Locator, transaction: LayoutTransactionContext): Promise<Locator | null> {
+  async restoreLocator(
+    locator: Locator,
+    transaction: LayoutTransactionContext,
+  ): Promise<Locator | null> {
     this.assertAlive();
     transaction.throwIfSuperseded();
     // A pre-paginated spine item is exactly one page. There is no intra-page
     // pagination state to restore; fragment and annotation navigation is handled above the renderer.
     const plan = this.plan;
-    if (!plan || locator.spineIndex !== plan.spineIndex || locator.href !== plan.href) return null;
+    if (
+      !plan ||
+      locator.spineIndex !== plan.spineIndex ||
+      locator.href !== plan.href
+    )
+      return null;
     return { ...locator, locations: { ...locator.locations, progression: 0 } };
   }
-
 
   async navigate(
     direction: import('../model').ReadingDirection,
@@ -179,12 +231,18 @@ export class FixedLayoutRenderer implements RendererInstance {
   ): Promise<import('../model').RendererNavigationResult> {
     this.assertAlive();
     transaction.throwIfSuperseded();
-    return { status: 'boundary', edge: direction === 'forward' ? 'end' : 'start' };
+    return {
+      status: 'boundary',
+      edge: direction === 'forward' ? 'end' : 'start',
+    };
   }
 
-  async waitForLayoutStable(transaction: LayoutTransactionContext): Promise<LayoutStabilityReport> {
+  async waitForLayoutStable(
+    transaction: LayoutTransactionContext,
+  ): Promise<LayoutStabilityReport> {
     this.assertAlive();
-    if (!this.surface) throw new Error('FixedLayoutRenderer has no content surface.');
+    if (!this.surface)
+      throw new Error('FixedLayoutRenderer has no content surface.');
     const report = await this.surface.waitForLayoutStable(transaction.signal);
     transaction.throwIfSuperseded();
     return report;
@@ -192,7 +250,14 @@ export class FixedLayoutRenderer implements RendererInstance {
 
   contentDocuments(): readonly import('../model').RendererContentDocument[] {
     if (!this.document || !this.plan || !this.surface) return [];
-    return [{ spineIndex: this.plan.spineIndex, href: this.plan.href, document: this.document, surfaceElement: this.surface.element }];
+    return [
+      {
+        spineIndex: this.plan.spineIndex,
+        href: this.plan.href,
+        document: this.document,
+        surfaceElement: this.surface.element,
+      },
+    ];
   }
 
   snapshot(): Partial<FixedLayoutSnapshot> {
@@ -219,7 +284,8 @@ export class FixedLayoutRenderer implements RendererInstance {
 
   setVisibility(visible: boolean): void {
     this.visible = visible;
-    if (this.surface) this.surface.element.style.visibility = visible ? 'visible' : 'hidden';
+    if (this.surface)
+      this.surface.element.style.visibility = visible ? 'visible' : 'hidden';
   }
 
   dispose(): void {
@@ -236,11 +302,20 @@ export class FixedLayoutRenderer implements RendererInstance {
     this.placement = null;
   }
 
-  private applyPlacement(plan: RenditionPlan, intrinsic: IntrinsicViewport): void {
+  private applyPlacement(
+    plan: RenditionPlan,
+    intrinsic: IntrinsicViewport,
+  ): void {
     const surface = this.surface;
     const stage = this.stage;
-    if (!surface || !stage) throw new Error('Cannot place a fixed-layout page before its surface is mounted.');
-    prepareContainer(this.environment.container, plan.preferences.fixedLayoutFit);
+    if (!surface || !stage)
+      throw new Error(
+        'Cannot place a fixed-layout page before its surface is mounted.',
+      );
+    prepareContainer(
+      this.environment.container,
+      plan.preferences.fixedLayoutFit,
+    );
     const calculated = calculateFixedLayoutPlacement(
       intrinsic,
       plan.viewport,
@@ -270,32 +345,52 @@ export class FixedLayoutRenderer implements RendererInstance {
   }
 
   private installNavigationGuard(document: Document): void {
-    this.lifecycle.listen(document, 'click', event => {
-      const target = event.target;
-      if (!target || (target as Node).nodeType !== 1) return;
-      const anchor = (target as Element).closest('a[href], a[data-epub-href]');
-      if (!anchor) return;
-      const href = anchor.getAttribute('href') ?? '';
-      if (href.startsWith('#')) return;
-      event.preventDefault();
-    }, true);
+    this.lifecycle.listen(
+      document,
+      'click',
+      (event) => {
+        const target = event.target;
+        if (!target || (target as Node).nodeType !== 1) return;
+        const anchor = (target as Element).closest(
+          'a[href], a[data-epub-href]',
+        );
+        if (!anchor) return;
+        const href = anchor.getAttribute('href') ?? '';
+        if (href.startsWith('#')) return;
+        event.preventDefault();
+      },
+      true,
+    );
   }
 
   private installFormGuard(document: Document): void {
-    this.lifecycle.listen(document, 'submit', event => event.preventDefault(), true);
+    this.lifecycle.listen(
+      document,
+      'submit',
+      (event) => event.preventDefault(),
+      true,
+    );
   }
 
   private assertPlan(plan: RenditionPlan): void {
-    if (plan.renderer !== 'fixed-layout' || plan.publicationRendition.layout !== 'pre-paginated') {
-      throw new Error(`FixedLayoutRenderer received incompatible plan ${plan.renderer}/${plan.publicationRendition.layout}.`);
+    if (
+      plan.renderer !== 'fixed-layout' ||
+      plan.publicationRendition.layout !== 'pre-paginated'
+    ) {
+      throw new Error(
+        `FixedLayoutRenderer received incompatible plan ${plan.renderer}/${plan.publicationRendition.layout}.`,
+      );
     }
     if (plan.spread.mode === 'double') {
-      throw new Error('FixedLayoutRenderer renders one content slot; use the spread-aware factory for double-page plans.');
+      throw new Error(
+        'FixedLayoutRenderer renders one content slot; use the spread-aware factory for double-page plans.',
+      );
     }
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('FixedLayoutRenderer has been disposed.');
+    if (this.disposed)
+      throw new Error('FixedLayoutRenderer has been disposed.');
   }
 }
 
@@ -305,14 +400,18 @@ function resolveIntrinsicViewport(
   plan: RenditionPlan,
 ): IntrinsicViewport | null {
   if (plan.intrinsicViewport) return plan.intrinsicViewport;
-  if (mediaType === 'image/svg+xml') return inspectSvgIntrinsicViewport(document);
+  if (mediaType === 'image/svg+xml')
+    return inspectSvgIntrinsicViewport(document);
   return inspectXhtmlIntrinsicViewport(document, {
     deviceWidth: plan.viewport.width,
     deviceHeight: plan.viewport.height,
   });
 }
 
-function prepareContainer(container: HTMLElement, fit: import('../../../epub/publication').FixedLayoutFit): void {
+function prepareContainer(
+  container: HTMLElement,
+  fit: import('../../../epub/publication').FixedLayoutFit,
+): void {
   if (!container.style.position) container.style.position = 'relative';
   container.style.overflow = fit === 'contain' ? 'hidden' : 'auto';
   container.style.overscrollBehavior = 'contain';

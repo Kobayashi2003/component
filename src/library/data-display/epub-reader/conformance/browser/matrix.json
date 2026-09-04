@@ -20,7 +20,7 @@
   "invariants": [
     {
       "id": "no-line-bisected-by-page-boundary",
-      "note": "Paginated content fragments through CSS multicol in both writing modes, so a page boundary is a fragmentation break and can never fall inside a line box. Asserted per engine by scripts/run-pagination-conformance.mjs."
+      "note": "Paginated content fragments through CSS multicol in both writing modes, so a page boundary is a fragmentation break and can never fall inside a line box. Asserted per engine by scripts/conformance/run-pagination-conformance.mjs."
     },
     {
       "id": "page-advance-equals-viewport",

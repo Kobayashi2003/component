@@ -28,7 +28,10 @@ const VERTICAL_BLOCK_SLACK = '1em';
  * of the document.
  */
 function verticalInlineMargin(plan: RenditionPlan): number {
-  return Math.max(0, plan.viewport.height * plan.preferences.pageMarginPercent / 100);
+  return Math.max(
+    0,
+    (plan.viewport.height * plan.preferences.pageMarginPercent) / 100,
+  );
 }
 
 function verticalColumnInlineSize(plan: RenditionPlan): number {
@@ -45,9 +48,10 @@ export function buildReflowableLayoutCss(
   const pageGap = reflowablePageGap(plan, policy, writingMode);
   const pageWidthValue = reflowablePageWidth(plan, policy, writingMode);
   const pageWidth = cssPixels(pageWidthValue);
-  const pageInset = writingMode === 'horizontal-tb'
-    ? cssPixels(reflowablePageInset(plan, policy, writingMode))
-    : '0px';
+  const pageInset =
+    writingMode === 'horizontal-tb'
+      ? cssPixels(reflowablePageInset(plan, policy, writingMode))
+      : '0px';
   const inlinePadding = `${plan.preferences.pageMarginPercent}%`;
   // A leading blank only means something where a spread really is two side by
   // side fragmentainers, which is horizontal two-up. A vertical spread is one
@@ -55,7 +59,8 @@ export function buildReflowableLayoutCss(
   // inside it to align a chapter to: a blank column there does not move the
   // opening onto the correct leaf, it just spends a whole spread on nothing and
   // makes the first page turn of the chapter land on an empty page.
-  const leadingBlank = writingMode === 'horizontal-tb' && reflowableNeedsLeadingBlankPage(plan);
+  const leadingBlank =
+    writingMode === 'horizontal-tb' && reflowableNeedsLeadingBlankPage(plan);
 
   if (plan.renderer === 'reflowable-paginated') {
     if (usesSingleImagePageLayout(plan)) {
@@ -214,12 +219,14 @@ ${policy.containReplacedElements ? replacedElementContainmentCss() : ''}
  */
 function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
   const page = plan.contentPage;
-  return plan.compatibility.fitSingleImagePage
-    && page?.kind === 'single-image-page'
-    && page.pageLike
-    && page.replacedElementCount === 1
-    && page.semanticTextLength === 0
-    && page.intrinsicViewport != null;
+  return (
+    plan.compatibility.fitSingleImagePage &&
+    page?.kind === 'single-image-page' &&
+    page.pageLike &&
+    page.replacedElementCount === 1 &&
+    page.semanticTextLength === 0 &&
+    page.intrinsicViewport != null
+  );
 }
 
 /**
@@ -289,7 +296,7 @@ export function reflowablePageGap(
 ): number {
   if (writingMode !== 'horizontal-tb') return verticalInlineMargin(plan) * 2;
   const baseGap = baseReflowablePageGap(plan, policy);
-  return baseGap + (reflowablePageInset(plan, policy, writingMode) * 2);
+  return baseGap + reflowablePageInset(plan, policy, writingMode) * 2;
 }
 
 /**
@@ -303,7 +310,10 @@ export function reflowablePageWidth(
 ): number {
   if (writingMode !== 'horizontal-tb') return verticalColumnInlineSize(plan);
   const slotWidth = physicalPageSlotWidth(plan, policy, writingMode);
-  return Math.max(1, slotWidth - (reflowablePageInset(plan, policy, writingMode) * 2));
+  return Math.max(
+    1,
+    slotWidth - reflowablePageInset(plan, policy, writingMode) * 2,
+  );
 }
 
 export function reflowablePageInset(
@@ -311,7 +321,11 @@ export function reflowablePageInset(
   policy: ReflowableRendererPolicy,
   writingMode = plan.writingMode.value,
 ): number {
-  if (writingMode !== 'horizontal-tb' || plan.renderer !== 'reflowable-paginated') return 0;
+  if (
+    writingMode !== 'horizontal-tb' ||
+    plan.renderer !== 'reflowable-paginated'
+  )
+    return 0;
   const slotWidth = physicalPageSlotWidth(plan, policy, writingMode);
   return Math.max(0, slotWidth * (plan.preferences.pageMarginPercent / 100));
 }
@@ -322,17 +336,29 @@ function physicalPageSlotWidth(
   writingMode: RenditionPlan['writingMode']['value'],
 ): number {
   const visible = plan.spread.execution === 'intra-document' ? 2 : 1;
-  if (writingMode !== 'horizontal-tb') return Math.max(1, plan.viewport.width / visible);
+  if (writingMode !== 'horizontal-tb')
+    return Math.max(1, plan.viewport.width / visible);
   const gap = baseReflowablePageGap(plan, policy);
-  return visible === 2 ? Math.max(1, (plan.viewport.width - gap) / 2) : plan.viewport.width;
+  return visible === 2
+    ? Math.max(1, (plan.viewport.width - gap) / 2)
+    : plan.viewport.width;
 }
 
-function baseReflowablePageGap(plan: RenditionPlan, policy: ReflowableRendererPolicy): number {
-  return plan.spread.mode === 'double' && plan.spread.gap === 'none' ? 0 : policy.pageGap;
+function baseReflowablePageGap(
+  plan: RenditionPlan,
+  policy: ReflowableRendererPolicy,
+): number {
+  return plan.spread.mode === 'double' && plan.spread.gap === 'none'
+    ? 0
+    : policy.pageGap;
 }
 
 export function reflowableNeedsLeadingBlankPage(plan: RenditionPlan): boolean {
-  if (plan.spread.execution !== 'intra-document' || plan.spread.mode !== 'double') return false;
+  if (
+    plan.spread.execution !== 'intra-document' ||
+    plan.spread.mode !== 'double'
+  )
+    return false;
   const placement = plan.spread.placement;
   if (placement !== 'left' && placement !== 'right') return false;
   const defaultFirst = plan.pageProgression.value === 'rtl' ? 'right' : 'left';
@@ -351,14 +377,19 @@ body::before {
 `;
 }
 
-export function buildReaderPreferenceCss(plan: RenditionPlan, resolvedTheme?: ReaderThemeDefinition | null): string {
+export function buildReaderPreferenceCss(
+  plan: RenditionPlan,
+  resolvedTheme?: ReaderThemeDefinition | null,
+): string {
   const preferences = plan.preferences;
   const rules: string[] = [
     `font-size: ${preferences.fontSizePercent}% !important`,
   ];
 
   if (preferences.fontFamily) {
-    rules.push(`font-family: ${safeFontFamily(preferences.fontFamily)} !important`);
+    rules.push(
+      `font-family: ${safeFontFamily(preferences.fontFamily)} !important`,
+    );
   }
   const extra: string[] = [];
   if (preferences.lineHeight != null) {
@@ -372,7 +403,8 @@ export function buildReaderPreferenceCss(plan: RenditionPlan, resolvedTheme?: Re
   }
   const theme = themeDeclarations(resolvedTheme);
   if (theme?.body) rules.push(...theme.body);
-  if (theme?.link) extra.push(`a, a:link, a:visited { color: ${theme.link} !important; }`);
+  if (theme?.link)
+    extra.push(`a, a:link, a:visited { color: ${theme.link} !important; }`);
   if (theme?.forceTextColor) {
     // Everything but links, rather than an enumerated tag list. The list this
     // replaces omitted section, article, dt/dd, caption, label and every ruby
@@ -390,10 +422,17 @@ ${extra.join('\n')}
 `;
 }
 
-export function upsertReaderStyle(document: Document, id: string, css: string): HTMLStyleElement {
+export function upsertReaderStyle(
+  document: Document,
+  id: string,
+  css: string,
+): HTMLStyleElement {
   let style = document.getElementById(id) as HTMLStyleElement | null;
   if (!style) {
-    style = document.createElementNS('http://www.w3.org/1999/xhtml', 'style') as HTMLStyleElement;
+    style = document.createElementNS(
+      'http://www.w3.org/1999/xhtml',
+      'style',
+    ) as HTMLStyleElement;
     style.id = id;
     (document.head ?? document.documentElement).appendChild(style);
   }
@@ -412,7 +451,9 @@ img, svg, video, canvas, object, embed, iframe {
 `;
 }
 
-function themeDeclarations(resolved?: ReaderThemeDefinition | null): { body: string[]; link?: string; forceTextColor: boolean } | null {
+function themeDeclarations(
+  resolved?: ReaderThemeDefinition | null,
+): { body: string[]; link?: string; forceTextColor: boolean } | null {
   const value = resolved;
   if (!value || value.id === 'publisher') return null;
   const body: string[] = [];
@@ -421,15 +462,20 @@ function themeDeclarations(resolved?: ReaderThemeDefinition | null): { body: str
   const link = safeCssValue(value.link);
   if (foreground) body.push(`color: ${foreground} !important`);
   if (background) body.push(`background: ${background} !important`);
-  if (value.colorScheme && value.colorScheme !== 'normal') body.push(`color-scheme: ${value.colorScheme}`);
-  return { body, ...(link ? { link } : {}), forceTextColor: value.forceTextColor ?? false };
+  if (value.colorScheme && value.colorScheme !== 'normal')
+    body.push(`color-scheme: ${value.colorScheme}`);
+  return {
+    body,
+    ...(link ? { link } : {}),
+    forceTextColor: value.forceTextColor ?? false,
+  };
 }
-
 
 function safeCssValue(value: string | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
-  if (!trimmed || /[;{}\r\n\f]/u.test(trimmed) || /url\s*\(/iu.test(trimmed)) return null;
+  if (!trimmed || /[;{}\r\n\f]/u.test(trimmed) || /url\s*\(/iu.test(trimmed))
+    return null;
   return trimmed;
 }
 
@@ -441,10 +487,29 @@ function quoteCssString(value: string): string {
 }
 
 function safeFontFamily(value: string): string {
-  const genericFamilies = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace']);
-  const families = value.split(',').map(part => part.trim()).filter(Boolean);
+  const genericFamilies = new Set([
+    'serif',
+    'sans-serif',
+    'monospace',
+    'cursive',
+    'fantasy',
+    'system-ui',
+    'ui-serif',
+    'ui-sans-serif',
+    'ui-monospace',
+  ]);
+  const families = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (families.length === 0) return 'serif';
-  return families.map(family => genericFamilies.has(family.toLowerCase()) ? family.toLowerCase() : quoteCssString(family)).join(', ');
+  return families
+    .map((family) =>
+      genericFamilies.has(family.toLowerCase())
+        ? family.toLowerCase()
+        : quoteCssString(family),
+    )
+    .join(', ');
 }
 
 /** Extents that must never collapse to nothing: a page, a column. */

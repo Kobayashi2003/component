@@ -25,7 +25,9 @@ export class DuplicateCapabilityError extends Error {
     readonly existingOwnerId: string,
     readonly attemptedOwnerId: string,
   ) {
-    super(`Capability ${capabilityId} is already provided by ${existingOwnerId}; ${attemptedOwnerId} cannot replace it.`);
+    super(
+      `Capability ${capabilityId} is already provided by ${existingOwnerId}; ${attemptedOwnerId} cannot replace it.`,
+    );
     this.name = 'DuplicateCapabilityError';
   }
 }
@@ -53,7 +55,8 @@ export class CapabilityRegistry implements CapabilityResolver {
     assertExtensionId(ownerId, 'Capability owner id');
     assertExtensionId(key.id, 'Capability id');
     const existing = this.entries.get(key.id);
-    if (existing) throw new DuplicateCapabilityError(key.id, existing.ownerId, ownerId);
+    if (existing)
+      throw new DuplicateCapabilityError(key.id, existing.ownerId, ownerId);
 
     const entry: CapabilityEntry<T> = { ownerId, key, value };
     this.entries.set(key.id, entry as CapabilityEntry);

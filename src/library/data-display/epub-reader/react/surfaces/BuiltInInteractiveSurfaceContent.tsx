@@ -2,12 +2,16 @@ import { EpubMarkPopoverContent } from '../overlays/EpubMarkPopover';
 import { EpubSelectionToolbarContent } from '../overlays/EpubSelectionToolbar';
 import type { ReaderSurfaceRendererContext } from './model';
 
-export function BuiltInSelectionSurface({ context }: { readonly context: ReaderSurfaceRendererContext<'selection'> }) {
+export function BuiltInSelectionSurface({
+  context,
+}: {
+  readonly context: ReaderSurfaceRendererContext<'selection'>;
+}) {
   return (
     <EpubSelectionToolbarContent
       activation={context.surface.activation}
       reader={context.reader}
-      onDismiss={withFocus => {
+      onDismiss={(withFocus) => {
         context.reader.clearSelection();
         context.close(withFocus);
       }}
@@ -17,13 +21,17 @@ export function BuiltInSelectionSurface({ context }: { readonly context: ReaderS
   );
 }
 
-export function BuiltInMarkSurface({ context }: { readonly context: ReaderSurfaceRendererContext<'mark'> }) {
+export function BuiltInMarkSurface({
+  context,
+}: {
+  readonly context: ReaderSurfaceRendererContext<'mark'>;
+}) {
   return (
     <EpubMarkPopoverContent
       activation={context.surface.activation}
       reader={context.reader}
       onClose={context.close}
-      onChanged={message => context.showFeedback(message, 'success')}
+      onChanged={(message) => context.showFeedback(message, 'success')}
     />
   );
 }

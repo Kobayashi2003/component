@@ -17,7 +17,9 @@ import type {
   ViewportOrientation,
 } from './model';
 
-export function getViewportOrientation(viewport: ViewportMetrics): ViewportOrientation {
+export function getViewportOrientation(
+  viewport: ViewportMetrics,
+): ViewportOrientation {
   if (viewport.width > viewport.height) return 'landscape';
   if (viewport.height > viewport.width) return 'portrait';
   return 'square';
@@ -84,7 +86,8 @@ export function resolveSpread(
         severity: 'info',
         phase: 'rendition',
         spineIndex: item.index,
-        message: 'The publication declares rendition:spread=none for this spine item; the user double-page preference is not applied.',
+        message:
+          'The publication declares rendition:spread=none for this spine item; the user double-page preference is not applied.',
       });
     }
     return {
@@ -103,13 +106,18 @@ export function resolveSpread(
 
   if (!policy.syntheticSpreads.supported) {
     const diagnostics: PublicationDiagnostic[] = [];
-    if (preferences.spread === 'double' || rendition.spread === 'both' || rendition.spread === 'portrait') {
+    if (
+      preferences.spread === 'double' ||
+      rendition.spread === 'both' ||
+      rendition.spread === 'portrait'
+    ) {
       diagnostics.push({
         code: 'RENDITION_SYNTHETIC_SPREAD_UNSUPPORTED',
         severity: 'warning',
         phase: 'rendition',
         spineIndex: item.index,
-        message: 'A synthetic spread was requested, but the active reading-system policy does not support synthetic spreads.',
+        message:
+          'A synthetic spread was requested, but the active reading-system policy does not support synthetic spreads.',
       });
     }
     return {
@@ -128,23 +136,45 @@ export function resolveSpread(
 
   if (preferences.spread === 'single') {
     return {
-      spread: makeDoubleAwarePlan(false, 'user', placement, trueSpread, rendition.layout, contentHints),
+      spread: makeDoubleAwarePlan(
+        false,
+        'user',
+        placement,
+        trueSpread,
+        rendition.layout,
+        contentHints,
+      ),
       diagnostics: [],
     };
   }
 
   if (preferences.spread === 'double') {
     return {
-      spread: makeDoubleAwarePlan(true, 'user', placement, trueSpread, rendition.layout, contentHints),
+      spread: makeDoubleAwarePlan(
+        true,
+        'user',
+        placement,
+        trueSpread,
+        rendition.layout,
+        contentHints,
+      ),
       diagnostics: [],
     };
   }
 
   if (trueSpread) {
-    const hasRoom = viewport.width >= policy.syntheticSpreads.minViewportWidth
-      && viewport.width / 2 >= policy.syntheticSpreads.minPageWidth;
+    const hasRoom =
+      viewport.width >= policy.syntheticSpreads.minViewportWidth &&
+      viewport.width / 2 >= policy.syntheticSpreads.minPageWidth;
     return {
-      spread: makeDoubleAwarePlan(hasRoom, 'spread-placement', placement, trueSpread, rendition.layout, contentHints),
+      spread: makeDoubleAwarePlan(
+        hasRoom,
+        'spread-placement',
+        placement,
+        trueSpread,
+        rendition.layout,
+        contentHints,
+      ),
       diagnostics: [],
     };
   }
@@ -218,7 +248,10 @@ function makeDoubleAwarePlan(
     placement,
     trueSpread,
     gap:
-      useDouble && (layout === 'pre-paginated' || trueSpread !== undefined || execution === 'spanning-document')
+      useDouble &&
+      (layout === 'pre-paginated' ||
+        trueSpread !== undefined ||
+        execution === 'spanning-document')
         ? 'none'
         : 'renderer-default',
   };
@@ -246,14 +279,18 @@ export function detectTrueSpreadPair(
 ): SpreadPairHint | undefined {
   const activeRendition = resolveSpineRendition(publication, item);
   const activePlacement = activeRendition.pageSpread;
-  if (activePlacement !== 'left' && activePlacement !== 'right') return undefined;
-  const progression = publication.pageProgressionDirection === 'rtl' ? 'rtl' : 'ltr';
+  if (activePlacement !== 'left' && activePlacement !== 'right')
+    return undefined;
+  const progression =
+    publication.pageProgressionDirection === 'rtl' ? 'rtl' : 'ltr';
   const firstPlacement: PageSpread = progression === 'rtl' ? 'right' : 'left';
-  const neighborIndex = item.index + (activePlacement === firstPlacement ? 1 : -1);
+  const neighborIndex =
+    item.index + (activePlacement === firstPlacement ? 1 : -1);
   const neighbor = publication.spine[neighborIndex];
   if (!neighbor) return undefined;
   const neighborRendition = resolveSpineRendition(publication, neighbor);
-  if (!areComplementary(activePlacement, neighborRendition.pageSpread)) return undefined;
+  if (!areComplementary(activePlacement, neighborRendition.pageSpread))
+    return undefined;
   // A true spread is one physical sheet photographed as two leaves, so both
   // halves have to render the same way. Mixed-layout books commonly carry an
   // authored left/right pair that spans the boundary between a plate and the
