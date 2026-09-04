@@ -1,3 +1,9 @@
+/* ==========================================================================
+   01. REUSABLE CURSOR FRAME
+   The frame tracks the pointer instantly and only eases while it is locked
+   onto a target, so plain movement never feels laggy.
+   ========================================================================== */
+
 .adaptive-cursor {
   position: relative;
   isolation: isolate;
@@ -8,20 +14,6 @@
 .adaptive-cursor input {
   cursor: none;
 }
-.adaptive-cursor__dot {
-  position: absolute;
-  z-index: 41;
-  top: 0;
-  left: 0;
-  width: var(--cursor-size);
-  height: var(--cursor-size);
-  border: 1px solid var(--cursor-color);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--cursor-color) 25%, transparent);
-  box-shadow: 0 0 10px var(--cursor-color);
-  pointer-events: none;
-  transition: opacity 120ms;
-}
 .adaptive-cursor__frame {
   position: absolute;
   z-index: 40;
@@ -31,6 +23,9 @@
     0 0 14px color-mix(in srgb, var(--cursor-color) 25%, transparent),
     inset 0 0 12px color-mix(in srgb, var(--cursor-color) 8%, transparent);
   pointer-events: none;
+  transition: opacity 100ms;
+}
+.adaptive-cursor__frame.is-target {
   transition:
     left var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
     top var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -60,6 +55,10 @@
   stroke-width: var(--cursor-stroke);
   stroke-linejoin: round;
 }
+/* ==========================================================================
+   02. DEMO ENVIRONMENT
+   ========================================================================== */
+
 .adaptive-outline-demo {
   min-height: 600px;
   color: #e9ecea;
@@ -86,6 +85,8 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+/* Targets ------------------------------------------------------------------ */
+
 .shape-set {
   position: absolute;
   top: 48%;
@@ -123,25 +124,25 @@
   height: 82px;
   border-radius: 24px;
 }
-.shape-star {
+.shape-organic {
   width: 105px;
   height: 105px;
   border: 0 !important;
-  background: #151917 !important;
-  clip-path: polygon(
-    50% 3%,
-    61% 35%,
-    96% 35%,
-    68% 56%,
-    79% 91%,
-    50% 70%,
-    21% 91%,
-    32% 56%,
-    4% 35%,
-    39% 35%
-  );
-  font-size: 32px !important;
+  background: transparent !important;
 }
+.shape-organic svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.shape-organic path {
+  fill: #151917;
+  stroke: #353c38;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+/* Parameter panel ---------------------------------------------------------- */
+
 .outline-controls {
   position: absolute;
   z-index: 25;
@@ -191,12 +192,15 @@
   outline: 1px solid #fff;
   outline-offset: 2px;
 }
+/* ==========================================================================
+   03. RESPONSIVE / MOTION PREFERENCES
+   ========================================================================== */
+
 @media (max-width: 680px) {
   .adaptive-cursor,
   .adaptive-cursor button {
     cursor: auto;
   }
-  .adaptive-cursor__dot,
   .adaptive-cursor__frame {
     display: none;
   }
@@ -215,43 +219,10 @@
     transform: none;
   }
 }
+/* Must outrank `.is-target`, so it stays last and repeats that selector. */
 @media (prefers-reduced-motion: reduce) {
-  .adaptive-cursor__frame {
+  .adaptive-cursor__frame,
+  .adaptive-cursor__frame.is-target {
     transition: opacity 100ms;
   }
-  .adaptive-cursor__dot {
-    box-shadow: none;
-  }
-}
-.shape-organic {
-  width: 105px;
-  height: 105px;
-  border: 0 !important;
-  background: transparent !important;
-}
-.shape-organic svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.shape-organic path {
-  fill: #151917;
-  stroke: #353c38;
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-.adaptive-cursor__dot {
-  display: none;
-}
-.adaptive-cursor__frame {
-  transition: opacity 100ms;
-}
-.adaptive-cursor__frame.is-target {
-  transition:
-    left var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
-    top var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
-    width var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
-    height var(--cursor-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-radius var(--cursor-duration),
-    opacity 100ms;
 }

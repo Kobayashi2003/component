@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react'
 import type { VinylDeckAudioSource } from './hooks/useVinylDeckAudio'
 import { usePlatterInertia } from './hooks/usePlatterInertia'
@@ -66,6 +66,15 @@ export function VinylTurntable({
   const volumeGestureRef = useRef({ lastAngle: 0, dialAngle: 0, moved: false, outside: false })
   const lastAudibleVolumeRef = useRef(Math.max(5, volume))
   const platterRotorRef = usePlatterInertia(playing)
+  // Paint-server ids must be unique per instance, or a second deck on the page
+  // would resolve every url(#...) against the first one's defs.
+  const paintId = useId().replace(/:/g, '')
+  const shellId = `${paintId}-shell`
+  const bevelId = `${paintId}-bevel`
+  const keyId = `${paintId}-key`
+  const platterId = `${paintId}-platter`
+  const labelId = `${paintId}-label`
+  const labelClipId = `${paintId}-label-clip`
 
   // Construction intro: keep the tonearm parked until the SVG has assembled.
   useEffect(() => {
@@ -234,29 +243,29 @@ export function VinylTurntable({
     >
       {/* 01. Reusable paint / clipping definitions */}
       <defs>
-        <linearGradient id="focus-shell" x1="0" y1="0" x2="0.9" y2="1">
+        <linearGradient id={shellId} x1="0" y1="0" x2="0.9" y2="1">
           <stop offset="0" stopColor="#f7f7f5" />
           <stop offset="0.55" stopColor="#dedfdf" />
           <stop offset="1" stopColor="#b9bcbe" />
         </linearGradient>
-        <linearGradient id="focus-bevel" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={bevelId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#777c7f" />
           <stop offset="1" stopColor="#292d30" />
         </linearGradient>
-        <linearGradient id="focus-key" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={keyId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#303438" />
           <stop offset="1" stopColor="#111416" />
         </linearGradient>
-        <radialGradient id="focus-platter" cx="42%" cy="35%" r="68%">
+        <radialGradient id={platterId} cx="42%" cy="35%" r="68%">
           <stop offset="0" stopColor="#686c6f" />
           <stop offset="0.46" stopColor="#303438" />
           <stop offset="1" stopColor="#15181b" />
         </radialGradient>
-        <radialGradient id="focus-label" cx="38%" cy="32%" r="75%">
+        <radialGradient id={labelId} cx="38%" cy="32%" r="75%">
           <stop offset="0" stopColor="#ffffff" />
           <stop offset="1" stopColor="#d9dbdc" />
         </radialGradient>
-        <clipPath id="focus-label-clip"><circle cx="414" cy="274" r="112" /></clipPath>
+        <clipPath id={labelClipId}><circle cx="414" cy="274" r="112" /></clipPath>
       </defs>
 
       {/* 02. Blueprint pass: lightweight outline shown before hardware assembly. */}
@@ -308,8 +317,8 @@ export function VinylTurntable({
 
         {/* Chassis / panel assembly */}
         <g className="vinyl-deck__assembly" strokeLinejoin="round">
-          <path className="vinyl-deck__chassis" d="M63 6H728L812 82V460L744 540H59L8 484V72L63 6Z" fill="url(#focus-bevel)" stroke="#111416" strokeWidth="3" />
-          <path className="vinyl-deck__panel" d="M82 32H708L780 96V462L736 526H70L38 472V91L82 32Z" fill="url(#focus-shell)" stroke="#e4e5e5" strokeWidth="2" />
+          <path className="vinyl-deck__chassis" d="M63 6H728L812 82V460L744 540H59L8 484V72L63 6Z" fill={`url(#${bevelId})`} stroke="#111416" strokeWidth="3" />
+          <path className="vinyl-deck__panel" d="M82 32H708L780 96V462L736 526H70L38 472V91L82 32Z" fill={`url(#${shellId})`} stroke="#e4e5e5" strokeWidth="2" />
           <path d="M82 32H346L300 76H68L38 104V91Z" fill="#696d70" />
           <path className="vinyl-deck__draw draw-01" pathLength="1" d="M63 6H728L812 82V460L744 540H59L8 484V72L63 6Z" stroke="#15181b" strokeWidth="4" />
           <path className="vinyl-deck__draw draw-02" pathLength="1" d="M82 32H708L780 96V462L736 526H70L38 472V91L82 32Z" stroke="#85898c" strokeWidth="1.5" />
@@ -330,7 +339,7 @@ export function VinylTurntable({
           onClick={() => onSelect(-1)}
           onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(-1))}
         >
-          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M72 108H183L200 125V169L184 184H72L59 171V122Z" fill="url(#focus-key)" stroke="#111416" strokeWidth="3" />
+          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M72 108H183L200 125V169L184 184H72L59 171V122Z" fill={`url(#${keyId})`} stroke="#111416" strokeWidth="3" />
           <path d="M183 108L200 125V169L184 184H172L185 169V124L169 108Z" fill="#555a5d" opacity=".7" />
           <path className="vinyl-deck__key-accent" d="M72 108H183" stroke="var(--focus-accent)" strokeWidth="2" />
           <text x="126" y="151" textAnchor="middle">PREV</text><text className="vinyl-deck__key-code" x="74" y="173">◀ 01</text>
@@ -344,7 +353,7 @@ export function VinylTurntable({
           onClick={() => onSelect(1)}
           onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(1))}
         >
-          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M72 203H183L200 220V264L184 279H72L59 266V217Z" fill="url(#focus-key)" stroke="#111416" strokeWidth="3" />
+          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M72 203H183L200 220V264L184 279H72L59 266V217Z" fill={`url(#${keyId})`} stroke="#111416" strokeWidth="3" />
           <path d="M183 203L200 220V264L184 279H172L185 264V219L169 203Z" fill="#555a5d" opacity=".7" />
           <path className="vinyl-deck__key-accent" d="M72 203H183" stroke="var(--focus-accent)" strokeWidth="2" />
           <text x="126" y="246" textAnchor="middle">NEXT</text><text className="vinyl-deck__key-code" x="74" y="268">▶ 02</text>
@@ -381,7 +390,7 @@ export function VinylTurntable({
           onPointerCancel={finishDrag}
         >
           <circle cx="414" cy="274" r="209" fill="#1b1f22" stroke="#0c0f11" strokeWidth="5" />
-          <circle cx="414" cy="274" r="200" fill="url(#focus-platter)" stroke="#74787a" strokeWidth="3" />
+          <circle cx="414" cy="274" r="200" fill={`url(#${platterId})`} stroke="#74787a" strokeWidth="3" />
           <circle className="vinyl-deck__draw vinyl-deck__platter-outline draw-09" pathLength="1" cx="414" cy="274" r="205" stroke="#171a1d" strokeWidth="4" />
           <g ref={platterRotorRef} className="vinyl-deck__rotor">
           <g className="vinyl-deck__rings vinyl-deck__rings--outer">
@@ -395,8 +404,8 @@ export function VinylTurntable({
             <circle cx="414" cy="274" r="132" fill="#0f1214" stroke="#e4e5e5" strokeWidth="3" />
           </g>
           <g className="vinyl-deck__art">
-            <circle cx="414" cy="274" r="119" fill="url(#focus-label)" stroke="var(--focus-accent)" strokeWidth="3" />
-            <g clipPath="url(#focus-label-clip)">
+            <circle cx="414" cy="274" r="119" fill={`url(#${labelId})`} stroke="var(--focus-accent)" strokeWidth="3" />
+            <g clipPath={`url(#${labelClipId})`}>
               {cover ? (
                 <image href={cover} x="294" y="154" width="240" height="240" preserveAspectRatio="xMidYMid slice" />
               ) : (
@@ -487,7 +496,7 @@ export function VinylTurntable({
           onClick={onTogglePlayback}
           onKeyDown={(event) => activateWithKeyboard(event, onTogglePlayback)}
         >
-          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M646 402H739L746 409V463L739 470H646L640 464V408Z" fill="url(#focus-key)" stroke="#111416" strokeWidth="3" />
+          <path className="vinyl-deck__control-outline vinyl-deck__key-face" d="M646 402H739L746 409V463L739 470H646L640 464V408Z" fill={`url(#${keyId})`} stroke="#111416" strokeWidth="3" />
           <path className="vinyl-deck__key-inset" d="M650 408H735L740 413V459L735 464H650L646 460V412Z" fill="none" stroke="#676c6f" strokeWidth="1.5" />
           <path d="M646 402H739" stroke="var(--focus-accent)" strokeWidth="2" />
           <circle cx="655" cy="414" r="3.5" fill="var(--focus-accent)" className="vinyl-deck__status-light" />

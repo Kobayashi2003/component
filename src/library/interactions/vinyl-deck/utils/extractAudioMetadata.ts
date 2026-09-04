@@ -1,4 +1,6 @@
-const MAX_METADATA_BYTES = 32 * 1024 * 1024
+// Tags live at the head of the file. Reading further would only inflate peak
+// memory, which matters because a queue is parsed in parallel.
+const MAX_METADATA_BYTES = 2 * 1024 * 1024
 
 export interface EmbeddedAudioMetadata {
   title?: string
@@ -18,6 +20,7 @@ function readSyncSafe(bytes: Uint8Array, offset: number) {
 }
 
 function readUint32(bytes: Uint8Array, offset: number, littleEndian = false) {
+  if (offset < 0 || offset + 4 > bytes.length) return 0
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, littleEndian)
 }
 
@@ -136,7 +139,13 @@ function parseFlac(bytes: Uint8Array): EmbeddedAudioMetadata | undefined {
   return metadata
 }
 
-export async function extractAudioMetadata(file: File) {
-  const bytes = new Uint8Array(await file.slice(0, MAX_METADATA_BYTES).arrayBuffer())
-  return parseId3(bytes) ?? parseFlac(bytes) ?? {}
+// A malformed tag must degrade to "no metadata", never reject: the caller uses
+// the result to build the visible queue.
+export async function extractAudioMetadata(file: File): Promise<EmbeddedAudioMetadata> {
+  try {
+    const bytes = new Uint8Array(await file.slice(0, MAX_METADATA_BYTES).arrayBuffer())
+    return parseId3(bytes) ?? parseFlac(bytes) ?? {}
+  } catch {
+    return {}
+  }
 }

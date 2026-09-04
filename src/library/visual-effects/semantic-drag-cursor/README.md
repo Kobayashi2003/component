@@ -29,6 +29,7 @@ import { SemanticDragCursor } from './semantic-drag-cursor'
 - `color` controls the cursor surface.
 - `smoothing` controls pointer follow speed.
 - `dragStretch` controls velocity-based cursor elongation.
+- `className` applies to the wrapper.
 
 ## Notes
 

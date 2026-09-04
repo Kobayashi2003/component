@@ -1,6 +1,9 @@
+/* `isolation` keeps the cursor's z-index 50 local: without it the layer joins
+   the page's root stacking context and can outrank unrelated app chrome. */
 .semantic-cursor-root {
   position: relative;
   min-height: 600px;
+  isolation: isolate;
   overflow: hidden;
   cursor: none;
 }
@@ -61,14 +64,18 @@
   width: 68px;
   height: 68px;
 }
+/* Velocity stretch rides on `transform`, which is not transitioned. Driving
+   `width` per frame instead would fight its own 220ms state transition. */
 .semantic-cursor--drag {
-  width: calc(108px * var(--semantic-cursor-stretch));
+  width: 108px;
   height: 44px;
   transform: translate(var(--semantic-cursor-x), var(--semantic-cursor-y))
-    translate(-50%, -50%) rotate(var(--semantic-cursor-angle));
+    translate(-50%, -50%) rotate(var(--semantic-cursor-angle))
+    scaleX(var(--semantic-cursor-stretch));
 }
 .semantic-cursor--drag .semantic-cursor__content {
-  transform: rotate(calc(var(--semantic-cursor-angle) * -1));
+  transform: scaleX(calc(1 / var(--semantic-cursor-stretch)))
+    rotate(calc(var(--semantic-cursor-angle) * -1));
 }
 .semantic-cursor--link .semantic-cursor__content,
 .semantic-cursor--view .semantic-cursor__content,
@@ -77,7 +84,7 @@
   opacity: 1;
 }
 .semantic-cursor--drag.is-grabbing {
-  width: calc(68px * var(--semantic-cursor-stretch));
+  width: 68px;
   height: 42px;
   background: #11130e;
   color: var(--semantic-cursor-color);

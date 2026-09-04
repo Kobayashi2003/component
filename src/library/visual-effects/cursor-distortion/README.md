@@ -22,6 +22,7 @@ import { CursorDistortion } from './cursor-distortion'
 - `distortion` controls the fragment shader's UV ripple.
 - `chromaticAberration` offsets the red and blue texture samples in opposite directions.
 - `smoothing` controls pointer interpolation; `children` may contain controls and static fallback content.
+- `className` applies to the wrapper.
 
 ## Notes
 

@@ -1,6 +1,7 @@
 .cursor-distortion {
   position: relative;
   min-height: 600px;
+  isolation: isolate;
   overflow: hidden;
   background: #eeede8;
 }
@@ -10,17 +11,8 @@
   width: 100%;
   height: 100%;
 }
-.cursor-distortion__fallback {
-  position: absolute;
-  inset: 0;
-  display: none;
-  color: #555;
-}
 .cursor-distortion[data-webgl='unsupported'] .cursor-distortion__canvas {
   display: none;
-}
-.cursor-distortion[data-webgl='unsupported'] .cursor-distortion__fallback {
-  display: block;
 }
 .cursor-distortion__overlay {
   position: absolute;
@@ -31,11 +23,13 @@
 .cursor-distortion__overlay > * {
   pointer-events: auto;
 }
-.cursor-distortion__overlay .distortion-hint {
+/* The hint only stands in when the shader surface cannot be created. */
+.cursor-distortion .distortion-hint {
   display: none;
 }
-.cursor-distortion[data-webgl='unsupported'] .cursor-distortion__overlay {
-  display: none;
+.cursor-distortion[data-webgl='unsupported'] .distortion-hint {
+  display: block;
+  color: #555;
 }
 .distortion-demo {
   min-height: 600px;

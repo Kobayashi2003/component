@@ -158,7 +158,14 @@ export function useVinylDeckAudio({
     if (source) {
       audio.load()
       if (shouldResume) {
-        void audio.play().catch(() => commitPlaying(false))
+        // Playback is routed through the analyser graph, so a suspended context
+        // would otherwise resume the element into silence.
+        const context = audioContextRef.current
+        const resume =
+          context?.state === 'suspended' ? context.resume() : Promise.resolve()
+        void resume
+          .then(() => audio.play())
+          .catch(() => commitPlaying(false))
       } else {
         commitPlaying(false)
       }

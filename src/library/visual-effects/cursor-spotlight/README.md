@@ -24,4 +24,4 @@ Descendants can use `--spotlight-nx`, `--spotlight-ny`, `--spotlight-shadow-x`, 
 ## Notes
 
 - Touch input is ignored because the effect depends on continuous pointer position.
-- Reduced-motion mode removes opacity transitions.
+- Reduced-motion mode removes opacity transitions and snaps the light to the pointer instead of easing.

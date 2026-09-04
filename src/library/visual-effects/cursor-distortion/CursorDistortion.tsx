@@ -119,6 +119,27 @@ export function CursorDistortion({
   })
   const renderFrame = useRef<(() => void) | null>(null)
   const animationFrame = useRef<number | null>(null)
+  // Lens parameters are uniforms, not context state. Keeping them in a ref lets
+  // a slider drag update the shader without rebuilding program and texture.
+  const lens = useRef({
+    radius,
+    magnification,
+    distortion,
+    chromaticAberration,
+    smoothing,
+  })
+
+  useEffect(() => {
+    lens.current = {
+      radius,
+      magnification,
+      distortion,
+      chromaticAberration,
+      smoothing,
+    }
+    if (animationFrame.current === null && renderFrame.current)
+      animationFrame.current = requestAnimationFrame(renderFrame.current)
+  })
 
   useEffect(() => {
     const surface = canvas.current
@@ -160,36 +181,47 @@ export function CursorDistortion({
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
     gl.uniform1i(gl.getUniformLocation(program, 'uTexture'), 0)
 
+    // Uniform lookups are resolved once; they are stable for the program's life.
+    const uniforms = {
+      pointer: gl.getUniformLocation(program, 'uPointer'),
+      aspect: gl.getUniformLocation(program, 'uAspect'),
+      radius: gl.getUniformLocation(program, 'uRadius'),
+      magnification: gl.getUniformLocation(program, 'uMagnification'),
+      distortion: gl.getUniformLocation(program, 'uDistortion'),
+      aberration: gl.getUniformLocation(program, 'uAberration'),
+      active: gl.getUniformLocation(program, 'uActive'),
+    }
+
     let width = 1
     let height = 1
     let reducedMotion = false
     const render = () => {
       const value = pointer.current
-      const follow = reducedMotion ? 1 : Math.max(0.02, Math.min(1, smoothing))
+      const settings = lens.current
+      const follow = reducedMotion
+        ? 1
+        : Math.max(0.02, Math.min(1, settings.smoothing))
       value.x += (value.targetX - value.x) * follow
       value.y += (value.targetY - value.y) * follow
       value.active +=
         (value.targetActive - value.active) * (reducedMotion ? 1 : 0.16)
       gl.viewport(0, 0, surface.width, surface.height)
-      gl.uniform2f(gl.getUniformLocation(program, 'uPointer'), value.x, value.y)
-      gl.uniform1f(gl.getUniformLocation(program, 'uAspect'), width / height)
+      gl.uniform2f(uniforms.pointer, value.x, value.y)
+      gl.uniform1f(uniforms.aspect, width / height)
+      gl.uniform1f(uniforms.radius, Math.max(48, settings.radius) / height)
       gl.uniform1f(
-        gl.getUniformLocation(program, 'uRadius'),
-        Math.max(48, radius) / height,
+        uniforms.magnification,
+        Math.max(0, Math.min(0.45, settings.magnification)),
       )
       gl.uniform1f(
-        gl.getUniformLocation(program, 'uMagnification'),
-        Math.max(0, Math.min(0.45, magnification)),
+        uniforms.distortion,
+        Math.max(0, Math.min(0.05, settings.distortion)),
       )
       gl.uniform1f(
-        gl.getUniformLocation(program, 'uDistortion'),
-        Math.max(0, Math.min(0.05, distortion)),
+        uniforms.aberration,
+        Math.max(0, Math.min(0.025, settings.chromaticAberration)),
       )
-      gl.uniform1f(
-        gl.getUniformLocation(program, 'uAberration'),
-        Math.max(0, Math.min(0.025, chromaticAberration)),
-      )
-      gl.uniform1f(gl.getUniformLocation(program, 'uActive'), value.active)
+      gl.uniform1f(uniforms.active, value.active)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
 
       const moving =
@@ -239,14 +271,12 @@ export function CursorDistortion({
       gl.deleteBuffer(buffer)
       gl.deleteProgram(program)
     }
-  }, [
-    chromaticAberration,
-    distortion,
-    drawSource,
-    magnification,
-    radius,
-    smoothing,
-  ])
+  }, [drawSource])
+
+  const schedule = () => {
+    if (animationFrame.current === null && renderFrame.current)
+      animationFrame.current = requestAnimationFrame(renderFrame.current)
+  }
 
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'touch') return
@@ -254,9 +284,7 @@ export function CursorDistortion({
     pointer.current.targetX = (event.clientX - bounds.left) / bounds.width
     pointer.current.targetY = 1 - (event.clientY - bounds.top) / bounds.height
     pointer.current.targetActive = 1
-    event.currentTarget.classList.add('is-active')
-    if (animationFrame.current === null && renderFrame.current)
-      animationFrame.current = requestAnimationFrame(renderFrame.current)
+    schedule()
   }
 
   return (
@@ -267,9 +295,7 @@ export function CursorDistortion({
       onPointerMove={move}
       onPointerLeave={() => {
         pointer.current.targetActive = 0
-        root.current?.classList.remove('is-active')
-        if (animationFrame.current === null && renderFrame.current)
-          animationFrame.current = requestAnimationFrame(renderFrame.current)
+        schedule()
       }}
     >
       <canvas
@@ -277,7 +303,8 @@ export function CursorDistortion({
         className="cursor-distortion__canvas"
         aria-hidden="true"
       />
-      <div className="cursor-distortion__fallback">{children}</div>
+      {/* One copy of the children serves both the shader overlay and the
+          no-WebGL fallback; `data-webgl` decides which parts are shown. */}
       <div className="cursor-distortion__overlay">{children}</div>
     </div>
   )

@@ -15,6 +15,8 @@ export interface CursorSpotlightProps {
 
 type SpotlightStyle = CSSProperties & Record<`--spotlight-${string}`, string>;
 
+const clampUnit = (value: number) => Math.max(-1, Math.min(1, value));
+
 export function CursorSpotlight({
   children,
   className = "",
@@ -29,6 +31,10 @@ export function CursorSpotlight({
   const frame = useRef<number | null>(null);
   const current = useRef({ x: 0, y: 0 });
   const target = useRef({ x: 0, y: 0 });
+  // Cached by the resize observer. Reading layout inside the loop would force
+  // a synchronous style flush on every frame.
+  const size = useRef({ width: 1, height: 1 });
+  const reducedMotion = useRef(false);
   const [active, setActive] = useState(false);
   const follow = Math.max(0.01, Math.min(1, smoothing));
   const safeRadius = Math.max(0, radius);
@@ -38,44 +44,32 @@ export function CursorSpotlight({
   // Interpolate in local coordinates so the effect remains reusable in any
   // positioned container, including catalog previews and nested panels.
   function paint() {
-    current.current.x += (target.current.x - current.current.x) * follow;
-    current.current.y += (target.current.y - current.current.y) * follow;
-    root.current?.style.setProperty("--spotlight-x", `${current.current.x}px`);
-    root.current?.style.setProperty("--spotlight-y", `${current.current.y}px`);
-
-    const bounds = root.current?.getBoundingClientRect();
-    if (bounds) {
-      const nx = Math.max(
-        -1,
-        Math.min(1, (current.current.x / bounds.width - 0.5) * 2),
-      );
-      const ny = Math.max(
-        -1,
-        Math.min(1, (current.current.y / bounds.height - 0.5) * 2),
-      );
-      root.current?.style.setProperty("--spotlight-nx", String(nx));
-      root.current?.style.setProperty("--spotlight-ny", String(ny));
-      root.current?.style.setProperty(
-        "--spotlight-shadow-x",
-        `${-nx * shadowDistance}px`,
-      );
-      root.current?.style.setProperty(
-        "--spotlight-shadow-y",
-        `${-ny * shadowDistance + 12}px`,
-      );
-      root.current?.style.setProperty(
-        "--spotlight-shadow-blur",
-        `${Math.max(26, safeRadius * 0.2)}px`,
-      );
+    const node = root.current;
+    if (!node) {
+      frame.current = null;
+      return;
     }
+
+    const speed = reducedMotion.current ? 1 : follow;
+    current.current.x += (target.current.x - current.current.x) * speed;
+    current.current.y += (target.current.y - current.current.y) * speed;
+    node.style.setProperty("--spotlight-x", `${current.current.x}px`);
+    node.style.setProperty("--spotlight-y", `${current.current.y}px`);
+
+    const nx = clampUnit((current.current.x / size.current.width - 0.5) * 2);
+    const ny = clampUnit((current.current.y / size.current.height - 0.5) * 2);
+    node.style.setProperty("--spotlight-nx", String(nx));
+    node.style.setProperty("--spotlight-ny", String(ny));
+    node.style.setProperty("--spotlight-shadow-x", `${-nx * shadowDistance}px`);
+    node.style.setProperty(
+      "--spotlight-shadow-y",
+      `${-ny * shadowDistance + 12}px`,
+    );
 
     const distanceX = Math.abs(target.current.x - current.current.x);
     const distanceY = Math.abs(target.current.y - current.current.y);
-    if (distanceX > 0.2 || distanceY > 0.2) {
-      frame.current = requestAnimationFrame(paint);
-    } else {
-      frame.current = null;
-    }
+    frame.current =
+      distanceX > 0.2 || distanceY > 0.2 ? requestAnimationFrame(paint) : null;
   }
 
   function move(event: PointerEvent<HTMLDivElement>, immediate = false) {
@@ -84,7 +78,7 @@ export function CursorSpotlight({
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     };
-    if (immediate) current.current = target.current;
+    if (immediate) current.current = { ...target.current };
     if (frame.current === null) frame.current = requestAnimationFrame(paint);
 
     // Some preview shells mount beneath an already-positioned cursor and do
@@ -102,8 +96,12 @@ export function CursorSpotlight({
 
     const bounds = node.getBoundingClientRect();
     const center = { x: bounds.width / 2, y: bounds.height / 2 };
-    current.current = center;
-    target.current = center;
+    size.current = {
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+    };
+    current.current = { ...center };
+    target.current = { ...center };
     node.style.setProperty("--spotlight-x", `${center.x}px`);
     node.style.setProperty("--spotlight-y", `${center.y}px`);
 
@@ -111,21 +109,37 @@ export function CursorSpotlight({
     if (supportsHover && node.matches(":hover")) setActive(true);
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const node = root.current;
+    if (!node) return;
+
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => {
+      reducedMotion.current = motionQuery.matches;
+    };
+    const observer = new ResizeObserver(([entry]) => {
+      size.current = {
+        width: Math.max(1, entry.contentRect.width),
+        height: Math.max(1, entry.contentRect.height),
+      };
+    });
+
+    syncMotion();
+    motionQuery.addEventListener("change", syncMotion);
+    observer.observe(node);
+
+    return () => {
+      motionQuery.removeEventListener("change", syncMotion);
+      observer.disconnect();
       if (frame.current !== null) cancelAnimationFrame(frame.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const style = {
     "--spotlight-color": color,
     "--spotlight-radius": `${safeRadius}px`,
     "--spotlight-strength": `${safeIntensity}%`,
     "--spotlight-softness": `${safeSoftness}%`,
-    "--spotlight-shadow-x": "0px",
-    "--spotlight-shadow-y": "34px",
-    "--spotlight-shadow-blur": `${Math.max(26, safeRadius * 0.2)}px`,
   } as SpotlightStyle;
 
   return (

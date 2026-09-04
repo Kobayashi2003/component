@@ -164,8 +164,10 @@ export function VinylDeck({
   const loadAudioFiles = useCallback((files: File[]) => {
     const generation = uploadGenerationRef.current + 1
     uploadGenerationRef.current = generation
-    coverUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
-    coverUrlsRef.current = []
+    // The previous covers stay live until the new queue is ready; revoking them
+    // now would break the artwork still on screen.
+    const retiredUrls = coverUrlsRef.current
+    const pendingUrls: string[] = []
     setIndex(0)
     onAudioFilesChange?.(files)
     onAudioFileChange?.(files[0])
@@ -173,7 +175,7 @@ export function VinylDeck({
     void Promise.all(files.map(async (file, fileIndex) => {
       const metadata = await extractAudioMetadata(file)
       const cover = metadata.artwork ? URL.createObjectURL(metadata.artwork) : undefined
-      if (cover) coverUrlsRef.current.push(cover)
+      if (cover) pendingUrls.push(cover)
       return {
         id: String(fileIndex + 1).padStart(2, '0'),
         title: metadata.title ?? file.name.replace(/\.[^.]+$/, ''),
@@ -189,8 +191,13 @@ export function VinylDeck({
         format: file.type.replace(/^audio\//, '').toUpperCase() || file.name.split('.').pop()?.toUpperCase() || 'AUDIO',
       } satisfies VinylDeckItem
     })).then((nextItems) => {
-      if (uploadGenerationRef.current === generation) setUploadedItems(nextItems)
-      else nextItems.forEach((nextItem) => { if (nextItem.cover) URL.revokeObjectURL(nextItem.cover) })
+      if (uploadGenerationRef.current !== generation) {
+        pendingUrls.forEach((url) => URL.revokeObjectURL(url))
+        return
+      }
+      coverUrlsRef.current = pendingUrls
+      setUploadedItems(nextItems)
+      retiredUrls.forEach((url) => URL.revokeObjectURL(url))
     })
   }, [items, onAudioFileChange, onAudioFilesChange])
 

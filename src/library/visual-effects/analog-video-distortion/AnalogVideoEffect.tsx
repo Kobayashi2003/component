@@ -56,12 +56,13 @@ export function AnalogVideoEffect({
     const observer = new MutationObserver(synchronizeLayers)
     observer.observe(source, { childList: true, subtree: true, characterData: true, attributes: true })
     return () => observer.disconnect()
-  }, [children])
+    // The observer already covers every later change to the source subtree, so
+    // depending on `children` would only re-clone on each parent render.
+  }, [])
 
   useEffect(() => {
-    const root = rootRef.current
     const tracking = trackingRef.current
-    if (!root || !tracking) return
+    if (!tracking) return
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     let reducedMotion = motionQuery.matches
@@ -75,7 +76,6 @@ export function AnalogVideoEffect({
 
     const hideFaultLayers = () => {
       faultIntensityRef.current = 0
-      root.dataset.fault = 'stable'
       tearRefs.current.forEach((layer) => {
         if (layer) layer.style.opacity = '0'
       })
@@ -138,7 +138,6 @@ export function AnalogVideoEffect({
       nextSliceChange = 0
       trackingOrigin = randomBetween(5, 84)
       faultIntensityRef.current = faultLevel * safeTearing
-      root.dataset.fault = faultLevel > 0.85 ? 'severe' : faultLevel > 0.5 ? 'tracking' : 'tear'
     }
 
     const tick = (now: number) => {
@@ -330,7 +329,7 @@ export function AnalogVideoEffect({
   } as CSSProperties
 
   return (
-    <div ref={rootRef} className={`vhs-effect ${className}`.trim()} style={rootStyle} data-fault="stable">
+    <div ref={rootRef} className={`vhs-effect ${className}`.trim()} style={rootStyle}>
       <div ref={contentRef} className="vhs-effect__content">{children}</div>
       {[0, 1, 2].map((index) => (
         <div

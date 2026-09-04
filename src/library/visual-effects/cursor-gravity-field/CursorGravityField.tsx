@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { CSSProperties, PointerEvent, ReactNode } from 'react'
+import type { PointerEvent, ReactNode } from 'react'
 import './styles.css'
 
 export interface CursorGravityFieldProps {
@@ -16,12 +16,13 @@ interface GravityItem {
   element: HTMLElement
   x: number
   y: number
-  targetX: number
-  targetY: number
 }
 
-type GravityStyle = CSSProperties & Record<`--gravity-${string}`, string>
 const DEFAULT_SELECTOR = '[data-cursor-gravity]'
+
+function clampTravel(value: number, limit: number) {
+  return Math.max(-limit, Math.min(limit, value))
+}
 
 export function CursorGravityField({
   children,
@@ -49,30 +50,31 @@ export function CursorGravityField({
     const previous = new Map(items.current.map((item) => [item.element, item]))
     items.current = Array.from(
       node.querySelectorAll<HTMLElement>(selector),
-    ).map(
-      (element) =>
-        previous.get(element) ?? {
-          element,
-          x: 0,
-          y: 0,
-          targetX: 0,
-          targetY: 0,
-        },
-    )
+    ).map((element) => previous.get(element) ?? { element, x: 0, y: 0 })
   }, [selector])
 
   const paint = useCallback(() => {
     const node = root.current
     if (!node) return
-    const rootBounds = node.getBoundingClientRect()
+    const attracting = pointer.current.active && !reducedMotion.current
     let moving = false
 
-    items.current = items.current.map((item) => {
-      if (!item.element.isConnected) return item
+    // Read every layout box before writing any style. Interleaving the two
+    // forces a synchronous style flush for each element on every frame.
+    const rootBounds = node.getBoundingClientRect()
+    const boxes = items.current.map((item) =>
+      attracting && item.element.isConnected
+        ? item.element.getBoundingClientRect()
+        : null,
+    )
+
+    items.current.forEach((item, index) => {
+      const bounds = boxes[index]
       let targetX = 0
       let targetY = 0
-      if (pointer.current.active && !reducedMotion.current) {
-        const bounds = item.element.getBoundingClientRect()
+
+      if (bounds) {
+        // Subtract the current offset to recover the element's rest position.
         const centerX =
           bounds.left - rootBounds.left + bounds.width / 2 - item.x
         const centerY = bounds.top - rootBounds.top + bounds.height / 2 - item.y
@@ -83,25 +85,18 @@ export function CursorGravityField({
         if (distance < safeRadius) {
           const falloff = 1 - distance / safeRadius
           const pull = falloff * falloff * safeStrength
-          targetX = Math.max(
-            -safeDisplacement,
-            Math.min(safeDisplacement, deltaX * pull),
-          )
-          targetY = Math.max(
-            -safeDisplacement,
-            Math.min(safeDisplacement, deltaY * pull),
-          )
+          targetX = clampTravel(deltaX * pull, safeDisplacement)
+          targetY = clampTravel(deltaY * pull, safeDisplacement)
         }
       }
 
       const speed = reducedMotion.current ? 1 : follow
-      const x = item.x + (targetX - item.x) * speed
-      const y = item.y + (targetY - item.y) * speed
-      item.element.style.setProperty('--gravity-shift-x', `${x}px`)
-      item.element.style.setProperty('--gravity-shift-y', `${y}px`)
-      if (Math.abs(targetX - x) > 0.08 || Math.abs(targetY - y) > 0.08)
+      item.x += (targetX - item.x) * speed
+      item.y += (targetY - item.y) * speed
+      item.element.style.setProperty('--gravity-shift-x', `${item.x}px`)
+      item.element.style.setProperty('--gravity-shift-y', `${item.y}px`)
+      if (Math.abs(targetX - item.x) > 0.08 || Math.abs(targetY - item.y) > 0.08)
         moving = true
-      return { ...item, x, y, targetX, targetY }
     })
 
     frame.current =
@@ -115,14 +110,20 @@ export function CursorGravityField({
   }, [paint])
 
   useEffect(() => {
-    reducedMotion.current = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
-    collect()
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const syncMotion = () => {
+      reducedMotion.current = motionQuery.matches
+    }
     const observer = new MutationObserver(collect)
+
+    syncMotion()
+    motionQuery.addEventListener('change', syncMotion)
+    collect()
     if (root.current)
       observer.observe(root.current, { childList: true, subtree: true })
+
     return () => {
+      motionQuery.removeEventListener('change', syncMotion)
       observer.disconnect()
       if (frame.current !== null) cancelAnimationFrame(frame.current)
       for (const item of items.current) {
@@ -131,6 +132,11 @@ export function CursorGravityField({
       }
     }
   }, [collect])
+
+  const schedule = () => {
+    if (frame.current === null)
+      frame.current = requestAnimationFrame(() => paintRef.current())
+  }
 
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'touch') return
@@ -149,20 +155,19 @@ export function CursorGravityField({
       `${pointer.current.y}px`,
     )
     event.currentTarget.classList.add('is-active')
-    if (frame.current === null) frame.current = requestAnimationFrame(paint)
+    schedule()
   }
 
   return (
     <div
       ref={root}
       className={`cursor-gravity-field ${className}`.trim()}
-      style={{ '--gravity-radius': `${safeRadius}px` } as GravityStyle}
       onPointerEnter={move}
       onPointerMove={move}
       onPointerLeave={() => {
         pointer.current.active = false
         root.current?.classList.remove('is-active')
-        if (frame.current === null) frame.current = requestAnimationFrame(paint)
+        schedule()
       }}
     >
       {children}

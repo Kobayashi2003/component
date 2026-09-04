@@ -20,7 +20,11 @@ export function VinylDeckBackground({
         <i className="vinyl-deck__background-axis" />
       </div>
       {controls && (
-        <div className="vinyl-deck__background-controls" aria-label="Deck environment controls">
+        <div
+          className="vinyl-deck__background-controls"
+          role="group"
+          aria-label="Deck environment controls"
+        >
           <label className="vinyl-deck__file-control">
             <span>Load audio</span>
             <input

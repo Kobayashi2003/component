@@ -1,7 +1,7 @@
 .geometry-lab {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: 680px;
   overflow: hidden;
   background: #0b0d11;
   color: #edf0f4;
@@ -111,8 +111,8 @@
   z-index: 4;
   top: 18px;
   left: 18px;
-  width: min(420px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
+  width: min(420px, calc(100% - 36px));
+  max-height: calc(100% - 36px);
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 12px;

@@ -18,12 +18,26 @@ interface Geometry {
   y: number
   width: number
   height: number
-  radius: number
+  radius: string
   path?: string
 }
 
 const DEFAULT_SELECTOR =
   '[data-cursor-focus],button,a[href],input,select,textarea'
+
+// Computed border-radius keeps percentages unresolved, so a "50%" corner would
+// read as 50px. Each axis resolves against its own extent, matching CSS.
+function cornerRadius(target: HTMLElement, width: number, height: number) {
+  const parts = getComputedStyle(target).borderTopLeftRadius.split(/\s+/)
+  const resolve = (raw: string, extent: number) => {
+    const value = Number.parseFloat(raw) || 0
+    return raw.endsWith('%') ? (value / 100) * extent : value
+  }
+  return {
+    x: resolve(parts[0] ?? '0', width),
+    y: resolve(parts[1] ?? parts[0] ?? '0', height),
+  }
+}
 
 export function AdaptiveCursorOutline({
   children,
@@ -64,7 +78,7 @@ export function AdaptiveCursorOutline({
       y: pointer.current.y - cursorSize / 2,
       width: cursorSize,
       height: cursorSize,
-      radius: cursorSize / 2,
+      radius: `${cursorSize / 2}px`,
     }),
     [cursorSize],
   )
@@ -73,14 +87,17 @@ export function AdaptiveCursorOutline({
     (target: HTMLElement): Geometry => {
       const rootBounds = root.current?.getBoundingClientRect()
       const targetBounds = target.getBoundingClientRect()
-      const radius =
-        Number.parseFloat(getComputedStyle(target).borderRadius) || 0
+      const corner = cornerRadius(
+        target,
+        targetBounds.width,
+        targetBounds.height,
+      )
       return {
         x: targetBounds.left - (rootBounds?.left ?? 0) - padding,
         y: targetBounds.top - (rootBounds?.top ?? 0) - padding,
         width: targetBounds.width + padding * 2,
         height: targetBounds.height + padding * 2,
-        radius: radius + padding,
+        radius: `${corner.x + padding}px / ${corner.y + padding}px`,
         path: target.dataset.cursorPath,
       }
     },

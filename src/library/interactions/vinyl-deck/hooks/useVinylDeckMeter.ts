@@ -12,6 +12,10 @@ export function useVinylDeckMeter(
   const [levels, setLevels] = useState(EMPTY_LEVELS)
 
   useEffect(() => {
+    // Nothing animates while paused, so the loop is never started: an idle deck
+    // should not hold a 60fps callback for the page's lifetime.
+    if (!playing) return
+
     let frame = 0
     let previousUpdate = 0
     let frequencyData: Uint8Array<ArrayBuffer> | undefined
@@ -20,25 +24,23 @@ export function useVinylDeckMeter(
       if (time - previousUpdate >= 50) {
         previousUpdate = time
         const analyser = analyserRef.current
-        if (playing && hasSource && analyser) {
+        if (hasSource && analyser) {
           frequencyData ??= new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount))
           analyser.getByteFrequencyData(frequencyData)
-          const next = Array.from({ length: BAND_COUNT }, (_, band) => {
+          setLevels(Array.from({ length: BAND_COUNT }, (_, band) => {
             const start = Math.floor(((band / BAND_COUNT) ** 1.7) * frequencyData!.length * 0.62)
             const end = Math.max(start + 1, Math.floor((((band + 1) / BAND_COUNT) ** 1.7) * frequencyData!.length * 0.62))
             let peak = 0
             for (let index = start; index < end; index += 1) peak = Math.max(peak, frequencyData![index])
             return Math.max(0.08, peak / 255)
-          })
-          setLevels(next)
-        } else if (playing) {
+          }))
+        } else {
+          // No analyser available: keep the meter alive with a synthetic signal.
           setLevels(Array.from({ length: BAND_COUNT }, (_, band) => {
             const pulse = Math.sin(time * 0.004 + band * 1.37) * 0.18
             const carrier = Math.sin(time * 0.0017 + band * 0.63) * 0.12
             return Math.max(0.12, Math.min(0.72, 0.34 + pulse + carrier))
           }))
-        } else {
-          setLevels(EMPTY_LEVELS)
         }
       }
       frame = window.requestAnimationFrame(update)
@@ -48,5 +50,5 @@ export function useVinylDeckMeter(
     return () => window.cancelAnimationFrame(frame)
   }, [analyserRef, hasSource, playing])
 
-  return levels
+  return playing ? levels : EMPTY_LEVELS
 }

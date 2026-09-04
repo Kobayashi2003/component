@@ -414,7 +414,9 @@
   inset: 0;
   opacity: 1;
   background: rgba(140, 255, 160, 0.03);
-  animation: retro-radio-flicker 120ms steps(2) infinite;
+  /* An even ~8Hz square wave sits in the photosensitivity range; an uneven,
+     slower cycle reads the same but is far safer. */
+  animation: retro-radio-flicker 1900ms steps(1) infinite;
 }
 
 .retro-radio__boot-line {
@@ -596,7 +598,18 @@
 }
 
 @keyframes retro-radio-flicker {
-  50% {
+  0%,
+  17%,
+  21%,
+  58%,
+  61%,
+  100% {
+    opacity: 1;
+  }
+  18%,
+  20%,
+  59%,
+  60% {
     opacity: 0.4;
   }
 }

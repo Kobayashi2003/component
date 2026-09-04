@@ -21,4 +21,3 @@
 .task-toggle:hover, .task-toggle:focus-visible { background: white; }.task-toggle:focus-visible, .board-toolbar button:focus-visible { outline: 3px solid #6b35ff; outline-offset: 3px; }
 .board-empty { margin: 0; padding: 40px; border: 3px dashed var(--black); font-weight: 700; text-align: center; }
 @media (max-width: 620px) { .board-header { align-items: flex-start; flex-direction: column; }.board-progress { align-self: stretch; }.task-grid { grid-template-columns: 1fr; } }
-@media (prefers-reduced-motion: reduce) { .board-toolbar button, .task-toggle { transition: none; } }

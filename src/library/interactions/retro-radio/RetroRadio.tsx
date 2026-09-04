@@ -15,7 +15,6 @@ export interface RetroRadioStation {
   name: string;
   frequency: string;
   glyph: string;
-  tagline?: string;
   angle?: number;
 }
 
@@ -139,6 +138,7 @@ export function RetroRadio({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const spectrumFrameRef = useRef(0);
+  const spectrumDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const stationIndexRef = useRef(safeInitialIndex);
   const tuneAngleRef = useRef(initialTuneAngle);
   const volumeRef = useRef(initialVolume);
@@ -211,43 +211,52 @@ export function RetroRadio({
     [],
   );
 
-  const setPlaybackState = useCallback((nextPlaying: boolean) => {
-    playingRef.current = nextPlaying;
-    setPlaying(nextPlaying);
-    playbackCallbackRef.current?.(nextPlaying);
-  }, []);
-
   // The source project paints analyser data directly to the CRT canvas. Keeping
   // the canvas outside React avoids a render for every animation frame.
   const drawSpectrum = useCallback(function drawSpectrumFrame() {
     const analyser = analyserRef.current;
     const canvas = spectrumCanvasRef.current;
+    const context = canvas?.getContext("2d");
 
-    if (analyser && canvas) {
-      const context = canvas.getContext("2d");
-      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-
-      analyser.getByteFrequencyData(frequencyData);
-      context?.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (context) {
-        const barWidth = canvas.width / frequencyData.length;
-        context.fillStyle = "#9dffb0";
-
-        frequencyData.forEach((level, index) => {
-          const barHeight = (level / 255) * canvas.height;
-          context.fillRect(
-            index * barWidth + 1,
-            canvas.height - barHeight,
-            Math.max(1, barWidth - 2),
-            barHeight,
-          );
-        });
-      }
+    // Stop instead of idling: a paused analyser only returns zeros, and the
+    // loop would otherwise stay resident for the page's lifetime.
+    if (!playingRef.current || !analyser || !canvas || !context) {
+      if (canvas && context) context.clearRect(0, 0, canvas.width, canvas.height);
+      spectrumFrameRef.current = 0;
+      return;
     }
+
+    spectrumDataRef.current ??= new Uint8Array(
+      new ArrayBuffer(analyser.frequencyBinCount),
+    );
+    const frequencyData = spectrumDataRef.current;
+    analyser.getByteFrequencyData(frequencyData);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    const barWidth = canvas.width / frequencyData.length;
+    context.fillStyle = "#9dffb0";
+    frequencyData.forEach((level, index) => {
+      const barHeight = (level / 255) * canvas.height;
+      context.fillRect(
+        index * barWidth + 1,
+        canvas.height - barHeight,
+        Math.max(1, barWidth - 2),
+        barHeight,
+      );
+    });
 
     spectrumFrameRef.current = window.requestAnimationFrame(drawSpectrumFrame);
   }, []);
+
+  const setPlaybackState = useCallback(
+    (nextPlaying: boolean) => {
+      playingRef.current = nextPlaying;
+      setPlaying(nextPlaying);
+      playbackCallbackRef.current?.(nextPlaying);
+      if (nextPlaying && !spectrumFrameRef.current) drawSpectrum();
+    },
+    [drawSpectrum],
+  );
 
   const ensureAudioGraph = useCallback(() => {
     let audio = audioRef.current;
@@ -277,12 +286,10 @@ export function RetroRadio({
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       gainRef.current = gain;
-
-      if (!spectrumFrameRef.current) drawSpectrum();
     }
 
     return { audio, audioContext };
-  }, [drawSpectrum, setPlaybackState, setScreenView]);
+  }, [setPlaybackState, setScreenView]);
 
   const loadMusic = useCallback(
     async (file: File) => {
@@ -654,6 +661,8 @@ export function RetroRadio({
   }, [onPlaybackChange]);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     let clearTimer: number | null = null;
     let sparkTimer: number | null = null;
 
@@ -1214,10 +1223,12 @@ export function RetroRadio({
             <button
               type="button"
               className={`retro-radio__knob retro-radio__knob--tune ${tuneDetent ? "is-detent" : ""}`}
+              role="slider"
               aria-label="Tune station"
               aria-valuemin={0}
               aria-valuemax={Math.max(0, stations.length - 1)}
               aria-valuenow={stationIndex}
+              aria-valuetext={displayStation.name}
               onPointerDown={(event) =>
                 beginDial(event, tuneGesture, tuneAngleRef.current)
               }
@@ -1232,11 +1243,12 @@ export function RetroRadio({
             <button
               type="button"
               className="retro-radio__knob retro-radio__knob--volume"
-              aria-label="Volume and playback"
-              aria-pressed={playing}
+              role="slider"
+              aria-label={`Volume — press to ${playing ? "pause" : "play"}`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={volume}
+              aria-valuetext={`${volume}%`}
               onPointerDown={(event) =>
                 beginDial(event, volumeGesture, volumeAngle)
               }

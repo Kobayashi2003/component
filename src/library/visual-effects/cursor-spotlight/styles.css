@@ -6,6 +6,11 @@
 .cursor-spotlight {
   --spotlight-x: 50%;
   --spotlight-y: 50%;
+  --spotlight-nx: 0;
+  --spotlight-ny: 0;
+  --spotlight-shadow-x: 0px;
+  --spotlight-shadow-y: 34px;
+  --spotlight-shadow-blur: max(26px, calc(var(--spotlight-radius) * 0.2));
   position: relative;
   isolation: isolate;
   overflow: hidden;

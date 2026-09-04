@@ -18,7 +18,7 @@ import { RetroRadio } from './retro-radio'
 
 ## Props
 
-- `stations` is required. Each station needs `id`, `name`, `frequency`, and `glyph`; `tagline` and `angle` are optional.
+- `stations` is required. Each station needs `id`, `name`, `frequency`, and `glyph`; `angle` is optional and overrides the computed dial position.
 - `initialIndex`, `defaultVolume`, and `showBackground` set the initial presentation.
 - `onStationChange`, `onVolumeChange`, `onPlaybackChange`, and `onMusicChange` expose user changes.
 

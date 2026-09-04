@@ -18,6 +18,7 @@ import { AdaptiveCursorOutline } from './adaptive-cursor-outline'
 - `selector` controls which descendants are detected.
 - `color`, `padding`, `duration`, `strokeWidth`, and `cursorSize` control the frame.
 - `data-cursor-path` accepts a normalized `0 0 100 100` SVG path for irregular targets.
+- `className` applies to the wrapper.
 
 ## Notes
 

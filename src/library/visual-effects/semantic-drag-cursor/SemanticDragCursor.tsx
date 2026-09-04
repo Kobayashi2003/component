@@ -141,7 +141,8 @@ export function SemanticDragCursor({
     }
     previousEvent.current = { x, y, time: now }
     target.current = { x, y }
-    if (immediate || reducedMotion.current) current.current = target.current
+    if (immediate || reducedMotion.current)
+      current.current = { ...target.current }
 
     const semanticTarget = resolveTarget(event.target)
     const nextState = semanticTarget?.dataset.cursor

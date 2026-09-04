@@ -32,15 +32,15 @@ export default function NeubrutalistTaskBoard() {
           <h2>Make it unmistakable.</h2>
           <p>Small team, loud ideas, no hidden states.</p>
         </div>
-        <div className="board-progress" aria-label={`${completed} of ${tasks.length} tasks complete`}>
+        <div className="board-progress" role="group" aria-label={`${completed} of ${tasks.length} tasks complete`}>
           <strong>{String(completed).padStart(2, '0')}</strong>
           <span>/ {String(tasks.length).padStart(2, '0')} done</span>
         </div>
       </header>
 
-      <div className="board-toolbar" aria-label="Task filters">
+      <div className="board-toolbar" role="group" aria-label="Task filters">
         {(['all', 'open', 'done'] as Filter[]).map((item) => (
-          <button key={item} className={filter === item ? 'is-active' : ''} type="button" onClick={() => setFilter(item)}>
+          <button key={item} className={filter === item ? 'is-active' : ''} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
             {item === 'all' ? 'All tasks' : item === 'open' ? 'Open' : 'Completed'}
           </button>
         ))}
