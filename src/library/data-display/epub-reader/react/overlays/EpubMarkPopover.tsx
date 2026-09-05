@@ -107,7 +107,9 @@ export function EpubMarkPopoverContent({
               }
             />
           ) : mark.label ? (
-            <p className="epub-reader-mark-popover__excerpt">{mark.label}</p>
+            <p className="epub-reader-mark-popover__excerpt">
+              <span>{mark.label}</span>
+            </p>
           ) : null}
           <fieldset className="epub-reader-mark-popover__field epub-reader-mark-popover__field--color">
             <legend>Color</legend>

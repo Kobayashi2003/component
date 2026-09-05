@@ -1,6 +1,9 @@
 import type { Publication } from '../../epub/publication';
 import type { RendererContentDocument } from '../../presentation/renderer';
-import { resolveLocatorRangeInDocument } from '../../interaction/selection';
+import {
+  resolveLocatorRangeInDocument,
+  textFragmentRectangles,
+} from '../../interaction/selection';
 import type {
   DecorationTheme,
   ReaderDecoration,
@@ -83,7 +86,8 @@ export class DomDecorationLayer {
         decoration.range,
       );
       if (!range) continue;
-      for (const rect of Array.from(range.getClientRects())) {
+      const writingMode = rangeWritingMode(range);
+      for (const rect of textFragmentRectangles(range)) {
         if (rect.width <= 0 || rect.height <= 0) continue;
         const box = document.createElement('span');
         box.dataset.epubDecorationId = decoration.id;
@@ -102,10 +106,19 @@ export class DomDecorationLayer {
           ? this.theme.semanticColors[decoration.color]
           : this.theme.semanticColors.yellow;
         if (decoration.intent === 'underline') {
-          style.borderBottom = `2px solid ${semantic}`;
+          if (writingMode === 'vertical-lr')
+            style.borderRight = `2px solid ${semantic}`;
+          else if (writingMode.startsWith('vertical'))
+            style.borderLeft = `2px solid ${semantic}`;
+          else style.borderBottom = `2px solid ${semantic}`;
         } else if (decoration.intent === 'strikethrough') {
-          style.height = '2px';
-          style.top = `${rect.top + rect.height / 2}px`;
+          if (writingMode.startsWith('vertical')) {
+            style.width = '2px';
+            style.left = `${rect.left + rect.width / 2}px`;
+          } else {
+            style.height = '2px';
+            style.top = `${rect.top + rect.height / 2}px`;
+          }
           style.background = semantic;
         } else if (decoration.intent === 'outline') {
           style.border = `1.5px solid ${semantic}`;
@@ -192,6 +205,15 @@ export class DomDecorationLayer {
     this.frameCancel?.();
     this.frameCancel = null;
   }
+}
+
+function rangeWritingMode(range: Range): string {
+  const element =
+    range.startContainer.nodeType === 1
+      ? (range.startContainer as Element)
+      : range.startContainer.parentElement;
+  const view = element?.ownerDocument.defaultView;
+  return element && view ? view.getComputedStyle(element).writingMode : '';
 }
 
 function containsPoint(rectangle: DOMRect, x: number, y: number): boolean {

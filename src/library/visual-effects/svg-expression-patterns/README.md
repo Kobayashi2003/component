@@ -1,22 +1,8 @@
 # SVG Expression Patterns
 
-Six hand-drawn SVG expression states with feature-level path morphing.
+Static-only version of the six hand-drawn SVG expression states.
 
-## Usage
-
-```tsx
-import { SvgExpressionPatterns } from './svg-expression-patterns'
-
-<SvgExpressionPatterns />
-```
-
-## Interaction
-
-- Choose a thumbnail to switch expressions with a pattern-specific transition.
-- Use the arrow keys, Home, or End while a selector is focused to move through the set.
-
-## Notes
-
-- The original SVG assets stay untouched and remain the final visual states.
-- A normalized morph layer interpolates matching eye, upper-arc, and mouth silhouettes during transitions.
-- Reduced-motion mode switches states without animated transforms or morphing.
+- Expression changes are immediate: no key-pose transition choreography.
+- No idle blinking or breathing animation.
+- SVG detail layers, selector UI, keyboard navigation, and source assets are preserved.
+- Intended as a clean baseline for rebuilding motion from scratch.

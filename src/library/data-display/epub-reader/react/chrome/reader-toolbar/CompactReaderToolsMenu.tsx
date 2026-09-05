@@ -8,7 +8,12 @@ import {
 import type { ReaderUiMessages } from '../../configuration/model';
 import type { ReaderToolId, ReaderToolModule } from '../../tools/model';
 import { ReaderToolModuleIcon } from '../../tools/ReaderToolBoundary';
-import { FullscreenIcon, MoreIcon, PinIcon } from '../reader-icons';
+import {
+  BookmarkIcon,
+  FullscreenIcon,
+  MoreIcon,
+  PinIcon,
+} from '../reader-icons';
 import type { EpubReaderFullscreenController } from '../use-epub-reader-fullscreen';
 import type { ReaderChromeControls } from '../use-reader-chrome';
 
@@ -20,6 +25,8 @@ interface CompactReaderToolsMenuProps {
   readonly fullscreen: EpubReaderFullscreenController;
   readonly readerChrome: ReaderChromeControls;
   readonly messages: ReaderUiMessages;
+  readonly bookmarkSaved: boolean;
+  readonly onToggleBookmark: () => void;
   readonly onTogglePanel: (
     panel: ReaderToolId,
     origin: HTMLButtonElement,
@@ -34,6 +41,8 @@ export function CompactReaderToolsMenu({
   fullscreen,
   readerChrome,
   messages,
+  bookmarkSaved,
+  onToggleBookmark,
   onTogglePanel,
 }: CompactReaderToolsMenuProps) {
   const [open, setOpen] = useState(false);
@@ -133,6 +142,19 @@ export function CompactReaderToolsMenu({
               <span>{item.shortLabel}</span>
             </button>
           ))}
+          <button
+            className="epub-reader-shell__tool"
+            type="button"
+            role="menuitem"
+            aria-pressed={bookmarkSaved}
+            onClick={() => {
+              close();
+              onToggleBookmark();
+            }}
+          >
+            <BookmarkIcon active={bookmarkSaved} />
+            <span>{bookmarkSaved ? 'Remove bookmark' : 'Bookmark page'}</span>
+          </button>
           <button
             className="epub-reader-shell__tool"
             type="button"

@@ -51,39 +51,44 @@ export function EpubMarkGroups({
                 <li
                   key={mark.id}
                   data-mark-kind={mark.kind}
-                  className={selected.has(mark.id) ? 'is-selected' : undefined}
+                  className={[
+                    selected.has(mark.id) ? 'is-selected' : '',
+                    editing ? 'is-editing' : '',
+                    selecting ? 'is-selecting' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
-                  <div
-                    className={`epub-marks-panel__item${selecting ? ' is-selecting' : ''}`}
+                  {selecting ? (
+                    <label className="epub-marks-panel__selector">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(mark.id)}
+                        aria-label={`Select ${kindLabel(mark.kind)} from ${group.chapter.label}`}
+                        onChange={() => onToggleSelection(mark.id)}
+                      />
+                    </label>
+                  ) : null}
+                  <button
+                    className="epub-marks-panel__location"
+                    type="button"
+                    onClick={() => void reader.marks.goTo(mark.id)}
                   >
-                    {selecting ? (
-                      <label className="epub-marks-panel__selector">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(mark.id)}
-                          aria-label={`Select ${kindLabel(mark.kind)} from ${group.chapter.label}`}
-                          onChange={() => onToggleSelection(mark.id)}
-                        />
-                      </label>
-                    ) : null}
-                    <button
-                      className="epub-marks-panel__location"
-                      type="button"
-                      onClick={() => void reader.marks.goTo(mark.id)}
-                    >
                       <span className="epub-marks-panel__meta">
                         <small>{kindLabel(mark.kind)}</small>
-                        {mark.kind !== 'bookmark' ? (
-                          <i
-                            className={`is-${mark.color}`}
-                            aria-label={`${mark.color} ${mark.highlight}`}
-                          />
-                        ) : null}
-                        <span>
-                          {Math.round(
-                            (locator.locations.progression ?? 0) * 100,
-                          )}
-                          %
+                        <span className="epub-marks-panel__status">
+                          {mark.kind !== 'bookmark' ? (
+                            <i
+                              className={`is-${mark.color}`}
+                              aria-label={`${mark.color} ${mark.highlight}`}
+                            />
+                          ) : null}
+                          <span>
+                            {Math.round(
+                              (locator.locations.progression ?? 0) * 100,
+                            )}
+                            %
+                          </span>
                         </span>
                       </span>
                       <strong>{markPreview(mark)}</strong>
@@ -104,33 +109,36 @@ export function EpubMarkGroups({
                           ))}
                         </span>
                       ) : null}
+                  </button>
+                  {!selecting ? (
+                    <button
+                      className="epub-marks-panel__edit"
+                      type="button"
+                      aria-expanded={editing}
+                      aria-controls={`mark-editor-${safeId(mark.id)}`}
+                      onClick={() => onEditingChange(editing ? null : mark.id)}
+                    >
+                      Edit
                     </button>
-                    {!selecting ? (
-                      <button
-                        className="epub-marks-panel__edit"
-                        type="button"
-                        aria-expanded={editing}
-                        onClick={() =>
-                          onEditingChange(editing ? null : mark.id)
-                        }
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                  </div>
+                  ) : null}
                   {editing ? (
-                    <EpubMarkEditor
-                      mark={mark}
-                      onCancel={() => onEditingChange(null)}
-                      onDelete={() => {
-                        reader.marks.remove(mark.id);
-                        onEditingChange(null);
-                      }}
-                      onSave={(patch) => {
-                        reader.marks.update(mark.id, patch);
-                        onEditingChange(null);
-                      }}
-                    />
+                    <div
+                      className="epub-marks-panel__editor"
+                      id={`mark-editor-${safeId(mark.id)}`}
+                    >
+                      <EpubMarkEditor
+                        mark={mark}
+                        onCancel={() => onEditingChange(null)}
+                        onDelete={() => {
+                          reader.marks.remove(mark.id);
+                          onEditingChange(null);
+                        }}
+                        onSave={(patch) => {
+                          reader.marks.update(mark.id, patch);
+                          onEditingChange(null);
+                        }}
+                      />
+                    </div>
                   ) : null}
                 </li>
               );

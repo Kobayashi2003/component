@@ -158,15 +158,7 @@
   padding: 11px 13px;
   border: 1px solid transparent;
   border-radius: 0;
-  background: linear-gradient(
-    135deg,
-    var(--epub-color-surface-raised),
-    color-mix(
-      in srgb,
-      var(--epub-color-accent-soft) 58%,
-      var(--epub-color-surface-raised)
-    )
-  );
+  background: var(--epub-color-surface-raised);
   text-align: left;
 }
 

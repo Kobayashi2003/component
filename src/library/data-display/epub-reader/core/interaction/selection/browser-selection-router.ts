@@ -1,7 +1,11 @@
 import type { Publication } from '../../epub/publication';
 import type { RendererContentDocument } from '../../presentation/renderer';
 import type { ReaderSelection } from './model';
-import { captureReaderSelection, getDocumentSelection } from './selection';
+import {
+  captureReaderSelection,
+  getDocumentSelection,
+  textFragmentRectangles,
+} from './selection';
 
 export interface ReaderSelectionAnchor {
   readonly left: number;
@@ -60,15 +64,16 @@ export class BrowserReaderSelectionRouter {
       const text =
         native && !native.isCollapsed ? native.toString().trim() : '';
       if (!text || !native?.rangeCount) continue;
-      const key = `${context.spineIndex}:${native.anchorOffset}:${native.focusOffset}:${text}`;
-      if (key === this.lastPolledSelectionKey) return;
       const selection = captureReaderSelection(
         context,
         this.publication,
         native,
       );
-      const rectangle = selectionRectangle(native.getRangeAt(0));
-      if (!selection || selection.collapsed || !rectangle) return;
+      if (!selection || selection.collapsed) continue;
+      const key = selectionKey(selection);
+      if (key === this.lastPolledSelectionKey) return;
+      const rectangle = selectionRectangle(native.getRangeAt(0), native);
+      if (!rectangle) continue;
       this.lastPolledSelectionKey = key;
       this.publish(
         activationForRectangle(
@@ -123,7 +128,7 @@ export class BrowserReaderSelectionRouter {
         this.publish(null);
         return;
       }
-      const rectangle = selectionRectangle(native.getRangeAt(0));
+      const rectangle = selectionRectangle(native.getRangeAt(0), native);
       if (!rectangle) return;
       const activation = activationForRectangle(
         selection,
@@ -200,16 +205,28 @@ export class BrowserReaderSelectionRouter {
   }
 }
 
-function selectionRectangle(range: Range): DOMRect | null {
-  const rectangles = [...range.getClientRects()].filter(
+function selectionRectangle(
+  range: Range,
+  selection: Selection,
+): DOMRect | null {
+  const rectangles = textFragmentRectangles(range).filter(
     (rect) => rect.width > 0 || rect.height > 0,
   );
+  const focusAtStart =
+    selection.focusNode === range.startContainer &&
+    selection.focusOffset === range.startOffset;
   return (
-    rectangles.at(-1) ??
+    (focusAtStart ? rectangles[0] : rectangles.at(-1)) ??
     (range.getBoundingClientRect().width > 0
       ? range.getBoundingClientRect()
       : null)
   );
+}
+
+function selectionKey(selection: ReaderSelection): string {
+  const point = (locator: ReaderSelection['range']['start']) =>
+    `${locator.href}:${locator.locations.cfi ?? ''}:${locator.locations.fragment ?? ''}:${locator.locations.progression ?? ''}`;
+  return `${point(selection.range.start)}>${point(selection.range.end)}:${selection.text}`;
 }
 
 function activationForRectangle(

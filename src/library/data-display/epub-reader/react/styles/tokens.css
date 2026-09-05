@@ -173,8 +173,7 @@
     input[type='radio'],
     input[type='range'],
     [tabindex]
-  ):focus-visible,
-.epub-file-picker:focus-within {
+  ):focus-visible {
   outline: 2px solid var(--epub-color-accent);
   outline-offset: 2px;
   box-shadow: var(--epub-focus);
@@ -199,6 +198,12 @@
     select,
     textarea
   ):focus-visible {
+  outline: 0;
+  border-color: var(--epub-color-accent);
+  box-shadow: var(--epub-field-focus);
+}
+
+.epub-file-picker:focus-within {
   outline: 0;
   border-color: var(--epub-color-accent);
   box-shadow: var(--epub-field-focus);

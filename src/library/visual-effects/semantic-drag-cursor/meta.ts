@@ -7,13 +7,13 @@ export default {
   kind: 'effect',
   status: 'experimental',
   summary:
-    'A context-aware cursor that morphs into action labels and becomes a directional, velocity-reactive drag affordance.',
+    'A context-aware cursor that morphs into clear action labels and a stable directional drag affordance.',
   style: 'semantic interaction feedback',
   tags: [
     { label: 'Pointer hover', group: 'input' },
     { label: 'Pointer drag', group: 'input' },
     { label: 'Semantic states', group: 'feature' },
-    { label: 'Velocity stretch', group: 'feature' },
+    { label: 'Stable follow', group: 'feature' },
     { label: 'CSS variables', group: 'technology' },
     { label: 'Reduced motion', group: 'support' },
     { label: 'Touch limited', group: 'support' },

@@ -15,31 +15,33 @@
 .semantic-cursor {
   --semantic-cursor-x: 50%;
   --semantic-cursor-y: 50%;
-  --semantic-cursor-angle: 0deg;
-  --semantic-cursor-stretch: 1;
   position: absolute;
   z-index: 50;
   top: 0;
   left: 0;
   display: grid;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--semantic-cursor-color);
+  border: 1px solid transparent;
   border-radius: 999px;
   opacity: 0;
-  color: #11130e;
+  color: #151611;
   background: var(--semantic-cursor-color);
-  box-shadow: 0 0 20px
-    color-mix(in srgb, var(--semantic-cursor-color) 16%, transparent);
+  box-shadow:
+    0 1px 3px rgba(15, 16, 12, 0.2),
+    0 0 0 4px color-mix(in srgb, var(--semantic-cursor-color) 12%, transparent);
   pointer-events: none;
   transform: translate(var(--semantic-cursor-x), var(--semantic-cursor-y))
     translate(-50%, -50%);
   transition:
-    width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    height 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms,
+    color 160ms,
     background 160ms,
+    box-shadow 160ms,
     opacity 100ms;
   will-change: transform, width, height;
 }
@@ -47,35 +49,41 @@
   opacity: 1;
 }
 .semantic-cursor__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   opacity: 0;
   white-space: pre;
   font:
-    700 10px/1 'DM Mono',
+    700 9px/1 'DM Mono',
     monospace;
-  letter-spacing: 0.08em;
-  transition: opacity 100ms 40ms;
+  letter-spacing: 0.1em;
+  transform: translateX(0.05em);
+  transition: opacity 90ms 35ms;
+}
+.semantic-cursor__arrow {
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 0.7;
 }
 .semantic-cursor--link {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
 }
 .semantic-cursor--view,
 .semantic-cursor--play {
-  width: 68px;
-  height: 68px;
+  width: 62px;
+  height: 62px;
 }
-/* Velocity stretch rides on `transform`, which is not transitioned. Driving
-   `width` per frame instead would fight its own 220ms state transition. */
 .semantic-cursor--drag {
-  width: 108px;
-  height: 44px;
-  transform: translate(var(--semantic-cursor-x), var(--semantic-cursor-y))
-    translate(-50%, -50%) rotate(var(--semantic-cursor-angle))
-    scaleX(var(--semantic-cursor-stretch));
-}
-.semantic-cursor--drag .semantic-cursor__content {
-  transform: scaleX(calc(1 / var(--semantic-cursor-stretch)))
-    rotate(calc(var(--semantic-cursor-angle) * -1));
+  width: 96px;
+  height: 38px;
+  border-color: color-mix(in srgb, var(--semantic-cursor-color) 72%, #111);
+  box-shadow:
+    0 3px 14px rgba(15, 16, 12, 0.16),
+    0 0 0 5px color-mix(in srgb, var(--semantic-cursor-color) 10%, transparent);
 }
 .semantic-cursor--link .semantic-cursor__content,
 .semantic-cursor--view .semantic-cursor__content,
@@ -84,15 +92,17 @@
   opacity: 1;
 }
 .semantic-cursor--drag.is-grabbing {
-  width: 68px;
-  height: 42px;
-  background: #11130e;
+  width: 96px;
+  height: 38px;
+  border-color: var(--semantic-cursor-color);
+  background: #171812;
   color: var(--semantic-cursor-color);
+  box-shadow: 0 4px 18px rgba(15, 16, 12, 0.24);
 }
 .semantic-cursor-demo {
   min-height: 600px;
-  color: #e9eae5;
-  background: #11120f;
+  color: #20211d;
+  background: #f3f2ed;
   font-family: Arial, sans-serif;
 }
 .semantic-demo__topline {
@@ -102,14 +112,14 @@
   left: 30px;
   display: flex;
   justify-content: space-between;
-  color: #686a64;
+  color: #8a8b84;
   font:
     9px/1 'DM Mono',
     monospace;
   letter-spacing: 0.12em;
 }
 .semantic-demo__topline a {
-  color: #a3a69d;
+  color: #50514b;
   text-decoration: none;
 }
 .semantic-demo__intro {
@@ -120,7 +130,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #30322d;
+  border-bottom: 1px solid #d8d7d0;
   padding-bottom: 20px;
 }
 .semantic-demo__intro span {
@@ -128,11 +138,11 @@
   letter-spacing: -0.04em;
 }
 .semantic-demo__intro button {
-  border: 1px solid #3c3e38;
+  border: 1px solid #c9c8c0;
   border-radius: 999px;
   padding: 11px 18px;
-  color: #b2b5ac;
-  background: transparent;
+  color: #55564f;
+  background: #faf9f5;
   font:
     9px/1 'DM Mono',
     monospace;
@@ -160,38 +170,33 @@
 .semantic-project > span {
   display: block;
   margin-bottom: 8px;
-  color: #70736b;
+  color: #96978f;
   font:
     9px/1 'DM Mono',
     monospace;
 }
 .semantic-project__visual {
   position: relative;
+  display: grid;
   height: 214px;
+  place-items: center;
   overflow: hidden;
-  border: 1px solid #32342f;
-  background: var(--project-tone);
+  border: 1px solid #d3d2cb;
+  border-radius: 2px;
+  background: #e8e7e1;
 }
-.semantic-project__visual i {
+.semantic-project__visual::after {
   position: absolute;
-  display: block;
-  border: 1px solid rgba(17, 18, 15, 0.72);
+  inset: 12px;
+  border: 1px solid rgba(32, 33, 29, 0.08);
+  content: '';
 }
-.semantic-project__visual i:nth-child(1) {
-  inset: 28px 52px;
-  border-radius: 50%;
-}
-.semantic-project__visual i:nth-child(2) {
-  top: 28px;
-  bottom: 28px;
-  left: 50%;
-}
-.semantic-project__visual i:nth-child(3) {
-  right: 28px;
-  bottom: 28px;
-  left: 28px;
-  height: 34px;
-  background: rgba(17, 18, 15, 0.12);
+.semantic-project__visual span {
+  color: #d0cfc8;
+  font-size: 92px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
 }
 .semantic-project h2 {
   margin: 10px 0 0;
@@ -207,11 +212,11 @@
   gap: 10px;
 }
 .semantic-demo__legend > * {
-  border: 1px solid #343630;
+  border: 1px solid #d2d1ca;
   border-radius: 999px;
   padding: 9px 13px;
-  color: #858880;
-  background: transparent;
+  color: #74756e;
+  background: #f8f7f2;
   text-decoration: none;
   font:
     9px/1 'DM Mono',
@@ -244,7 +249,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .semantic-cursor {
-    --semantic-cursor-stretch: 1 !important;
     transition: opacity 100ms;
   }
 }

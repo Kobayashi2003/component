@@ -3,11 +3,11 @@ import type { PointerEvent } from 'react'
 import { SemanticDragCursor } from './SemanticDragCursor'
 
 const projects = [
-  { number: '01', title: 'Monument', tone: '#df664f' },
-  { number: '02', title: 'Assembly', tone: '#748fda' },
-  { number: '03', title: 'Afterimage', tone: '#d1b85f' },
-  { number: '04', title: 'Strata', tone: '#82a87a' },
-  { number: '05', title: 'Continuum', tone: '#b98ac4' },
+  { number: '01', title: 'Monument' },
+  { number: '02', title: 'Assembly' },
+  { number: '03', title: 'Afterimage' },
+  { number: '04', title: 'Strata' },
+  { number: '05', title: 'Continuum' },
 ]
 
 export default function SemanticDragCursorShowcase() {
@@ -72,17 +72,10 @@ export default function SemanticDragCursorShowcase() {
             <article
               className="semantic-project"
               key={project.number}
-              style={{ '--project-tone': project.tone } as React.CSSProperties}
             >
               <span>{project.number}</span>
-              <div
-                className="semantic-project__visual"
-                data-cursor="view"
-                data-cursor-label="VIEW"
-              >
-                <i />
-                <i />
-                <i />
+              <div className="semantic-project__visual">
+                <span>{project.title.slice(0, 1)}</span>
               </div>
               <h2>{project.title}</h2>
             </article>

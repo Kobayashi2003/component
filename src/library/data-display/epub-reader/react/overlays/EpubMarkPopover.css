@@ -114,8 +114,6 @@
 }
 
 .epub-reader-mark-popover__excerpt {
-  max-height: 5.2em;
-  overflow: hidden;
   margin: 0;
   padding: 9px 11px;
   border-left: 3px solid
@@ -126,6 +124,14 @@
   font-family: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
   font-size: 0.82rem;
   line-height: 1.55;
+}
+
+.epub-reader-mark-popover__excerpt > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .epub-reader-mark-popover__colors {

@@ -17,10 +17,10 @@ import { SemanticDragCursor } from './semantic-drag-cursor'
 
 ## Semantic states
 
-- `default` renders an 8px dot.
+- `default` renders a 10px dot.
 - `link` renders a compact circular arrow, or a custom action label.
 - `view` and `play` render labeled circular cursors.
-- `drag` renders a directional capsule and switches to a compact grab state while pressed.
+- `drag` renders a directional capsule and switches to a high-contrast hold state while pressed.
 - `data-cursor-label` overrides any state's default label, for example `OPEN`.
 
 ## Props
@@ -28,11 +28,10 @@ import { SemanticDragCursor } from './semantic-drag-cursor'
 - `selector` changes how semantic targets are discovered and defaults to `[data-cursor]`.
 - `color` controls the cursor surface.
 - `smoothing` controls pointer follow speed.
-- `dragStretch` controls velocity-based cursor elongation.
 - `className` applies to the wrapper.
 
 ## Notes
 
 - The component supplies feedback only; draggable descendants retain control of their own data and scroll behavior.
 - Keyboard and touch interactions remain native because the custom cursor is decorative.
-- Reduced-motion mode removes follow interpolation and velocity stretching.
+- Reduced-motion mode removes follow interpolation.

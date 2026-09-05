@@ -165,37 +165,41 @@ export function EpubMarkEditor({
         </label>
       </div>
 
-      <footer>
+      <footer className={confirmDelete ? 'is-confirming' : undefined}>
         {confirmDelete ? (
           <div className="epub-mark-editor__confirm" role="alert">
             <span>Delete this {mark.kind}?</span>
-            <button type="button" onClick={() => setConfirmDelete(false)}>
-              Keep
-            </button>
-            <button type="button" className="is-danger" onClick={onDelete}>
-              Delete
-            </button>
+            <div>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+              <button type="button" className="is-danger" onClick={onDelete}>
+                Delete
+              </button>
+            </div>
           </div>
         ) : (
-          <button
-            type="button"
-            className="is-danger-text"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Delete
-          </button>
+          <>
+            <button
+              type="button"
+              className="is-danger-text"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+            <div>
+              <button type="button" onClick={onCancel}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={mark.kind === 'annotation' && !body.trim()}
+              >
+                Save
+              </button>
+            </div>
+          </>
         )}
-        <div>
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={mark.kind === 'annotation' && !body.trim()}
-          >
-            Save
-          </button>
-        </div>
       </footer>
     </form>
   );

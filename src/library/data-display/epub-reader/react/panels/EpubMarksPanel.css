@@ -1,26 +1,6 @@
 .epub-marks-panel__actions {
-  justify-content: flex-start;
-}
-
-.epub-marks-panel__actions > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-  border-color: var(--epub-color-accent);
-  background: var(--epub-color-accent);
-  color: #fff;
-}
-
-.epub-marks-panel__actions > button:hover:not(:disabled) {
-  border-color: var(--epub-color-accent-strong);
-  background: var(--epub-color-accent-strong);
-  color: #fff;
-}
-
-.epub-marks-panel__actions .epub-reader-tool-icon {
-  width: 16px;
-  height: 16px;
+  justify-content: flex-end;
+  min-height: 20px;
 }
 
 .epub-marks-panel__empty {
@@ -46,26 +26,24 @@
   font-size: 0.76rem;
 }
 
-.epub-marks-panel__groups,
-.epub-marks-panel__actions {
+.epub-marks-panel__groups {
   justify-content: space-between;
 }
 
-.epub-marks-panel__actions > .is-secondary {
-  margin-left: auto;
-  border-color: var(--epub-color-line);
-  background: var(--epub-color-surface-raised);
-  color: var(--epub-color-text);
+.epub-reader-shell .epub-marks-panel__select {
+  min-height: 20px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--epub-color-accent-strong);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
-.epub-marks-panel__actions > .is-secondary:hover:not(:disabled),
-.epub-marks-panel__actions > .is-secondary[aria-pressed='true'] {
-  border-color: color-mix(
-    in srgb,
-    var(--epub-color-accent) 38%,
-    var(--epub-color-line)
-  );
-  background: var(--epub-color-accent-soft);
+.epub-reader-shell .epub-marks-panel__select:hover:not(:disabled),
+.epub-reader-shell .epub-marks-panel__select[aria-pressed='true'] {
+  border-color: transparent;
+  background: transparent;
   color: var(--epub-color-accent-strong);
 }
 

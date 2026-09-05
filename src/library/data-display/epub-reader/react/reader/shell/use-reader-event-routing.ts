@@ -110,7 +110,6 @@ export function useReaderEventRouting(
           surfaces.close();
         }
       } else if (event.type === 'mark-activated') {
-        chromeActionsRef.current?.show();
         showSurface({ kind: 'mark', activation: event.activation });
       } else if (event.type === 'image-activated') {
         chromeActionsRef.current?.show();

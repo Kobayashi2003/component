@@ -119,9 +119,11 @@ export function EpubReader({
   const shellChrome = useReaderShellChrome({
     shellRef,
     hasPublicationSnapshot: snapshot != null,
-    // Selection actions float over the publication and must not reveal or pin
-    // the edge chrome: it steals the exact top/bottom space users drag through.
-    surfaceOpen: surfaces.open && !surfaces.selection,
+    // Selection actions and saved-mark editors float over the publication and
+    // must not reveal or pin the edge chrome: it competes for the same reading
+    // space and can cover the transient editor. Panels and modal surfaces still
+    // keep the edge chrome available.
+    surfaceOpen: Boolean(panel || footnote || activeImage || externalLink),
     onFullscreenError: () =>
       showFeedback({
         message: configuration.messages.fullscreenUnavailable,

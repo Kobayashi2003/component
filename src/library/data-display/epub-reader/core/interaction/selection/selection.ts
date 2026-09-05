@@ -26,8 +26,12 @@ export function captureReaderSelection(
   )
     return null;
 
-  const startPoint = normalizePoint(native.startContainer, native.startOffset);
-  const endPoint = normalizePoint(native.endContainer, native.endOffset);
+  const startPoint = normalizePoint(
+    native.startContainer,
+    native.startOffset,
+    'start',
+  );
+  const endPoint = normalizePoint(native.endContainer, native.endOffset, 'end');
   if (!startPoint || !endPoint) return null;
 
   const start = locatorForPoint(context, publication, startPoint);
@@ -93,6 +97,49 @@ export function resolveLocatorRangeInDocument(
     native.detach?.();
     return null;
   }
+}
+
+/**
+ * Return glyph-level rectangles for a Range. Chromium may include a large
+ * ancestor fragment for element-boundary selections in vertical multicolumn
+ * documents; splitting by semantic text keeps both overlays and toolbar
+ * anchors attached to the selected text itself.
+ */
+export function textFragmentRectangles(range: Range): readonly DOMRect[] {
+  const document = range.startContainer.ownerDocument;
+  if (!document) return [];
+  const root =
+    range.commonAncestorContainer.nodeType === 3
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+  if (!root) return [];
+  const walker = document.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  const nodes: Text[] = [];
+  if (range.commonAncestorContainer.nodeType === 3)
+    nodes.push(range.commonAncestorContainer as Text);
+  else {
+    while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  }
+
+  const rectangles: DOMRect[] = [];
+  for (const node of nodes) {
+    if (!isSemanticTextNode(node) || !range.intersectsNode(node)) continue;
+    const start =
+      node === range.startContainer
+        ? Math.max(0, Math.min(node.data.length, range.startOffset))
+        : 0;
+    const end =
+      node === range.endContainer
+        ? Math.max(0, Math.min(node.data.length, range.endOffset))
+        : node.data.length;
+    if (end <= start) continue;
+    const fragment = document.createRange();
+    fragment.setStart(node, start);
+    fragment.setEnd(node, end);
+    rectangles.push(...Array.from(fragment.getClientRects()));
+    fragment.detach?.();
+  }
+  return rectangles;
 }
 
 function locatorForPoint(
@@ -168,10 +215,86 @@ function estimateTextProgression(document: Document, point: DomPoint): number {
   }
 }
 
-function normalizePoint(node: Node, offset: number): DomPoint | null {
+function normalizePoint(
+  node: Node,
+  offset: number,
+  edge: 'start' | 'end',
+): DomPoint | null {
   if (node.nodeType === 3) return { node, offset: clampOffset(node, offset) };
-  if (node.nodeType === 1) return { node, offset: clampOffset(node, offset) };
+  if (node.nodeType !== 1 && node.nodeType !== 9 && node.nodeType !== 11)
+    return null;
+
+  const boundary = clampOffset(node, offset);
+  if (edge === 'start') {
+    for (let index = boundary; index < node.childNodes.length; index += 1) {
+      const text = firstSemanticText(node.childNodes[index]!);
+      if (text) return { node: text, offset: 0 };
+    }
+    const text = nextSemanticText(node);
+    return text ? { node: text, offset: 0 } : null;
+  }
+
+  for (let index = boundary - 1; index >= 0; index -= 1) {
+    const text = lastSemanticText(node.childNodes[index]!);
+    if (text) return { node: text, offset: text.data.length };
+  }
+  const text = previousSemanticText(node);
+  return text ? { node: text, offset: text.data.length } : null;
+}
+
+function firstSemanticText(root: Node): Text | null {
+  if (root.nodeType === 3)
+    return isSemanticTextNode(root as Text) ? (root as Text) : null;
+  const walker = root.ownerDocument?.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  while (walker?.nextNode()) {
+    const text = walker.currentNode as Text;
+    if (isSemanticTextNode(text)) return text;
+  }
   return null;
+}
+
+function lastSemanticText(root: Node): Text | null {
+  if (root.nodeType === 3)
+    return isSemanticTextNode(root as Text) ? (root as Text) : null;
+  const walker = root.ownerDocument?.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  let last: Text | null = null;
+  while (walker?.nextNode()) {
+    const text = walker.currentNode as Text;
+    if (isSemanticTextNode(text)) last = text;
+  }
+  return last;
+}
+
+function nextSemanticText(node: Node): Text | null {
+  const root = node.ownerDocument?.body ?? node.ownerDocument?.documentElement;
+  if (!root) return null;
+  const walker = node.ownerDocument!.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  while (walker.nextNode()) {
+    const text = walker.currentNode as Text;
+    if (
+      isSemanticTextNode(text) &&
+      !node.contains(text) &&
+      (node.compareDocumentPosition(text) & 4) !== 0 /* FOLLOWING */
+    )
+      return text;
+  }
+  return null;
+}
+
+function previousSemanticText(node: Node): Text | null {
+  const root = node.ownerDocument?.body ?? node.ownerDocument?.documentElement;
+  if (!root) return null;
+  const walker = node.ownerDocument!.createTreeWalker(root, 4 /* SHOW_TEXT */);
+  let previous: Text | null = null;
+  while (walker.nextNode()) {
+    const text = walker.currentNode as Text;
+    if (
+      isSemanticTextNode(text) &&
+      (node.compareDocumentPosition(text) & 2) !== 0 /* PRECEDING */
+    )
+      previous = text;
+  }
+  return previous;
 }
 
 function containsNode(document: Document, node: Node): boolean {

@@ -94,25 +94,16 @@ export function EpubMarksPanel({
     setSelecting(false);
     setConfirmBatchDelete(false);
   };
-  const addBookmark = async () => {
-    const bookmark = await reader.marks.addBookmark();
-    if (bookmark) setEditingId(bookmark.id);
-  };
-
   return (
     <section
       className="epub-reader-panel epub-marks-panel"
       aria-label="Marks"
     >
-      <div className="epub-marks-panel__actions">
-        <button type="button" onClick={() => void addBookmark()}>
-          <ReaderToolIcon id="marks" />
-          <span>Bookmark page</span>
-        </button>
-        {marks.length > 0 ? (
+      {marks.length > 0 ? (
+        <div className="epub-marks-panel__actions">
           <button
             type="button"
-            className="is-secondary"
+            className="epub-marks-panel__select"
             aria-pressed={selecting}
             onClick={() => {
               setSelecting((value) => !value);
@@ -123,8 +114,8 @@ export function EpubMarksPanel({
           >
             {selecting ? 'Done' : 'Select'}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {marks.length > 0 ? (
         <div

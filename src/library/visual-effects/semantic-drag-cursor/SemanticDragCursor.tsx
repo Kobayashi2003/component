@@ -9,7 +9,6 @@ export interface SemanticDragCursorProps {
   className?: string
   color?: string
   smoothing?: number
-  dragStretch?: number
   selector?: string
 }
 
@@ -39,9 +38,8 @@ function isCursorState(
 export function SemanticDragCursor({
   children,
   className = '',
-  color = '#efff5a',
-  smoothing = 0.2,
-  dragStretch = 0.018,
+  color = '#dfff42',
+  smoothing = 0.24,
   selector = DEFAULT_SELECTOR,
 }: SemanticDragCursorProps) {
   const root = useRef<HTMLDivElement>(null)
@@ -50,8 +48,6 @@ export function SemanticDragCursor({
   const paintRef = useRef<() => void>(() => undefined)
   const current = useRef({ x: 0, y: 0 })
   const target = useRef({ x: 0, y: 0 })
-  const velocity = useRef({ x: 0, y: 0 })
-  const previousEvent = useRef({ x: 0, y: 0, time: 0 })
   const reducedMotion = useRef(false)
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<SemanticCursorState>('default')
@@ -63,15 +59,12 @@ export function SemanticDragCursor({
     const speed = reducedMotion.current ? 1 : follow
     current.current.x += (target.current.x - current.current.x) * speed
     current.current.y += (target.current.y - current.current.y) * speed
-    velocity.current.x *= 0.84
-    velocity.current.y *= 0.84
 
-    const magnitude = Math.min(
-      18,
-      Math.hypot(velocity.current.x, velocity.current.y),
-    )
-    const angle =
-      Math.atan2(velocity.current.y, velocity.current.x) * (180 / Math.PI)
+    const deltaX = target.current.x - current.current.x
+    const deltaY = target.current.y - current.current.y
+    if (Math.abs(deltaX) + Math.abs(deltaY) < 0.12) {
+      current.current = { ...target.current }
+    }
     cursor.current?.style.setProperty(
       '--semantic-cursor-x',
       `${current.current.x}px`,
@@ -80,20 +73,15 @@ export function SemanticDragCursor({
       '--semantic-cursor-y',
       `${current.current.y}px`,
     )
-    cursor.current?.style.setProperty('--semantic-cursor-angle', `${angle}deg`)
-    cursor.current?.style.setProperty(
-      '--semantic-cursor-stretch',
-      String(1 + magnitude * Math.max(0, dragStretch)),
-    )
 
     const unsettled =
       Math.abs(target.current.x - current.current.x) +
         Math.abs(target.current.y - current.current.y) >
-        0.15 || magnitude > 0.08
+      0.12
     frame.current = unsettled
       ? requestAnimationFrame(() => paintRef.current())
       : null
-  }, [dragStretch, follow])
+  }, [follow])
 
   useEffect(() => {
     paintRef.current = paint
@@ -133,13 +121,6 @@ export function SemanticDragCursor({
     const bounds = event.currentTarget.getBoundingClientRect()
     const x = event.clientX - bounds.left
     const y = event.clientY - bounds.top
-    const now = event.timeStamp
-    const elapsed = Math.max(8, now - previousEvent.current.time)
-    if (previousEvent.current.time > 0) {
-      velocity.current.x = ((x - previousEvent.current.x) / elapsed) * 16
-      velocity.current.y = ((y - previousEvent.current.y) / elapsed) * 16
-    }
-    previousEvent.current = { x, y, time: now }
     target.current = { x, y }
     if (immediate || reducedMotion.current)
       current.current = { ...target.current }
@@ -183,7 +164,15 @@ export function SemanticDragCursor({
         aria-hidden="true"
       >
         <span className="semantic-cursor__content">
-          {grabbing && state === 'drag' ? '↔' : label}
+          {state === 'drag' ? (
+            <>
+              <b className="semantic-cursor__arrow">←</b>
+              <span>{grabbing ? 'HOLD' : 'DRAG'}</span>
+              <b className="semantic-cursor__arrow">→</b>
+            </>
+          ) : (
+            label
+          )}
         </span>
       </div>
     </div>

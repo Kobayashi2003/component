@@ -1,7 +1,11 @@
-import type { MutableRefObject } from 'react';
-import type { CompatibilityStatus } from '../../../../core';
+import { useState, type MutableRefObject } from 'react';
+import type {
+  Bookmark,
+  BrowserEpubReaderSnapshot,
+  CompatibilityStatus,
+} from '../../../../core';
 import { EpubReaderFullscreenButton } from '../../../chrome/EpubReaderFullscreen';
-import { PinIcon } from '../../../chrome/reader-icons';
+import { BookmarkIcon, PinIcon } from '../../../chrome/reader-icons';
 import {
   CompactReaderToolsMenu,
   HistoryButton,
@@ -47,6 +51,7 @@ export function ReaderToolbar({
   onTogglePanel,
 }: ReaderToolbarProps) {
   const reader = useEpubReaderContext();
+  const [bookmarking, setBookmarking] = useState(false);
   const { messages } = useReaderUiConfiguration();
   const navigationTools = tools.filter(
     (tool) => tool.placement === 'navigation',
@@ -56,6 +61,23 @@ export function ReaderToolbar({
   const pinLabel = readerChrome.pinned
     ? messages.allowControlsToHide
     : messages.keepControlsVisible;
+  const currentBookmark = bookmarkAtCurrentPage(reader.state.reader);
+  const bookmarkLabel = currentBookmark
+    ? 'Remove bookmark from current page'
+    : 'Bookmark current page';
+  const toggleBookmark = async () => {
+    if (bookmarking) return;
+    if (currentBookmark) {
+      reader.marks.remove(currentBookmark.id);
+      return;
+    }
+    setBookmarking(true);
+    try {
+      await reader.marks.addBookmark();
+    } finally {
+      setBookmarking(false);
+    }
+  };
   return (
     <header
       className="epub-reader-shell__toolbar"
@@ -123,6 +145,8 @@ export function ReaderToolbar({
             fullscreen={fullscreen}
             readerChrome={readerChrome}
             messages={messages}
+            bookmarkSaved={Boolean(currentBookmark)}
+            onToggleBookmark={() => void toggleBookmark()}
             onTogglePanel={onTogglePanel}
           />
         ) : (
@@ -142,6 +166,18 @@ export function ReaderToolbar({
                 secondary
               />
             ))}
+            <button
+              className="epub-reader-shell__tool is-secondary epub-reader-shell__bookmark-page"
+              type="button"
+              disabled={bookmarking}
+              aria-label={bookmarkLabel}
+              aria-pressed={Boolean(currentBookmark)}
+              title={bookmarkLabel}
+              onClick={() => void toggleBookmark()}
+            >
+              <BookmarkIcon active={Boolean(currentBookmark)} />
+              <span>{currentBookmark ? 'Bookmarked' : 'Bookmark page'}</span>
+            </button>
             <EpubReaderFullscreenButton
               controller={fullscreen}
               enterLabel={messages.enterFullscreen}
@@ -178,5 +214,35 @@ export function ReaderToolbar({
         ) : null}
       </div>
     </header>
+  );
+}
+
+function bookmarkAtCurrentPage(
+  snapshot: BrowserEpubReaderSnapshot | null,
+): Bookmark | null {
+  const locator = snapshot?.locator;
+  if (!snapshot || !locator) return null;
+  const pageCount = snapshot.renderer.layout?.pageCount;
+  const currentPage = snapshot.renderer.layout?.currentPage;
+  return (
+    snapshot.marks.marks.find((mark): mark is Bookmark => {
+      if (
+        mark.kind !== 'bookmark' ||
+        mark.locator.spineIndex !== locator.spineIndex
+      )
+        return false;
+      if (pageCount != null && currentPage != null) {
+        const progression = mark.locator.locations.progression ?? 0;
+        const bookmarkPage =
+          pageCount <= 1 ? 1 : Math.round(progression * (pageCount - 1)) + 1;
+        return bookmarkPage === currentPage;
+      }
+      return (
+        Math.abs(
+          (mark.locator.locations.progression ?? 0) -
+            (locator.locations.progression ?? 0),
+        ) < 0.001
+      );
+    }) ?? null
   );
 }

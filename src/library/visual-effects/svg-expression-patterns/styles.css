@@ -76,344 +76,72 @@
 }
 
 .expression-patterns__artwork {
-  position: relative;
   width: min(88%, 42rem);
   aspect-ratio: 590 / 415;
-  isolation: isolate;
 }
 
-.expression-patterns__artwork-layer {
-  position: absolute;
-  inset: 0;
+.expression-patterns__rig {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  opacity: 0;
-  transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: 50% 56%;
-  pointer-events: none;
-  user-select: none;
-  will-change: opacity, transform;
-}
-
-.expression-patterns__artwork-layer[data-state='active'] {
-  z-index: 2;
-  opacity: 1;
-}
-
-.expression-patterns__artwork-layer[data-state='outgoing'] {
-  z-index: 1;
-  opacity: 0;
-}
-
-
-.expression-patterns__morph-layer {
-  position: absolute;
-  z-index: 3;
-  width: 100%;
-  height: 100%;
-  inset: 0;
   overflow: visible;
-  pointer-events: none;
-  user-select: none;
-  will-change: opacity;
+  transform-origin: 50% 56%;
 }
 
-.expression-patterns__morph-arch,
-.expression-patterns__morph-eye,
-.expression-patterns__morph-mouth {
-  vector-effect: non-scaling-stroke;
-  stroke: #514a74;
+
+.expression-patterns__head-line {
+  opacity: 0.96;
+}
+
+.expression-patterns__rig-brow,
+.expression-patterns__rig-eye,
+.expression-patterns__rig-mouth {
+  stroke-width: 1.9px;
   stroke-linejoin: round;
+}
+
+.expression-patterns__brow-texture,
+.expression-patterns__eye-hatch {
+  fill: none;
+  stroke-width: 1.15px;
   stroke-linecap: round;
 }
 
-.expression-patterns__morph-arch {
-  fill: #655d7d;
-  fill-opacity: 0.26;
-  stroke-width: 1.7;
+.expression-patterns__brow-texture {
+  stroke-width: 1.05px;
 }
 
-.expression-patterns__morph-eye {
-  fill: #71688a;
-  fill-opacity: 0.34;
-  stroke-width: 1.9;
+.expression-patterns__upper-lid,
+.expression-patterns__lower-lid,
+.expression-patterns__eye-baseline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.expression-patterns__morph-mouth {
-  fill: #ecd8de;
-  fill-opacity: 0.46;
-  stroke-width: 1.9;
+
+.expression-patterns__pupil {
 }
 
-/* Motion grammar: the target Pattern decides how the transition behaves. */
-
-.expression-patterns__artwork[data-animate='true'][data-motion='press']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-press-in var(--expression-motion-duration) both;
+.expression-patterns__highlight {
+  stroke-width: 1px;
 }
 
-.expression-patterns__artwork[data-animate='true'][data-motion='press']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-press-out var(--expression-motion-duration) both;
+.expression-patterns__cheeks ellipse {
 }
 
-.expression-patterns__artwork[data-animate='true'][data-motion='pop']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-pop-in var(--expression-motion-duration)
-    cubic-bezier(0.2, 0.9, 0.24, 1.18) both;
+.expression-patterns__blush-lines {
+  fill: none;
+  stroke-width: 2.15px;
+  stroke-linecap: round;
 }
 
-.expression-patterns__artwork[data-animate='true'][data-motion='pop']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-pop-out var(--expression-motion-duration)
-    cubic-bezier(0.4, 0, 0.6, 1) both;
+.expression-patterns__tongue {
 }
 
-.expression-patterns__artwork[data-animate='true'][data-motion='snap']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-snap-in var(--expression-motion-duration)
-    cubic-bezier(0.15, 0.8, 0.22, 1) both;
+.expression-patterns__mouth-cap {
 }
 
-.expression-patterns__artwork[data-animate='true'][data-motion='snap']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-snap-out var(--expression-motion-duration) ease-in both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='glance']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-glance-in var(--expression-motion-duration)
-    cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='glance']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-glance-out var(--expression-motion-duration)
-    cubic-bezier(0.32, 0, 0.67, 0) both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='bounce']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-bounce-in var(--expression-motion-duration)
-    cubic-bezier(0.18, 0.9, 0.3, 1.22) both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='bounce']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-bounce-out var(--expression-motion-duration)
-    cubic-bezier(0.4, 0, 0.65, 1) both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='smirk']
-  .expression-patterns__artwork-layer[data-state='active'] {
-  animation: expression-patterns-smirk-in var(--expression-motion-duration)
-    cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.expression-patterns__artwork[data-animate='true'][data-motion='smirk']
-  .expression-patterns__artwork-layer[data-state='outgoing'] {
-  animation: expression-patterns-smirk-out var(--expression-motion-duration)
-    cubic-bezier(0.4, 0, 0.7, 1) both;
-}
-
-@keyframes expression-patterns-press-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-0.55rem) scaleX(1.015) scaleY(1.03);
-  }
-  56% {
-    opacity: 1;
-    transform: translateY(0.26rem) scaleX(1.015) scaleY(0.955);
-  }
-  78% {
-    transform: translateY(-0.08rem) scaleX(0.998) scaleY(1.012);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes expression-patterns-press-out {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  30% {
-    opacity: 0.18;
-    transform: translateY(0.14rem) scaleX(1.008) scaleY(0.982);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(0.42rem) scaleX(1.015) scaleY(0.96);
-  }
-}
-
-@keyframes expression-patterns-pop-in {
-  0% {
-    opacity: 0;
-    transform: scaleX(0.96) scaleY(0.84);
-  }
-  54% {
-    opacity: 1;
-    transform: scaleX(1.015) scaleY(1.06);
-  }
-  78% {
-    transform: scaleX(0.996) scaleY(0.985);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes expression-patterns-pop-out {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  32% {
-    opacity: 0.12;
-    transform: scaleX(0.99) scaleY(0.97);
-  }
-  100% {
-    opacity: 0;
-    transform: scaleX(0.975) scaleY(0.93);
-  }
-}
-
-@keyframes expression-patterns-snap-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-0.16rem) scaleY(1.08);
-  }
-  42% {
-    opacity: 1;
-    transform: translateY(0.08rem) scaleY(0.94);
-  }
-  68% {
-    transform: translateX(-0.12rem) scaleY(1.01);
-  }
-  82% {
-    transform: translateX(0.1rem) scaleY(0.995);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
-
-@keyframes expression-patterns-snap-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scaleY(1);
-  }
-  30% {
-    opacity: 0.08;
-    transform: translateX(0.06rem) scaleY(0.96);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(0.12rem) scaleY(0.92);
-  }
-}
-
-@keyframes expression-patterns-glance-in {
-  0% {
-    opacity: 0;
-    transform: translateX(1rem) rotate(0.8deg) scale(0.99);
-  }
-  62% {
-    opacity: 1;
-    transform: translateX(-0.2rem) rotate(-0.14deg) scale(1.004);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) rotate(0) scale(1);
-  }
-}
-
-@keyframes expression-patterns-glance-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0) rotate(0);
-  }
-  36% {
-    opacity: 0.12;
-    transform: translateX(-0.38rem) rotate(-0.22deg) scale(0.995);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-0.65rem) rotate(-0.35deg) scale(0.99);
-  }
-}
-
-@keyframes expression-patterns-bounce-in {
-  0% {
-    opacity: 0;
-    transform: translateY(0.72rem) scaleX(0.96) scaleY(0.9);
-  }
-  48% {
-    opacity: 1;
-    transform: translateY(-0.48rem) scaleX(1.018) scaleY(1.055);
-  }
-  72% {
-    transform: translateY(0.14rem) scaleX(0.995) scaleY(0.985);
-  }
-  88% {
-    transform: translateY(-0.04rem) scale(1.004);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes expression-patterns-bounce-out {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  35% {
-    opacity: 0.12;
-    transform: translateY(0.22rem) scaleX(0.992) scaleY(0.97);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(0.4rem) scaleX(0.985) scaleY(0.95);
-  }
-}
-
-@keyframes expression-patterns-smirk-in {
-  0% {
-    opacity: 0;
-    transform: translateX(-0.5rem) rotate(-0.55deg) scale(0.985);
-  }
-  68% {
-    opacity: 1;
-    transform: translateX(0.14rem) rotate(0.12deg) scale(1.004);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) rotate(0) scale(1);
-  }
-}
-
-@keyframes expression-patterns-smirk-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0) rotate(0) scale(1);
-  }
-  42% {
-    opacity: 0.15;
-    transform: translateX(0.16rem) rotate(0.12deg) scale(0.995);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(0.28rem) rotate(0.2deg) scale(0.99);
-  }
-}
 
 .expression-patterns__selector {
   display: grid;
@@ -427,6 +155,7 @@
   gap: 0.75rem;
   align-items: center;
   width: 100%;
+  min-width: 0;
   padding: 0.6rem;
   border: 1px solid var(--expression-border);
   border-radius: 0.95rem;
@@ -435,17 +164,11 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
 }
 
 .expression-patterns__pattern:hover {
   border-color: #cfc6d6;
   background: #fcfafc;
-  transform: translateX(-0.2rem);
 }
 
 .expression-patterns__pattern[aria-pressed='true'] {
@@ -510,7 +233,6 @@
   }
 
   .expression-patterns__pattern:hover {
-    transform: translateY(-0.15rem);
   }
 }
 
@@ -539,21 +261,10 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .expression-patterns__artwork-layer {
-    animation: none !important;
-    transition: none;
-  }
 
-  .expression-patterns__morph-layer {
-    display: none;
-  }
 
-  .expression-patterns__pattern {
-    transition: none;
-  }
 
-  .expression-patterns__pattern:hover {
-    transform: none;
-  }
+.expression-patterns__brow-accent {
+  fill: none;
+  stroke-linecap: round;
 }

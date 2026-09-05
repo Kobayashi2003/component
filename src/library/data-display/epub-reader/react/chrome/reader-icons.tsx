@@ -133,6 +133,21 @@ export function PinIcon({ active }: { readonly active: boolean }) {
   );
 }
 
+export function BookmarkIcon({ active }: { readonly active: boolean }) {
+  return (
+    <svg
+      className="epub-reader-tool-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        d="M7 4.5h10v15l-5-3-5 3z"
+        fill={active ? 'currentColor' : 'none'}
+      />
+    </svg>
+  );
+}
+
 export function MoreIcon() {
   return (
     <svg

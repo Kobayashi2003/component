@@ -6,13 +6,11 @@ export default {
   category: 'visual-effects',
   kind: 'effect',
   status: 'experimental',
-  summary: 'Six hand-drawn SVG expression states with feature-level path morphing and transition personalities.',
+  summary: 'Six hand-drawn expression states with direct, animation-free SVG switching.',
   style: 'hand-drawn illustration',
   tags: [
     { label: 'Selection', group: 'input' },
-    { label: 'Morph', group: 'feature' },
     { label: 'SVG', group: 'technology' },
-    { label: 'Reduced motion', group: 'support' },
     { label: 'Hand-drawn', group: 'style' },
   ],
 } satisfies CatalogEntryMeta
