@@ -199,7 +199,11 @@ export class ReactEpubReaderStore {
   private async run<T>(
     operation: (reader: BrowserEpubReader) => Promise<T>,
   ): Promise<T | null> {
-    const reader = this.requireReader();
+    const reader = this.reader;
+    if (!reader) {
+      this.notifyError(new Error('EPUB reader is not ready.'));
+      return null;
+    }
     try {
       return await operation(reader);
     } catch (error) {
@@ -256,17 +260,17 @@ export class ReactEpubReaderStore {
     this.reopenPreferences = next;
     this.publish({ ...this.snapshotValue, preferences: next });
   }
-  captureLocator() {
-    return this.requireReader().captureLocator();
+  captureLocator(): Promise<Locator | null> {
+    return this.run((reader) => reader.captureLocator());
   }
-  registerTheme(theme: ReaderThemeDefinition): Promise<void> {
-    return this.requireReader().registerTheme(theme);
+  async registerTheme(theme: ReaderThemeDefinition): Promise<void> {
+    await this.run((reader) => reader.registerTheme(theme));
   }
   captureSelection() {
-    return this.requireReader().captureSelection();
+    return this.reader?.captureSelection() ?? null;
   }
   clearSelection(): void {
-    this.requireReader().clearSelection();
+    this.reader?.clearSelection();
   }
   clearReadingSession(): void {
     if (this.readingSessionStorage && this.readingSessionKey) {
@@ -292,10 +296,10 @@ export class ReactEpubReaderStore {
     );
   }
   searchClear(): void {
-    this.requireReader().search.clear();
+    this.reader?.search.clear();
   }
   searchClearCache(): void {
-    this.requireReader().search.clearCache();
+    this.reader?.search.clearCache();
   }
   searchGoTo(index: number) {
     return this.run((reader) => reader.search.goTo(index));

@@ -267,9 +267,11 @@
   color: #fff;
 }
 .epub-mark-editor__confirm > span {
+  min-width: 0;
   color: inherit;
-  font-size: inherit;
+  font-size: 0.66rem;
   font-weight: inherit;
+  white-space: nowrap;
 }
 
 .epub-mark-editor footer > .epub-mark-editor__confirm {
@@ -284,8 +286,8 @@
 }
 
 .epub-mark-editor__confirm button {
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: var(--epub-control-sm);
+  padding: 6px 9px;
 }
 
 .epub-mark-editor__confirm button:not(.is-danger) {

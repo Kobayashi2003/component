@@ -22,7 +22,7 @@ import { ResourceResolver } from './resource-resolver';
  */
 export class PublicationResourceSession {
   private readonly urls: ObjectUrlStore;
-  private readonly cssCache = new Map<string, Promise<CssMaterialization>>();
+  private readonly cssCache = new Map<string, CssCacheEntry>();
   private disposed = false;
 
   constructor(
@@ -219,11 +219,33 @@ export class PublicationResourceSession {
 
     const cacheKey = `${this.resolver.compatibilityProfile.signature}:${path}`;
     const cached = this.cssCache.get(cacheKey);
-    if (cached) return cached;
+    // Only top-level requests share work that is still in flight. Awaiting an
+    // unrelated recursive chain here can make two concurrent import graphs wait
+    // on each other forever (A -> B while B -> A). Settled results remain safe
+    // to reuse from every depth.
+    if (cached && (stack.length === 0 || cached.settled)) return cached.promise;
 
     const promise = this.buildCss(path, [...stack, path]);
-    this.cssCache.set(cacheKey, promise);
-    return promise;
+    let ownedEntry: CssCacheEntry | null = null;
+    if (stack.length === 0 && !cached) {
+      ownedEntry = { promise, settled: false };
+      this.cssCache.set(cacheKey, ownedEntry);
+    }
+    try {
+      const result = await promise;
+      if (ownedEntry) ownedEntry.settled = true;
+      else if (!this.disposed && !this.cssCache.has(cacheKey)) {
+        this.cssCache.set(cacheKey, {
+          promise: Promise.resolve(result),
+          settled: true,
+        });
+      }
+      return result;
+    } catch (error) {
+      if (ownedEntry && this.cssCache.get(cacheKey) === ownedEntry)
+        this.cssCache.delete(cacheKey);
+      throw error;
+    }
   }
 
   private async buildCss(
@@ -312,6 +334,11 @@ export class PublicationResourceSession {
 interface CssMaterialization {
   readonly url: string | null;
   readonly diagnostics: readonly PublicationDiagnostic[];
+}
+
+interface CssCacheEntry {
+  readonly promise: Promise<CssMaterialization>;
+  settled: boolean;
 }
 
 function encodeFragment(fragment: string): string {

@@ -115,6 +115,36 @@ async function main() {
   );
   const resolver = created.resolver;
 
+  // Concurrent entry points into opposite sides of a cyclic import graph must
+  // not await each other's in-flight cache entries forever.
+  const concurrentSession = new PublicationResourceSession(
+    resolver,
+    new FakeObjectUrlFactory(),
+  );
+  const concurrentCss = await Promise.race([
+    Promise.all([
+      concurrentSession.materialize(
+        "EPUB/text/ch.xhtml",
+        "../styles/main.css",
+      ),
+      concurrentSession.materialize(
+        "EPUB/text/ch.xhtml",
+        "../styles/theme/base.css",
+      ),
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("concurrent CSS cycle materialization timed out")),
+        500,
+      ),
+    ),
+  ]);
+  assert(
+    concurrentCss.every((result) => result.resource?.url),
+    "both concurrent cyclic stylesheet requests must complete",
+  );
+  concurrentSession.dispose();
+
   const font = await resolver.read(
     "EPUB/styles/main.css",
     "../fonts/book.woff2",

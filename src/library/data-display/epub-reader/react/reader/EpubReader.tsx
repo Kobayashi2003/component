@@ -233,6 +233,7 @@ export function EpubReader({
               />
             ) : null}
             <ReaderPanelHost
+              source={source}
               panel={panel}
               panelId={panelId}
               panelTitleId={panelTitleId}

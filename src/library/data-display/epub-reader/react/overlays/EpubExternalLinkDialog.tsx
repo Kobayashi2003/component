@@ -8,6 +8,7 @@ import {
 import { CloseIcon } from '../chrome/reader-icons';
 import { externalLinkDetails } from './external-link-model';
 import type { ExternalLinkTarget } from '../../core';
+import { installFocusTrap } from '../accessibility/focus-trap';
 
 interface EpubExternalLinkDialogProps {
   readonly target: ExternalLinkTarget;
@@ -30,25 +31,9 @@ export function EpubExternalLinkDialog({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const focusable = Array.from(
-        dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'),
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    dialog.addEventListener('keydown', onKeyDown);
+    const removeFocusTrap = installFocusTrap(dialog);
     cancelRef.current?.focus({ preventScroll: true });
-    return () => dialog.removeEventListener('keydown', onKeyDown);
+    return removeFocusTrap;
   }, []);
 
   const opensNewTab = details.kind === 'website';

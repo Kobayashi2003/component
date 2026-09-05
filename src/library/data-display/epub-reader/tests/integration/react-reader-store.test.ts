@@ -67,6 +67,33 @@ class MemoryReadingSessionStorage implements ReadingSessionStorage {
 }
 
 async function main(): Promise<void> {
+  // Public async commands are safe while React has a source but Core has not
+  // opened yet; UI event handlers must not create unhandled rejections.
+  {
+    let reported: unknown = null;
+    const notReady = new ReactEpubReaderStore(async () => {
+      throw new Error("not opened");
+    });
+    notReady.setSource(new Uint8Array([0]), {
+      onError: (error) => {
+        reported = error;
+      },
+    });
+    assert((await notReady.next()) === null, "not-ready next must resolve null");
+    assert(
+      (await notReady.captureLocator()) === null,
+      "not-ready locator capture must resolve null",
+    );
+    notReady.searchClear();
+    notReady.searchClearCache();
+    notReady.clearSelection();
+    assert(
+      reported instanceof Error && reported.message.includes("not ready"),
+      "not-ready async commands must report through the host error channel",
+    );
+    notReady.dispose();
+  }
+
   // React Strict Mode can perform setup → cleanup → setup before the real
   // lifetime begins. A lifecycle lease must survive that replay.
   {

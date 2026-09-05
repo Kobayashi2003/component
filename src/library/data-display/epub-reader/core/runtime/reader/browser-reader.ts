@@ -130,6 +130,7 @@ import type {
   BrowserEpubReaderSnapshot,
   ReaderPublicationPresentation,
 } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 type SnapshotListener = () => void;
 
@@ -151,6 +152,7 @@ export class BrowserEpubReaderOpenError extends Error {
  * it subscribes to this immutable snapshot and invokes semantic methods.
  */
 export class BrowserEpubReader {
+  readonly publication: Publication;
   private readonly listeners = new Set<SnapshotListener>();
   private readonly cleanups: (() => void)[] = [];
   private readonly hints: Map<number, ContentPresentationHints>;
@@ -195,7 +197,7 @@ export class BrowserEpubReader {
   readonly marks: BrowserEpubReaderMarksApi;
 
   private constructor(
-    readonly publication: Publication,
+    publication: Publication,
     private readonly container: HTMLElement,
     resources: PublicationResourceSession,
     contentPreflight: PublicationContentPreflightSession,
@@ -207,6 +209,8 @@ export class BrowserEpubReader {
     extensions: ReaderExtensionConfiguration,
     private readonly options: BrowserEpubReaderOptions,
   ) {
+    this.publication = cloneAndFreezePlainData(publication);
+    publication = this.publication;
     this.resources = resources;
     this.contentPreflight = contentPreflight;
     this.hints = new Map(initialHints);
@@ -218,9 +222,9 @@ export class BrowserEpubReader {
       initialHints,
     );
     this.diagnostics = new PublicationDiagnosticCollector(diagnostics);
-    this.preferences = preferences;
+    this.preferences = cloneAndFreezePlainData(preferences);
     this.compatibilityProfile = compatibilityProfile;
-    this.viewport = viewport;
+    this.viewport = cloneAndFreezePlainData(viewport);
     this.plannerPolicy = mergePlannerPolicy(options.plannerPolicy);
     this.readerEvent = options.onEvent;
     // Copy the catalog so one reader owns later dynamic registrations without
@@ -594,7 +598,7 @@ export class BrowserEpubReader {
 
   async setViewport(viewport: ViewportMetrics): Promise<void> {
     this.assertAlive();
-    const next = normalizeViewport(viewport);
+    const next = cloneAndFreezePlainData(normalizeViewport(viewport));
     if (sameViewport(this.viewport, next)) return;
     const previous = this.viewport;
     this.viewport = next;
@@ -628,6 +632,7 @@ export class BrowserEpubReader {
   }
 
   clearSelection(): void {
+    this.assertAlive();
     this.selection = null;
     for (const context of this.host.contentDocuments)
       getDocumentSelection(context.document)?.removeAllRanges();
@@ -813,43 +818,86 @@ export class BrowserEpubReader {
         query: string,
         searchOptions: Partial<SearchOptions> = {},
       ) => {
+        this.assertAlive();
         const result = await this.searchController.run(query, searchOptions);
         return result.hits;
       },
-      clear: () => this.searchController.clear(),
-      clearCache: () => this.searchController.clearCache(),
-      goTo: (index) =>
-        this.searchWithHistory(() => this.searchController.goToHit(index)),
-      next: () => this.searchWithHistory(() => this.searchController.next()),
-      previous: () =>
-        this.searchWithHistory(() => this.searchController.previous()),
+      clear: () => {
+        this.assertAlive();
+        this.searchController.clear();
+      },
+      clearCache: () => {
+        this.assertAlive();
+        this.searchController.clearCache();
+      },
+      goTo: (index) => {
+        this.assertAlive();
+        return this.searchWithHistory(() =>
+          this.searchController.goToHit(index),
+        );
+      },
+      next: () => {
+        this.assertAlive();
+        return this.searchWithHistory(() => this.searchController.next());
+      },
+      previous: () => {
+        this.assertAlive();
+        return this.searchWithHistory(() => this.searchController.previous());
+      },
     });
   }
 
   private createMarksApi(): BrowserEpubReaderMarksApi {
     return Object.freeze<BrowserEpubReaderMarksApi>({
-      addBookmark: (label) =>
-        addBookmarkAndNotify(
+      addBookmark: (label) => {
+        this.assertAlive();
+        return addBookmarkAndNotify(
           (nextLabel) => this.markController.addBookmark(nextLabel),
           label,
           this.options.onEvent,
-        ),
-      addHighlight: (range, highlight, color, label, tags) =>
-        this.markController.addHighlight(range, highlight, color, label, tags),
-      addAnnotation: (range, body, highlight, color, label, tags) =>
-        this.markController.addAnnotation(
+        );
+      },
+      addHighlight: (range, highlight, color, label, tags) => {
+        this.assertAlive();
+        return this.markController.addHighlight(
+          range,
+          highlight,
+          color,
+          label,
+          tags,
+        );
+      },
+      addAnnotation: (range, body, highlight, color, label, tags) => {
+        this.assertAlive();
+        return this.markController.addAnnotation(
           range,
           body,
           highlight,
           color,
           label,
           tags,
-        ),
-      remove: (id) => this.markStore.remove(id),
-      removeMany: (ids) => this.markStore.removeMany(ids),
-      update: (id, patch) => this.markController.update(id, patch),
-      clear: () => this.markStore.clear(),
-      goTo: (id) => this.goToMark(id),
+        );
+      },
+      remove: (id) => {
+        this.assertAlive();
+        return this.markStore.remove(id);
+      },
+      removeMany: (ids) => {
+        this.assertAlive();
+        return this.markStore.removeMany(ids);
+      },
+      update: (id, patch) => {
+        this.assertAlive();
+        return this.markController.update(id, patch);
+      },
+      clear: () => {
+        this.assertAlive();
+        this.markStore.clear();
+      },
+      goTo: (id) => {
+        this.assertAlive();
+        return this.goToMark(id);
+      },
     });
   }
 
@@ -1132,11 +1180,11 @@ export class BrowserEpubReader {
       locator: this.locator,
       layout: renderer.layout,
     });
-    return Object.freeze({
+    return cloneAndFreezePlainData({
       status,
       publication: this.publication,
       presentation: this.presentation,
-      diagnostics: Object.freeze([...this.diagnostics.all]),
+      diagnostics: [...this.diagnostics.all],
       compatibility: createCompatibilityReport(this.diagnostics.all),
       preferences: this.preferences,
       viewport: this.viewport,
@@ -1147,7 +1195,7 @@ export class BrowserEpubReader {
       marks: this.markStore?.snapshot() ?? { revision: 0, marks: [] },
       selection: this.selection,
       accessibility,
-      appearance: Object.freeze({ themes: this.themeRegistry.list() }),
+      appearance: { themes: this.themeRegistry.list() },
       input: this.inputMap.description,
       error,
     });

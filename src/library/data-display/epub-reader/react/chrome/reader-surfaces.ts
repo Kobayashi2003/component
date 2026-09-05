@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   ReaderFootnote,
   ExternalLinkTarget,
@@ -8,7 +8,10 @@ import type {
 } from '../../core';
 import type { EpubSource } from '../state/model';
 import type { ReaderToolId } from '../tools/model';
-import type { ReaderSurface } from './reader-surface-model';
+import {
+  readerSurfaceForSource,
+  type ReaderSurface,
+} from './reader-surface-model';
 
 export { surfaceReturnFocus } from './reader-surface-model';
 export type { ReaderSurface } from './reader-surface-model';
@@ -51,6 +54,10 @@ export interface ReaderSurfaces {
 export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
   const [surface, setSurface] = useState<ReaderSurface>(NONE);
 
+  useEffect(() => {
+    setSurface((current) => readerSurfaceForSource(current, source));
+  }, [source]);
+
   const show = useCallback((next: ReaderSurface) => setSurface(next), []);
   const close = useCallback(() => setSurface(NONE), []);
   const togglePanel = useCallback(
@@ -64,9 +71,7 @@ export function useReaderSurfaces(source: EpubSource): ReaderSurfaces {
     [],
   );
 
-  const publicationOwned =
-    surface.kind === 'footnote' || surface.kind === 'external-link';
-  const live = publicationOwned && surface.source !== source ? NONE : surface;
+  const live = readerSurfaceForSource(surface, source);
 
   // Memoized so callers can depend on this object in their own hooks without
   // invalidating them on every render.

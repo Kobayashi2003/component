@@ -12,6 +12,7 @@ import type {
   RendererNavigationResult,
   RendererPresentationResult,
 } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 type StateListener = (state: RendererHostState) => void;
 type CommitListener = (event: RendererCommitEvent) => void;
@@ -29,7 +30,7 @@ export class RendererHost {
 
   private activeRenderer: RendererInstance | null = null;
   private activeLayoutCleanup: (() => void) | null = null;
-  private currentState: RendererHostState = {
+  private currentState: RendererHostState = cloneAndFreezePlainData({
     status: 'idle',
     generation: 0,
     plan: null,
@@ -37,7 +38,7 @@ export class RendererHost {
     layout: null,
     stability: null,
     error: null,
-  };
+  });
   private disposed = false;
 
   constructor(factories: readonly RendererFactory[]) {
@@ -243,7 +244,7 @@ export class RendererHost {
     const active = this.activeRenderer;
     if (!active) return Promise.resolve(null);
     return this.coordinator
-      .run('manual', (tx) => active.captureLocator(tx))
+      .observe('manual', (tx) => active.captureLocator(tx))
       .then((result) => (result.status === 'committed' ? result.value : null));
   }
 
@@ -257,7 +258,7 @@ export class RendererHost {
     this.activeRenderer = null;
     this.stateListeners.clear();
     this.commitListeners.clear();
-    this.currentState = {
+    this.currentState = cloneAndFreezePlainData({
       status: 'disposed',
       generation: this.coordinator.currentGeneration,
       plan: null,
@@ -265,7 +266,7 @@ export class RendererHost {
       layout: null,
       stability: null,
       error: null,
-    };
+    });
   }
 
   private observeLiveLayout(renderer: RendererInstance): (() => void) | null {
@@ -323,8 +324,8 @@ export class RendererHost {
   }
 
   private setState(state: RendererHostState): void {
-    this.currentState = state;
-    for (const listener of this.stateListeners) listener(state);
+    this.currentState = cloneAndFreezePlainData(state);
+    for (const listener of this.stateListeners) listener(this.currentState);
   }
 
   private assertAlive(): void {

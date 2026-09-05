@@ -6,6 +6,7 @@ import type {
   SearchResultSet,
 } from './model';
 import { PublicationSearch } from './search';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 type SearchListener = (state: ReaderSearchState) => void;
 
@@ -17,7 +18,7 @@ export interface ReaderSearchNavigationResult {
 export class ReaderSearchController {
   private active: AbortController | null = null;
   private readonly listeners = new Set<SearchListener>();
-  private stateValue: ReaderSearchState = {
+  private stateValue: ReaderSearchState = cloneAndFreezePlainData({
     query: '',
     hits: [],
     index: -1,
@@ -25,7 +26,8 @@ export class ReaderSearchController {
     truncated: false,
     diagnostics: [],
     error: null,
-  };
+  });
+  private disposed = false;
 
   constructor(
     private readonly searchEngine: PublicationSearch,
@@ -37,6 +39,7 @@ export class ReaderSearchController {
   }
 
   onChange(listener: SearchListener): () => void {
+    this.assertAlive();
     this.listeners.add(listener);
     listener(this.stateValue);
     return () => this.listeners.delete(listener);
@@ -46,6 +49,7 @@ export class ReaderSearchController {
     query: string,
     options: Partial<SearchOptions> = {},
   ): Promise<SearchResultSet> {
+    this.assertAlive();
     this.active?.abort(new DOMException('Superseded search.', 'AbortError'));
     const controller = new AbortController();
     this.active = controller;
@@ -94,11 +98,15 @@ export class ReaderSearchController {
   }
 
   async goToHit(index: number): Promise<ReaderSearchNavigationResult | null> {
+    this.assertAlive();
     const hits = this.stateValue.hits;
     if (hits.length === 0) return null;
     const normalized = modulo(index, hits.length);
     const hit = hits[normalized]!;
     const locator = await this.navigator.goToLocator(hit.range.start);
+    // A clear or a newer query may complete while navigation is queued. Only
+    // select the hit if this is still the result set that initiated the move.
+    if (this.stateValue.hits !== hits) return null;
     this.setState({ ...this.stateValue, index: normalized });
     return { hit, locator: locator ?? hit.range.start };
   }
@@ -118,6 +126,7 @@ export class ReaderSearchController {
   }
 
   clear(): void {
+    this.assertAlive();
     this.active?.abort(new DOMException('Search cleared.', 'AbortError'));
     this.active = null;
     this.setState({
@@ -133,6 +142,7 @@ export class ReaderSearchController {
 
   /** Release indexes independently from the visible search result set. */
   clearCache(): void {
+    this.assertAlive();
     this.active?.abort(new DOMException('Search cache cleared.', 'AbortError'));
     this.active = null;
     this.searchEngine.clearCache();
@@ -141,14 +151,21 @@ export class ReaderSearchController {
   }
 
   dispose(): void {
+    if (this.disposed) return;
     this.clear();
     this.searchEngine.clearCache();
     this.listeners.clear();
+    this.disposed = true;
   }
 
   private setState(state: ReaderSearchState): void {
-    this.stateValue = state;
-    for (const listener of this.listeners) listener(state);
+    this.stateValue = cloneAndFreezePlainData(state);
+    for (const listener of this.listeners) listener(this.stateValue);
+  }
+
+  private assertAlive(): void {
+    if (this.disposed)
+      throw new Error('ReaderSearchController has been disposed.');
   }
 }
 

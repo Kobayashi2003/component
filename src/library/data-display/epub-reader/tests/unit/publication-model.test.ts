@@ -193,5 +193,9 @@ assert(
   normalized.pageTurnZonePercent === 40,
   "page-turn zones should be clamped",
 );
+assert(
+  Object.isFrozen(normalized) && Object.isFrozen(normalized.compatibility),
+  "normalized preferences must be deeply immutable at the public boundary",
+);
 
 console.log("Publication model unit test: PASS");

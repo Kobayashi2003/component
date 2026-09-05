@@ -183,6 +183,39 @@ async function main(): Promise<void> {
   }
 
   // 2. Geometry must settle for consecutive frames after font/image readiness.
+  // A locator observation must wait for an active layout instead of aborting it.
+  {
+    const coordinator = new LayoutTransactionCoordinator();
+    const order: string[] = [];
+    const layout = coordinator.run("preferences", async (tx) => {
+      await delay(10, tx.signal);
+      tx.mutate(() => order.push("layout"));
+      return "laid-out";
+    });
+    await delay(1);
+    const observation = coordinator.observe("manual", async (tx) => {
+      tx.throwIfSuperseded();
+      order.push("locator");
+      return "captured";
+    });
+    const [layoutResult, observationResult] = await Promise.all([
+      layout,
+      observation,
+    ]);
+    assert(
+      layoutResult.status === "committed",
+      "a locator capture must not supersede active layout work",
+    );
+    assert(
+      observationResult.status === "committed" &&
+        observationResult.value === "captured" &&
+        order.join(",") === "layout,locator",
+      "a locator capture must observe the renderer after layout commits",
+    );
+    coordinator.dispose();
+  }
+
+  // 2. Geometry must settle for consecutive frames after font/image readiness.
   {
     const measurements: LayoutMeasurement[] = [
       {

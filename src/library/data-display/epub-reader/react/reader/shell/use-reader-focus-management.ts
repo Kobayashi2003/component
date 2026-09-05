@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { ReaderFootnote } from '../../../core';
 import type { EpubSource } from '../../state/model';
 import type { ReaderToolId } from '../../tools/model';
+import { installFocusTrap } from '../../accessibility/focus-trap';
 
 interface ReaderFocusManagementOptions {
   readonly shellRef: { readonly current: HTMLElement | null };
@@ -83,30 +84,9 @@ export function useReaderFocusManagement(
       element.inert = true;
       element.setAttribute('aria-hidden', 'true');
     }
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const focusable = Array.from(
-        modal.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
-        ),
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (document.activeElement === modal) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    modal.addEventListener('keydown', onKeyDown);
+    const removeFocusTrap = installFocusTrap(modal);
     return () => {
-      modal.removeEventListener('keydown', onKeyDown);
+      removeFocusTrap();
       for (const element of isolated) {
         element.inert = false;
         element.removeAttribute('aria-hidden');

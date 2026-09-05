@@ -104,16 +104,20 @@ export function useReaderEventRouting(
         });
       } else if (event.type === 'selection-changed') {
         if (event.activation) {
-          showSurface({ kind: 'selection', activation: event.activation });
+          showSurface({
+            kind: 'selection',
+            source,
+            activation: event.activation,
+          });
         } else if (surfaces.selection) {
           // A selection cleared while another surface is open must not close it.
           surfaces.close();
         }
       } else if (event.type === 'mark-activated') {
-        showSurface({ kind: 'mark', activation: event.activation });
+        showSurface({ kind: 'mark', source, activation: event.activation });
       } else if (event.type === 'image-activated') {
         chromeActionsRef.current?.show();
-        showSurface({ kind: 'image', activation: event.activation });
+        showSurface({ kind: 'image', source, activation: event.activation });
       } else {
         const feedback = feedbackForReaderEvent(event, messages);
         if (feedback) showFeedback(feedback);

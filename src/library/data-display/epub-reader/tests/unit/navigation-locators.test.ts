@@ -2,7 +2,9 @@ import {
   DEFAULT_READER_PREFERENCES,
   type Locator,
   type Publication,
+  type PublicationDiagnostic,
 } from "../../core/epub/publication";
+import { annotateNavigationLinks } from "../../core/epub/content/xhtml-materializer/navigation-links";
 import {
   escapeCfiAssertion,
   parseEpubCfi,
@@ -523,6 +525,35 @@ async function main() {
     "executable and unsupported schemes must never reach the external-link callback",
   );
   linkRouter.dispose();
+
+  const invalidAttributes = new Map<string, string>([
+    ["href", "../../../outside.xhtml"],
+    ["target", "_blank"],
+  ]);
+  const invalidAnchor = {
+    getAttribute: (name: string) => invalidAttributes.get(name) ?? null,
+    setAttribute: (name: string, value: string) =>
+      invalidAttributes.set(name, value),
+    removeAttribute: (name: string) => invalidAttributes.delete(name),
+  } as unknown as Element;
+  const invalidDocument = {
+    getElementsByTagNameNS: () => [invalidAnchor],
+  } as unknown as Document;
+  const invalidDiagnostics: PublicationDiagnostic[] = [];
+  annotateNavigationLinks(
+    invalidDocument,
+    "EPUB/c0.xhtml",
+    undefined,
+    new Map(),
+    invalidDiagnostics,
+  );
+  assert(
+    !invalidAttributes.has("href") &&
+      invalidDiagnostics.some(
+        (diagnostic) => diagnostic.code === "CONTENT_LINK_REFERENCE_INVALID",
+      ),
+    "an invalid publication link must be diagnosed and disabled in generated content",
+  );
 
   console.log("Navigation and locator unit test: PASS");
 }

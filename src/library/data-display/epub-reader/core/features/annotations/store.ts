@@ -3,6 +3,7 @@ import type {
   ReaderMarkStore,
   ReaderMarkStoreSnapshot,
 } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 export class MemoryReaderMarkStore implements ReaderMarkStore {
   private readonly marks = new Map<string, ReaderMark>();
@@ -12,10 +13,10 @@ export class MemoryReaderMarkStore implements ReaderMarkStore {
   private revision = 0;
 
   snapshot(): ReaderMarkStoreSnapshot {
-    return {
+    return cloneAndFreezePlainData({
       revision: this.revision,
       marks: [...this.marks.values()].sort(compareMarks),
-    };
+    });
   }
 
   put(mark: ReaderMark): void {
@@ -84,24 +85,5 @@ function progression(
 }
 
 function freezeMark<T extends ReaderMark>(mark: T): T {
-  return deepFreeze(clonePlain(mark));
-}
-
-function clonePlain<T>(value: T): T {
-  if (Array.isArray(value)) return value.map((item) => clonePlain(item)) as T;
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [key, child] of Object.entries(value as Record<string, unknown>))
-      out[key] = clonePlain(child);
-    return out as T;
-  }
-  return value;
-}
-
-function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value))
-    return value;
-  for (const child of Object.values(value as Record<string, unknown>))
-    deepFreeze(child);
-  return Object.freeze(value);
+  return cloneAndFreezePlainData(mark);
 }

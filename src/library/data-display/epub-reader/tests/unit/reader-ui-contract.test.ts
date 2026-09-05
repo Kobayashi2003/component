@@ -1,5 +1,6 @@
 import { BUILT_IN_READER_TOOL_MANIFEST } from "../../react/tools/built-in-reader-tool-manifest";
 import {
+  readerSurfaceForSource,
   surfaceReturnFocus,
   type ReaderSurface,
 } from "../../react/chrome/reader-surface-model";
@@ -42,6 +43,8 @@ for (const panel of BUILT_IN_READER_TOOL_MANIFEST) {
 const directFocus = { id: "direct" } as unknown as HTMLElement;
 const activationFocus = { id: "activation" } as unknown as HTMLElement;
 const imageTrigger = { id: "image" } as unknown as HTMLElement;
+const firstSource = new Uint8Array([1]);
+const secondSource = new Uint8Array([2]);
 assert(
   surfaceReturnFocus({
     kind: "panel",
@@ -71,6 +74,7 @@ assert(
 assert(
   surfaceReturnFocus({
     kind: "selection",
+    source: firstSource,
     activation: { returnFocus: activationFocus },
   } as ReaderSurface) === activationFocus,
   "selection tools must return to their publication surface",
@@ -78,6 +82,7 @@ assert(
 assert(
   surfaceReturnFocus({
     kind: "mark",
+    source: firstSource,
     activation: { returnFocus: activationFocus },
   } as ReaderSurface) === activationFocus,
   "mark tools must return to their activation target",
@@ -85,6 +90,7 @@ assert(
 assert(
   surfaceReturnFocus({
     kind: "image",
+    source: firstSource,
     activation: { trigger: imageTrigger },
   } as ReaderSurface) === imageTrigger,
   "the image viewer must return to its image trigger",
@@ -93,6 +99,21 @@ assert(
   surfaceReturnFocus({ kind: "none" }) === null,
   "an empty surface has no focus target",
 );
+for (const kind of ["selection", "mark", "image"] as const) {
+  const surface = {
+    kind,
+    source: firstSource,
+    activation: {},
+  } as unknown as ReaderSurface;
+  assert(
+    readerSurfaceForSource(surface, firstSource) === surface,
+    `${kind} surface must remain live for its owning publication`,
+  );
+  assert(
+    readerSurfaceForSource(surface, secondSource).kind === "none",
+    `${kind} surface must close when the publication source changes`,
+  );
+}
 
 const belowPlacement = placeMarkPopover(
   { x: 190, y: 80 },

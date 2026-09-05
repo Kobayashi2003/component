@@ -248,8 +248,8 @@
   gap: 4px;
 }
 .epub-reader-mark-popover__delete-confirm button {
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 34px;
+  padding: 6px 10px;
   border-color: transparent;
   background: transparent;
 }

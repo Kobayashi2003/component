@@ -8,6 +8,7 @@ import type {
   ReaderToolId,
   ReaderToolModule,
 } from '../../../tools/model';
+import type { EpubSource } from '../../../state/model';
 import {
   ReaderToolBoundary,
   ReaderToolContent,
@@ -15,6 +16,7 @@ import {
 } from '../../../tools/ReaderToolBoundary';
 
 interface ReaderPanelHostProps {
+  readonly source: EpubSource;
   readonly panel: ReaderToolId | null;
   readonly panelId: string;
   readonly panelTitleId: string;
@@ -30,6 +32,7 @@ interface ReaderPanelHostProps {
 
 /** Renders registered tool content while the Shell owns the panel lifecycle. */
 export function ReaderPanelHost({
+  source,
   panel,
   panelId,
   panelTitleId,
@@ -55,6 +58,7 @@ export function ReaderPanelHost({
     const triggerBounds = trigger.getBoundingClientRect();
     onShowSurface({
       kind: 'mark',
+      source,
       activation: {
         mark,
         anchor: {

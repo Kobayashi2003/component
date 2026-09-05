@@ -588,6 +588,24 @@ export async function runBrowserInteractionScenario(): Promise<
     getComputedStyle(popoverSave).whiteSpace === "nowrap",
     "mark popover Save Change action must remain on one line",
   );
+  const popoverActionHeight = popoverSave.getBoundingClientRect().height;
+  click(buttonWithText(markPopover, "Delete"));
+  const popoverDeleteConfirmation = await waitFor(
+    () =>
+      markPopover.querySelector<HTMLElement>(
+        ".epub-reader-mark-popover__delete-confirm",
+      ),
+    "mark popover deletion confirmation",
+  );
+  assert(
+    [...popoverDeleteConfirmation.querySelectorAll("button")].every(
+      (button) =>
+        Math.abs(button.getBoundingClientRect().height - popoverActionHeight) <=
+        0.5,
+    ),
+    "mark popover regular and confirmation actions must share one button height",
+  );
+  click(buttonWithText(popoverDeleteConfirmation, "Cancel"));
   const popoverExcerpt = required<HTMLElement>(
     ".epub-reader-mark-popover__excerpt",
   );
@@ -798,6 +816,10 @@ export async function runBrowserInteractionScenario(): Promise<
     "mark editor fields must use the same single restrained focus ring as Search",
   );
   setInputValue(tagInput, "review, favorite");
+  const editorActionHeight = buttonWithText(
+    markEditor,
+    "Save",
+  ).getBoundingClientRect().height;
   click(buttonWithText(markEditor, "Delete"));
   const inlineDeleteConfirmation = await waitFor(
     () => markEditor.querySelector<HTMLElement>(".epub-mark-editor__confirm"),
@@ -809,6 +831,7 @@ export async function runBrowserInteractionScenario(): Promise<
   const confirmationLabelBounds = inlineDeleteConfirmation
     .querySelector("span")!
     .getBoundingClientRect();
+  const confirmationLabel = inlineDeleteConfirmation.querySelector("span")!;
   const confirmationActionsBounds = inlineDeleteConfirmation
     .querySelector("div")!
     .getBoundingClientRect();
@@ -826,7 +849,14 @@ export async function runBrowserInteractionScenario(): Promise<
         (button) => button.textContent?.trim() === "Save",
       ) &&
       getComputedStyle(editorFooter).backgroundColor !==
-        getComputedStyle(markEditor).backgroundColor,
+        getComputedStyle(markEditor).backgroundColor &&
+      getComputedStyle(confirmationLabel).whiteSpace === "nowrap" &&
+      confirmationLabel.scrollHeight === confirmationLabel.clientHeight &&
+      [...inlineDeleteConfirmation.querySelectorAll("button")].every(
+        (button) =>
+          Math.abs(button.getBoundingClientRect().height - editorActionHeight) <=
+          0.5,
+      ),
     "mark deletion confirmation must use one danger strip with Cancel and Delete aligned on the right",
   );
   click(buttonWithText(inlineDeleteConfirmation, "Cancel"));

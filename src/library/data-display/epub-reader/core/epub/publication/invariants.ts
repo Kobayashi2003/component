@@ -5,6 +5,7 @@ import {
   type PublicationDiagnostic,
   type ReaderPreferences,
 } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 export function validatePublicationModel(
   publication: Publication,
@@ -64,7 +65,7 @@ export function normalizeReaderPreferences(
 ): ReaderPreferences {
   const compatibility =
     value.compatibility ?? DEFAULT_READER_COMPATIBILITY_PREFERENCES;
-  return {
+  return cloneAndFreezePlainData({
     ...value,
     fontSizePercent: clamp(value.fontSizePercent, 50, 300),
     lineHeight:
@@ -95,7 +96,7 @@ export function normalizeReaderPreferences(
       fitSingleImagePages: compatibility.fitSingleImagePages !== false,
       deobfuscateIdpfFonts: compatibility.deobfuscateIdpfFonts !== false,
     },
-  };
+  });
 }
 
 export function isLocatorForPublication(

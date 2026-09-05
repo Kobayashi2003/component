@@ -26,6 +26,7 @@ interface CompactReaderToolsMenuProps {
   readonly readerChrome: ReaderChromeControls;
   readonly messages: ReaderUiMessages;
   readonly bookmarkSaved: boolean;
+  readonly bookmarkEnabled: boolean;
   readonly onToggleBookmark: () => void;
   readonly onTogglePanel: (
     panel: ReaderToolId,
@@ -42,6 +43,7 @@ export function CompactReaderToolsMenu({
   readerChrome,
   messages,
   bookmarkSaved,
+  bookmarkEnabled,
   onToggleBookmark,
   onTogglePanel,
 }: CompactReaderToolsMenuProps) {
@@ -146,6 +148,7 @@ export function CompactReaderToolsMenu({
             className="epub-reader-shell__tool"
             type="button"
             role="menuitem"
+            disabled={!bookmarkEnabled}
             aria-pressed={bookmarkSaved}
             onClick={() => {
               close();

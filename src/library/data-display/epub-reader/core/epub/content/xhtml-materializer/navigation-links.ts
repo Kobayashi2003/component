@@ -44,6 +44,10 @@ export function annotateNavigationLinks(
         anchor.setAttribute('href', 'about:blank');
       }
     } catch (cause) {
+      // An invalid authored URL must not remain live in the generated Blob
+      // document, where the browser could resolve it outside our policy layer.
+      anchor.removeAttribute('href');
+      anchor.removeAttribute('data-epub-href');
       diagnostics.push({
         code: 'CONTENT_LINK_REFERENCE_INVALID',
         severity: 'warning',

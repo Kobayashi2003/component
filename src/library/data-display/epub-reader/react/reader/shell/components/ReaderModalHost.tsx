@@ -7,6 +7,10 @@ import type { ReaderSurfaceRendererContext } from '../../../surfaces/model';
 import { useEpubReaderContext } from '../../context';
 import type { ReaderFeedbackController } from '../use-reader-feedback';
 import type { ReaderSurfaceController } from '../use-reader-surface-controller';
+import {
+  focusFirst,
+  installFocusTrap,
+} from '../../../accessibility/focus-trap';
 
 interface ReaderModalHostProps {
   readonly surface: ReaderSurface;
@@ -135,38 +139,11 @@ function useModalFocus(dialogRef: {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const focusable = () =>
-      Array.from(
-        dialog.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-        ),
-      );
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const elements = focusable();
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (!first || !last) {
-        event.preventDefault();
-        dialog.focus();
-      } else if (document.activeElement === dialog) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    dialog.addEventListener('keydown', onKeyDown);
-    const frame = requestAnimationFrame(() =>
-      (focusable()[0] ?? dialog).focus({ preventScroll: true }),
-    );
+    const removeFocusTrap = installFocusTrap(dialog);
+    const frame = requestAnimationFrame(() => focusFirst(dialog));
     return () => {
       cancelAnimationFrame(frame);
-      dialog.removeEventListener('keydown', onKeyDown);
+      removeFocusTrap();
     };
   }, [dialogRef]);
 }

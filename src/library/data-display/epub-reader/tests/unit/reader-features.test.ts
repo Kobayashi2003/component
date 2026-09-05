@@ -471,6 +471,41 @@ async function main() {
     "search clear should reset feature state",
   );
 
+  // Navigation can finish after the visible result set has been cleared. Its
+  // stale completion must not select an index in the replacement state.
+  let releaseNavigation!: () => void;
+  const navigationGate = new Promise<void>((resolve) => {
+    releaseNavigation = resolve;
+  });
+  const navigationRaceController = new ReaderSearchController(search, {
+    async goToLocator(locator) {
+      await navigationGate;
+      return locator;
+    },
+  });
+  await navigationRaceController.run("alpha", { maxResults: 3 });
+  const pendingNavigation = navigationRaceController.goToHit(0);
+  navigationRaceController.clear();
+  releaseNavigation();
+  const staleNavigation = await pendingNavigation;
+  assert(
+    staleNavigation === null &&
+      navigationRaceController.state.hits.length === 0 &&
+      navigationRaceController.state.index === -1,
+    "stale search navigation must not mutate a cleared result set",
+  );
+  navigationRaceController.dispose();
+  let disposedSearchRejected = false;
+  try {
+    await navigationRaceController.run("alpha");
+  } catch {
+    disposedSearchRejected = true;
+  }
+  assert(
+    disposedSearchRejected,
+    "a disposed search controller must reject new operations",
+  );
+
   // Superseded searches are a newest-wins feature operation: an older caller
   // resolves harmlessly and is forbidden from overwriting the newer state.
   let releaseSlow!: () => void;
@@ -533,6 +568,17 @@ async function main() {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   });
+  const immutableMarks = store.snapshot();
+  assert(
+    Object.isFrozen(immutableMarks) &&
+      Object.isFrozen(immutableMarks.marks) &&
+      Object.isFrozen(
+        immutableMarks.marks[0]?.kind === "highlight"
+          ? immutableMarks.marks[0].range.start.locations
+          : null,
+      ),
+    "mark snapshots must be deeply immutable",
+  );
   const markController = new ReaderMarkController(
     store,
     {

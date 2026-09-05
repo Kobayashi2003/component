@@ -25,10 +25,19 @@ export type ReaderSurface =
     }
   | {
       readonly kind: 'selection';
+      readonly source: EpubSource;
       readonly activation: ReaderSelectionActivation;
     }
-  | { readonly kind: 'mark'; readonly activation: ReaderMarkActivation }
-  | { readonly kind: 'image'; readonly activation: ReaderImageActivation }
+  | {
+      readonly kind: 'mark';
+      readonly source: EpubSource;
+      readonly activation: ReaderMarkActivation;
+    }
+  | {
+      readonly kind: 'image';
+      readonly source: EpubSource;
+      readonly activation: ReaderImageActivation;
+    }
   | {
       readonly kind: 'external-link';
       /** Guards against a link confirmation outliving its publication. */
@@ -52,4 +61,13 @@ export function surfaceReturnFocus(surface: ReaderSurface): HTMLElement | null {
     default:
       return null;
   }
+}
+
+/** Drop publication-owned UI raised by a reader that is no longer current. */
+export function readerSurfaceForSource(
+  surface: ReaderSurface,
+  source: EpubSource,
+): ReaderSurface {
+  if (surface.kind === 'none' || surface.kind === 'panel') return surface;
+  return surface.source === source ? surface : { kind: 'none' };
 }

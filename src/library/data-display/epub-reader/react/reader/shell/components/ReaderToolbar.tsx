@@ -62,6 +62,7 @@ export function ReaderToolbar({
     ? messages.allowControlsToHide
     : messages.keepControlsVisible;
   const currentBookmark = bookmarkAtCurrentPage(reader.state.reader);
+  const readerReady = reader.state.reader != null;
   const bookmarkLabel = currentBookmark
     ? 'Remove bookmark from current page'
     : 'Bookmark current page';
@@ -146,6 +147,7 @@ export function ReaderToolbar({
             readerChrome={readerChrome}
             messages={messages}
             bookmarkSaved={Boolean(currentBookmark)}
+            bookmarkEnabled={readerReady && !bookmarking}
             onToggleBookmark={() => void toggleBookmark()}
             onTogglePanel={onTogglePanel}
           />
@@ -169,7 +171,7 @@ export function ReaderToolbar({
             <button
               className="epub-reader-shell__tool is-secondary epub-reader-shell__bookmark-page"
               type="button"
-              disabled={bookmarking}
+              disabled={!readerReady || bookmarking}
               aria-label={bookmarkLabel}
               aria-pressed={Boolean(currentBookmark)}
               title={bookmarkLabel}
