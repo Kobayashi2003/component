@@ -38,5 +38,22 @@ export function focusFirst(container: HTMLElement): void {
 }
 
 function focusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ).filter(isRenderedFocusable);
+}
+
+function isRenderedFocusable(element: HTMLElement): boolean {
+  if (element.tabIndex < 0) return false;
+  if (element.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  if (
+    style?.display === 'none' ||
+    style?.visibility === 'hidden' ||
+    style?.visibility === 'collapse'
+  )
+    return false;
+  // querySelectorAll includes descendants of display:none ancestors. Such an
+  // element ignores focus(), which can leave focus behind an inert modal layer.
+  return element.getClientRects().length > 0;
 }

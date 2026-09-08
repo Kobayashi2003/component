@@ -17,12 +17,21 @@ export function combineAbortSignals(
     return AbortSignal.any([external, internal]);
 
   const controller = new AbortController();
-  const abort = (signal: AbortSignal) => controller.abort(signal.reason);
+  const cleanup = () => {
+    external.removeEventListener('abort', abortExternal);
+    internal.removeEventListener('abort', abortInternal);
+  };
+  const abort = (signal: AbortSignal) => {
+    cleanup();
+    controller.abort(signal.reason);
+  };
+  const abortExternal = () => abort(external);
+  const abortInternal = () => abort(internal);
   if (external.aborted) abort(external);
   else if (internal.aborted) abort(internal);
   else {
-    external.addEventListener('abort', () => abort(external), { once: true });
-    internal.addEventListener('abort', () => abort(internal), { once: true });
+    external.addEventListener('abort', abortExternal, { once: true });
+    internal.addEventListener('abort', abortInternal, { once: true });
   }
   return controller.signal;
 }

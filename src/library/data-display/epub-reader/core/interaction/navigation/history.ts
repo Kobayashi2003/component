@@ -1,4 +1,5 @@
 import type { Locator } from '../../epub/publication';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 export interface ReaderNavigationHistorySnapshot {
   readonly canGoBack: boolean;
@@ -15,6 +16,7 @@ export interface ReaderNavigationHistorySnapshot {
 export class ReaderNavigationHistory {
   private readonly backStack: Locator[] = [];
   private readonly forwardStack: Locator[] = [];
+  private snapshotValue: ReaderNavigationHistorySnapshot | null = null;
 
   constructor(private readonly limit = 64) {
     if (!Number.isInteger(limit) || limit < 1)
@@ -24,14 +26,14 @@ export class ReaderNavigationHistory {
   }
 
   get snapshot(): ReaderNavigationHistorySnapshot {
-    return Object.freeze({
+    return (this.snapshotValue ??= cloneAndFreezePlainData({
       canGoBack: this.backStack.length > 0,
       canGoForward: this.forwardStack.length > 0,
       backCount: this.backStack.length,
       forwardCount: this.forwardStack.length,
-      back: Object.freeze(this.backStack.map(copyLocator)),
-      forward: Object.freeze(this.forwardStack.map(copyLocator)),
-    });
+      back: this.backStack,
+      forward: this.forwardStack,
+    }));
   }
 
   record(origin: Locator | null, destination: Locator | null): void {
@@ -42,6 +44,7 @@ export class ReaderNavigationHistory {
     if (this.backStack.length > this.limit)
       this.backStack.splice(0, this.backStack.length - this.limit);
     this.forwardStack.length = 0;
+    this.snapshotValue = null;
   }
 
   peekBack(): Locator | null {
@@ -56,17 +59,21 @@ export class ReaderNavigationHistory {
     if (this.backStack.length === 0) return;
     this.backStack.pop();
     if (current) this.forwardStack.push(copyLocator(current));
+    this.snapshotValue = null;
   }
 
   commitForward(current: Locator | null): void {
     if (this.forwardStack.length === 0) return;
     this.forwardStack.pop();
     if (current) this.backStack.push(copyLocator(current));
+    this.snapshotValue = null;
   }
 
   clear(): void {
+    if (this.backStack.length === 0 && this.forwardStack.length === 0) return;
     this.backStack.length = 0;
     this.forwardStack.length = 0;
+    this.snapshotValue = null;
   }
 }
 

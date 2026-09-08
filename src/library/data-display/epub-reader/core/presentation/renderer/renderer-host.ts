@@ -199,9 +199,14 @@ export class RendererHost {
       if (isAbortError(error))
         return { state: this.currentState, locator: null };
       if (!this.disposed) {
+        const hasCommittedRenderer =
+          this.activeRenderer != null && this.currentState.plan != null;
         this.setState({
           ...this.currentState,
-          status: 'error',
+          // A failed replacement or relayout leaves the last committed
+          // renderer available. Only a failure before the initial commit is
+          // fatal to the reader lifecycle.
+          status: hasCommittedRenderer ? 'ready' : 'error',
           generation: this.coordinator.currentGeneration,
           error,
         });
@@ -241,10 +246,14 @@ export class RendererHost {
 
   captureLocator(): Promise<Locator | null> {
     this.assertAlive();
-    const active = this.activeRenderer;
-    if (!active) return Promise.resolve(null);
     return this.coordinator
-      .observe('manual', (tx) => active.captureLocator(tx))
+      .observe('manual', (tx) => {
+        // Resolve the active instance only after observe() has waited for an
+        // in-flight replacement to commit. Capturing it before that wait can
+        // retain the renderer that the transaction is about to dispose.
+        const active = this.activeRenderer;
+        return active ? active.captureLocator(tx) : Promise.resolve(null);
+      })
       .then((result) => (result.status === 'committed' ? result.value : null));
   }
 

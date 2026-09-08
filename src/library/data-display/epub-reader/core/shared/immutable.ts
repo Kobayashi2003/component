@@ -6,6 +6,8 @@
  * not enough: consumers must not receive references that can mutate live Core
  * state behind the reader's transaction boundary.
  */
+const trustedImmutableValues = new WeakSet<object>();
+
 export function cloneAndFreezePlainData<T>(value: T): T {
   return clone(value, new WeakMap<object, unknown>());
 }
@@ -13,6 +15,11 @@ export function cloneAndFreezePlainData<T>(value: T): T {
 function clone<T>(value: T, seen: WeakMap<object, unknown>): T {
   if (!value || typeof value !== 'object') return value;
   if (!Array.isArray(value) && !isPlainObject(value)) return value;
+  // Values created by this module have already crossed the defensive-copy
+  // boundary. Reusing them provides structural sharing between the reader's
+  // frequently-published snapshots without trusting arbitrary shallow-frozen
+  // input from a caller.
+  if (trustedImmutableValues.has(value)) return value;
 
   const known = seen.get(value);
   if (known) return known as T;
@@ -21,13 +28,17 @@ function clone<T>(value: T, seen: WeakMap<object, unknown>): T {
     const out: unknown[] = [];
     seen.set(value, out);
     for (const child of value) out.push(clone(child, seen));
-    return Object.freeze(out) as T;
+    const frozen = Object.freeze(out);
+    trustedImmutableValues.add(frozen);
+    return frozen as T;
   }
 
   const out: Record<string, unknown> = {};
   seen.set(value, out);
   for (const [key, child] of Object.entries(value)) out[key] = clone(child, seen);
-  return Object.freeze(out) as T;
+  const frozen = Object.freeze(out);
+  trustedImmutableValues.add(frozen);
+  return frozen as T;
 }
 
 function isPlainObject(value: object): boolean {

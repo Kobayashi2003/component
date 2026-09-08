@@ -5,6 +5,7 @@ import {
   resolveLocatorRangeInDocument,
 } from "../../../core";
 import { getActiveReader } from "./configuration";
+import { focusFirst } from "../../../react/accessibility/focus-trap";
 import {
   assert,
   buttonWithLabel,
@@ -42,6 +43,28 @@ export async function runBrowserInteractionScenario(): Promise<
     "multi-page publication to become ready",
   );
   steps.push(`opened vertical EPUB at ${initial.current}/${initial.total}`);
+
+  const focusFixture = document.createElement("div");
+  const hiddenFocusTarget = document.createElement("button");
+  hiddenFocusTarget.hidden = true;
+  const cssHiddenFocusTarget = document.createElement("button");
+  cssHiddenFocusTarget.style.visibility = "hidden";
+  const excludedFocusTarget = document.createElement("button");
+  excludedFocusTarget.tabIndex = -1;
+  const visibleFocusTarget = document.createElement("button");
+  focusFixture.append(
+    hiddenFocusTarget,
+    cssHiddenFocusTarget,
+    excludedFocusTarget,
+    visibleFocusTarget,
+  );
+  document.body.append(focusFixture);
+  focusFirst(focusFixture);
+  assert(
+    document.activeElement === visibleFocusTarget,
+    "modal focus must skip hidden targets",
+  );
+  focusFixture.remove();
 
   const configuredShell = required<HTMLElement>(".epub-reader-shell");
   const settingsIconPath =
@@ -1244,8 +1267,16 @@ export async function runBrowserInteractionScenario(): Promise<
   click(buttonWithText(comicSettings, "None"));
   await waitFor(
     () =>
-      spreadRoot.style.gap === "0px" && fixedSpreadFacingGap(spreadRoot) <= 1,
-    "gapless fixed-layout page alignment",
+      document.querySelector<HTMLElement>('[data-epub-spread="true"]')?.style
+        .gap === "0px",
+    "zero fixed-layout spread gap",
+  );
+  const currentSpreadRoot = required<HTMLElement>(
+    '[data-epub-spread="true"]',
+  );
+  await waitFor(
+    () => fixedSpreadFacingGap(currentSpreadRoot) <= 1,
+    "gapless fixed-layout page alignment after zero gap",
   );
   assert(
     comicPreview.classList.contains("has-no-gutter"),

@@ -16,6 +16,7 @@ export function EpubSearchPanel({
     );
   const state = reader.state.reader?.search;
   const publication = reader.state.reader?.publication;
+  const readerReady = reader.state.reader != null;
   const [query, setQuery] = useState('');
   const groups = useMemo(
     () =>
@@ -28,6 +29,7 @@ export function EpubSearchPanel({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (!readerReady) return;
     void reader.search.run(query);
   };
 
@@ -47,7 +49,10 @@ export function EpubSearchPanel({
           aria-label="Find in book"
         />
         <div className="epub-search-panel__form-actions">
-          <button type="submit" disabled={!query.trim() || state?.searching}>
+          <button
+            type="submit"
+            disabled={!readerReady || !query.trim() || state?.searching}
+          >
             Search
           </button>
           <button

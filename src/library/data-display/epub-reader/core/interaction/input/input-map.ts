@@ -12,6 +12,7 @@ import type {
   ReaderInputState,
   ReaderShortcutGroup,
 } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 export class ReaderInputBindingRegistry {
   private readonly bindings = new Map<string, ReaderInputBinding>();
@@ -154,20 +155,15 @@ function describeBindings(
       groups.set(group.label, target);
     }
   }
-  return Object.freeze({
-    bindingIds: Object.freeze(bindings.map((binding) => binding.id)),
-    shortcutGroups: Object.freeze(
-      [...groups.values()].map((group) =>
-        Object.freeze({
-          label: group.label,
-          items: Object.freeze(
-            group.items.map((item) =>
-              Object.freeze({ ...item, keys: Object.freeze([...item.keys]) }),
-            ),
-          ),
-        }),
-      ),
-    ),
+  return cloneAndFreezePlainData({
+    bindingIds: bindings.map((binding) => binding.id),
+    shortcutGroups: [...groups.values()].map((group) => ({
+      label: group.label,
+      items: group.items.map((item) => ({
+        ...item,
+        keys: [...item.keys],
+      })),
+    })),
   });
 }
 

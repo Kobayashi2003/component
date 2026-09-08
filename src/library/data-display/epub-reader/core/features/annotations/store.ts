@@ -11,12 +11,13 @@ export class MemoryReaderMarkStore implements ReaderMarkStore {
     (snapshot: ReaderMarkStoreSnapshot) => void
   >();
   private revision = 0;
+  private snapshotValue: ReaderMarkStoreSnapshot = cloneAndFreezePlainData({
+    revision: 0,
+    marks: [],
+  });
 
   snapshot(): ReaderMarkStoreSnapshot {
-    return cloneAndFreezePlainData({
-      revision: this.revision,
-      marks: [...this.marks.values()].sort(compareMarks),
-    });
+    return this.snapshotValue;
   }
 
   put(mark: ReaderMark): void {
@@ -54,8 +55,11 @@ export class MemoryReaderMarkStore implements ReaderMarkStore {
 
   private publish(): void {
     this.revision += 1;
-    const snapshot = this.snapshot();
-    for (const listener of this.listeners) listener(snapshot);
+    this.snapshotValue = cloneAndFreezePlainData({
+      revision: this.revision,
+      marks: [...this.marks.values()].sort(compareMarks),
+    });
+    for (const listener of this.listeners) listener(this.snapshotValue);
   }
 }
 

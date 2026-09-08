@@ -9,6 +9,7 @@ import {
   type Publication,
   type SpineItem,
 } from "../../core/epub/publication";
+import { cloneAndFreezePlainData } from "../../core/shared/immutable";
 
 const publication: Publication = {
   version: "3.3",
@@ -196,6 +197,21 @@ assert(
 assert(
   Object.isFrozen(normalized) && Object.isFrozen(normalized.compatibility),
   "normalized preferences must be deeply immutable at the public boundary",
+);
+
+const immutableValue = cloneAndFreezePlainData({ nested: { value: 1 } });
+assert(
+  cloneAndFreezePlainData(immutableValue) === immutableValue,
+  "trusted deep-frozen data should retain identity across snapshot composition",
+);
+const shallowNested = { value: 1 };
+const shallowFrozen = Object.freeze({ nested: shallowNested });
+const defensivelyCloned = cloneAndFreezePlainData(shallowFrozen);
+assert(
+  defensivelyCloned !== shallowFrozen &&
+    defensivelyCloned.nested !== shallowNested &&
+    Object.isFrozen(defensivelyCloned.nested),
+  "arbitrary shallow-frozen caller data must still be cloned and deeply frozen",
 );
 
 console.log("Publication model unit test: PASS");

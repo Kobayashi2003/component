@@ -18,6 +18,7 @@ import type {
   BrowserEpubReaderOptions,
   ReaderPublicationPresentation,
 } from '../model';
+import { cloneAndFreezePlainData } from '../../../shared/immutable';
 
 export function mergePlannerPolicy(
   input: BrowserEpubReaderOptions['plannerPolicy'],
@@ -45,7 +46,7 @@ export function resolvePublicationPresentation(
   hints: ReadonlyMap<number, ContentPresentationHints>,
 ): ReaderPublicationPresentation {
   const layout = resolvePublicationLayoutProfile(publication);
-  return Object.freeze({
+  return cloneAndFreezePlainData({
     layout,
     writingMode: dominantWritingMode(publication, hints),
     chrome: layout === 'fixed-layout' ? 'immersive' : 'standard',

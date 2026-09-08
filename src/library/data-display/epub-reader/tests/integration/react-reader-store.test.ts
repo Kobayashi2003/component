@@ -9,6 +9,7 @@ import {
 } from "../../core";
 import { BrowserReadingSessionStorage } from "../../react/state/browser-reading-session-storage";
 import { readingSessionKey } from "../../react/state/reading-session";
+import { combineAbortSignals } from "../../react/state/store/lifecycle";
 import {
   ReactEpubReaderStore,
   type ReactEpubReaderOpener,
@@ -67,6 +68,49 @@ class MemoryReadingSessionStorage implements ReadingSessionStorage {
 }
 
 async function main(): Promise<void> {
+  // The compatibility path must release the listener on the signal that did
+  // not abort; otherwise every publication replacement retains one controller.
+  {
+    const descriptor = Object.getOwnPropertyDescriptor(AbortSignal, "any");
+    const externalListeners = new Set<EventListenerOrEventListenerObject>();
+    let externalRemovals = 0;
+    const external = {
+      aborted: false,
+      reason: undefined,
+      addEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) {
+        if (type === "abort") externalListeners.add(listener);
+      },
+      removeEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+      ) {
+        if (type === "abort" && externalListeners.delete(listener))
+          externalRemovals += 1;
+      },
+    } as unknown as AbortSignal;
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const internal = new AbortController();
+      const combined = combineAbortSignals(external, internal.signal);
+      internal.abort(new DOMException("replaced", "AbortError"));
+      assert(
+        combined.aborted &&
+          externalListeners.size === 0 &&
+          externalRemovals === 1,
+        "fallback abort composition must remove the listener from the surviving signal",
+      );
+    } finally {
+      if (descriptor) Object.defineProperty(AbortSignal, "any", descriptor);
+      else delete (AbortSignal as unknown as { any?: unknown }).any;
+    }
+  }
+
   // Public async commands are safe while React has a source but Core has not
   // opened yet; UI event handlers must not create unhandled rejections.
   {

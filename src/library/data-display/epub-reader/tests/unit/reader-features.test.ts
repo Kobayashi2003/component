@@ -280,16 +280,23 @@ async function main() {
     spineIndex: 0,
   } as const;
   const diagnostics = new PublicationDiagnosticCollector([repeatedDiagnostic]);
+  const diagnosticSnapshot = diagnostics.all;
+  const compatibilitySnapshot = diagnostics.compatibility;
   assert(
     diagnostics.append([repeatedDiagnostic]).length === 0,
     "revisiting a section must not append an identical diagnostic again",
+  );
+  assert(
+    diagnostics.all === diagnosticSnapshot &&
+      diagnostics.compatibility === compatibilitySnapshot,
+    "duplicate diagnostics must preserve cached diagnostic and compatibility snapshots",
   );
   assert(
     diagnostics.append([{ ...repeatedDiagnostic, spineIndex: 2 }]).length === 1,
     "the same diagnostic on another spine item must remain observable",
   );
   assert(
-    diagnostics.all.length === 2,
+    diagnostics.all.length === 2 && diagnostics.all !== diagnosticSnapshot,
     "diagnostic collection must retain only distinct publication occurrences",
   );
 
@@ -546,6 +553,11 @@ async function main() {
   );
 
   const store = new MemoryReaderMarkStore();
+  const emptyMarkSnapshot = store.snapshot();
+  assert(
+    store.snapshot() === emptyMarkSnapshot,
+    "unchanged mark stores must reuse their immutable snapshot",
+  );
   let publishes = 0;
   const unsubscribe = store.subscribe(() => {
     publishes += 1;
@@ -578,6 +590,11 @@ async function main() {
           : null,
       ),
     "mark snapshots must be deeply immutable",
+  );
+  assert(
+    store.snapshot() === immutableMarks &&
+      immutableMarks !== emptyMarkSnapshot,
+    "mark snapshots must change only when the store revision changes",
   );
   const markController = new ReaderMarkController(
     store,
@@ -641,6 +658,11 @@ async function main() {
   );
 
   const themes = new ReaderThemeRegistry();
+  const builtInThemeSnapshot = themes.list();
+  assert(
+    themes.list() === builtInThemeSnapshot,
+    "unchanged theme catalogs must reuse their immutable list",
+  );
   assert(
     themes.resolve("paper")?.background === "#f7f1e3" &&
       themes.resolve("graphite")?.colorScheme === "dark",
@@ -653,8 +675,11 @@ async function main() {
     background: "#111",
     colorScheme: "dark",
   });
+  const customThemeSnapshot = themes.list();
   assert(
-    themes.resolve("custom-night")?.background === "#111",
+    themes.resolve("custom-night")?.background === "#111" &&
+      customThemeSnapshot !== builtInThemeSnapshot &&
+      themes.list() === customThemeSnapshot,
     "theme registry should accept user-defined themes",
   );
   assert(

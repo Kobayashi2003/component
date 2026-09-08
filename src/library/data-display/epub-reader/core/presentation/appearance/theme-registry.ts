@@ -4,6 +4,7 @@ import {
   DuplicateExtensionIdError,
 } from '../../extension/model';
 import type { ReaderThemeCatalog, ReaderThemeDefinition } from './model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
 
 export const BUILTIN_READER_THEMES: readonly ReaderThemeDefinition[] =
   Object.freeze([
@@ -73,6 +74,7 @@ export const BUILTIN_READER_THEMES: readonly ReaderThemeDefinition[] =
 export class ReaderThemeRegistry implements ReaderThemeCatalog {
   private readonly themes = new Map<string, ReaderThemeDefinition>();
   private readonly protectedIds = new Set<string>();
+  private listValue: readonly ReaderThemeDefinition[] | null = null;
 
   constructor(
     themes: readonly ReaderThemeDefinition[] = BUILTIN_READER_THEMES,
@@ -88,18 +90,21 @@ export class ReaderThemeRegistry implements ReaderThemeCatalog {
     if (this.themes.has(theme.id))
       throw new DuplicateExtensionIdError(theme.id);
     validateTheme(theme);
-    const stored = Object.freeze({
+    const stored = cloneAndFreezePlainData({
       ...theme,
       label: theme.label?.trim() || theme.id,
-      ...(theme.ui ? { ui: Object.freeze({ ...theme.ui }) } : {}),
+      ...(theme.ui ? { ui: { ...theme.ui } } : {}),
     });
     this.themes.set(theme.id, stored);
+    this.listValue = null;
     return () => this.unregister(theme.id);
   }
 
   unregister(id: ReaderTheme): boolean {
     if (this.protectedIds.has(id)) return false;
-    return this.themes.delete(id);
+    const removed = this.themes.delete(id);
+    if (removed) this.listValue = null;
+    return removed;
   }
 
   resolve(id: ReaderTheme): ReaderThemeDefinition | null {
@@ -107,7 +112,9 @@ export class ReaderThemeRegistry implements ReaderThemeCatalog {
   }
 
   list(): readonly ReaderThemeDefinition[] {
-    return Object.freeze([...this.themes.values()]);
+    return (this.listValue ??= cloneAndFreezePlainData([
+      ...this.themes.values(),
+    ]));
   }
 }
 

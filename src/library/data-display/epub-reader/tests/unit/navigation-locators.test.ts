@@ -102,6 +102,7 @@ class FakeHost implements NavigationRendererHost {
   presentationDelayMs = 0;
   activePresentations = 0;
   maxConcurrentPresentations = 0;
+  presentationCalls = 0;
 
   async navigateWithin(): Promise<RendererNavigationResult> {
     this.navigationCalls += 1;
@@ -127,6 +128,7 @@ class FakeHost implements NavigationRendererHost {
     import("../../core/presentation/renderer").RendererPresentationResult
   > {
     void _reason;
+    this.presentationCalls += 1;
     this.activePresentations += 1;
     this.maxConcurrentPresentations = Math.max(
       this.maxConcurrentPresentations,
@@ -235,6 +237,11 @@ async function main() {
   );
 
   const history = new ReaderNavigationHistory(2);
+  const emptyHistorySnapshot = history.snapshot;
+  assert(
+    history.snapshot === emptyHistorySnapshot,
+    "unchanged navigation history must reuse its immutable snapshot",
+  );
   const origin: Locator = {
     href: "EPUB/c0.xhtml",
     spineIndex: 0,
@@ -247,7 +254,9 @@ async function main() {
   };
   history.record(origin, destination);
   assert(
-    history.snapshot.canGoBack && history.peekBack()?.spineIndex === 0,
+    history.snapshot !== emptyHistorySnapshot &&
+      history.snapshot.canGoBack &&
+      history.peekBack()?.spineIndex === 0,
     "branch navigation should retain its origin",
   );
   history.commitBack(destination);
@@ -476,6 +485,19 @@ async function main() {
   assert(
     host.state.plan?.spineIndex === 2,
     "relayout after navigation must preserve the destination spine",
+  );
+
+  host.presentationCalls = 0;
+  const firstRelayout: Promise<void> = navigator.relayout("preferences");
+  const latestRelayout = navigator.relayout("viewport-resize");
+  assert(
+    firstRelayout === latestRelayout,
+    "queued layout invalidations should share one latest-wins operation",
+  );
+  await Promise.all([firstRelayout, latestRelayout]);
+  assert(
+    host.presentationCalls === 1,
+    "coalesced layout invalidations must perform one renderer relayout",
   );
 
   const external: import("../../core/interaction/navigation").ExternalLinkTarget[] =

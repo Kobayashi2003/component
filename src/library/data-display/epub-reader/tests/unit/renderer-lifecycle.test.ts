@@ -330,6 +330,8 @@ async function main(): Promise<void> {
     restoreCount = 0;
     committedFontSize = 100;
     visible = true;
+    private spineIndex = 0;
+    private href = "EPUB/ch1.xhtml" as PublicationHref;
     private readonly layoutListeners = new Set<
       (
         layout: import("../../core/presentation/renderer/model").RendererLayoutSnapshot,
@@ -350,6 +352,8 @@ async function main(): Promise<void> {
       await delay(this.mountDelayMs, tx.signal);
       tx.mutate(() => {
         this.committedFontSize = plan.preferences.fontSizePercent;
+        this.spineIndex = plan.spineIndex;
+        this.href = plan.href;
       });
     }
 
@@ -361,16 +365,19 @@ async function main(): Promise<void> {
       await delay(this.updateDelayMs, tx.signal);
       tx.mutate(() => {
         this.committedFontSize = plan.preferences.fontSizePercent;
+        this.spineIndex = plan.spineIndex;
+        this.href = plan.href;
       });
     }
 
     async captureLocator(
       tx: LayoutTransactionContext,
     ): Promise<Locator | null> {
+      if (this.disposed) throw new Error("Fake renderer has been disposed.");
       tx.throwIfSuperseded();
       return {
-        href: "EPUB/ch1.xhtml",
-        spineIndex: 0,
+        href: this.href,
+        spineIndex: this.spineIndex,
         locations: { progression: 0.5 },
       };
     }
@@ -553,7 +560,66 @@ async function main(): Promise<void> {
     host.dispose();
   }
 
-  // 5a. Renderer topology is part of instance identity. Single-page and
+  // 5a. A failed replacement after a successful commit is operational: the
+  // previous renderer remains visible and the reader must stay interactive.
+  {
+    const committed: FakeRenderer[] = [];
+    const failed: FakeRenderer[] = [];
+    const failingFactory: RendererFactory = {
+      kind: "fixed-layout",
+      create() {
+        const renderer = new FakeRenderer("fixed-layout", 1, 1);
+        renderer.mount = async () => {
+          throw new Error("expected replacement failure");
+        };
+        failed.push(renderer);
+        return renderer;
+      },
+    };
+    const host = new RendererHost([
+      factory("reflowable-paginated", committed, 1),
+      failingFactory,
+    ]);
+    await host.present(
+      makePlan(0, "reflowable-paginated"),
+      "initial-render",
+    );
+    let rejected = false;
+    try {
+      await host.present(makePlan(1, "fixed-layout"), "navigation");
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, "the failed replacement must still reject its command");
+    assert(
+      host.state.status === "ready" &&
+        host.state.plan?.spineIndex === 0 &&
+        host.state.error instanceof Error,
+      "a committed renderer must keep the host ready while exposing the operational error",
+    );
+    assert(
+      !committed[0]!.disposed && failed[0]!.disposed,
+      "replacement failure must retain the committed renderer and dispose the candidate",
+    );
+    host.dispose();
+
+    const unopenedHost = new RendererHost([failingFactory]);
+    try {
+      await unopenedHost.present(
+        makePlan(0, "fixed-layout"),
+        "initial-render",
+      );
+    } catch {
+      // Expected: without an earlier commit there is no renderer to recover.
+    }
+    assert(
+      unopenedHost.state.status === "error" && unopenedHost.state.plan == null,
+      "an initial renderer failure must remain a fatal host error",
+    );
+    unopenedHost.dispose();
+  }
+
+  // 5b. Renderer topology is part of instance identity. Single-page and
   // cross-spine spread plans can share the same RendererKind but are created by
   // different factory branches, so crossing that boundary must replace.
   {
@@ -587,7 +653,33 @@ async function main(): Promise<void> {
     host.dispose();
   }
 
-  // 5b. Native scroll/live renderer changes publish a fresh layout snapshot
+  // 5c. Locator reads begun during replacement must resolve the renderer after
+  // the transaction commits, not retain the instance that commit disposes.
+  {
+    const created: FakeRenderer[] = [];
+    const host = new RendererHost([
+      factory("reflowable-paginated", created, 12, 1),
+    ]);
+    await host.present(
+      makePlan(0, "reflowable-paginated", 100),
+      "initial-render",
+    );
+    const previous = created[0]!;
+    const replacement = host.present(
+      makePlan(1, "reflowable-paginated", 100),
+      "navigation",
+    );
+    await delay(1);
+    const capture = host.captureLocator();
+    const [, locator] = await Promise.all([replacement, capture]);
+    assert(
+      previous.disposed && locator?.spineIndex === 1,
+      "locator capture must use the replacement renderer after layout commits",
+    );
+    host.dispose();
+  }
+
+  // 5d. Native scroll/live renderer changes publish a fresh layout snapshot
   // without creating a layout/navigation transaction.
   {
     const created: FakeRenderer[] = [];

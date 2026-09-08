@@ -1,6 +1,5 @@
 import { OcfZipArchive } from '../../epub/archive';
 import {
-  createCompatibilityReport,
   createReaderCompatibilityProfile,
   runRenditionCompatibilityPolicies,
   type CompatibilityProfile,
@@ -37,6 +36,7 @@ import {
   type Highlight,
   type ReaderMark,
   type ReaderMarkStore,
+  type ReaderMarkStoreSnapshot,
 } from '../../features/annotations';
 import {
   ReaderDecorationController,
@@ -144,6 +144,27 @@ export class BrowserEpubReaderOpenError extends Error {
   }
 }
 
+/** Keep input/compatibility choices while returning renderer-owned fields to
+ * the last plan that committed successfully. */
+function restoreRenderedPreferences(
+  current: ReaderPreferences,
+  committed: ReaderPreferences,
+): ReaderPreferences {
+  return cloneAndFreezePlainData({
+    ...current,
+    flow: committed.flow,
+    spread: committed.spread,
+    pageProgression: committed.pageProgression,
+    fontSizePercent: committed.fontSizePercent,
+    fontFamily: committed.fontFamily,
+    lineHeight: committed.lineHeight,
+    pageMarginPercent: committed.pageMarginPercent,
+    fixedLayoutFit: committed.fixedLayoutFit,
+    fixedLayoutGutter: committed.fixedLayoutGutter,
+    theme: committed.theme,
+  });
+}
+
 /**
  * Browser composition root for the React adapter and any non-React host UI.
  *
@@ -172,6 +193,7 @@ export class BrowserEpubReader {
   private readonly navigationHistory = new ReaderNavigationHistory();
   private readonly searchController: ReaderSearchController;
   private readonly markStore: ReaderMarkStore;
+  private marksSnapshot: ReaderMarkStoreSnapshot;
   private readonly markController: ReaderMarkController;
   private readonly decorations: ReaderDecorationController;
   private readonly inputRouter: BrowserReaderInputRouter;
@@ -185,7 +207,9 @@ export class BrowserEpubReader {
   private readonly readerEvent: BrowserEpubReaderOptions['onEvent'];
   private readonly diagnostics: PublicationDiagnosticCollector;
   private preferences: ReaderPreferences;
+  private committedRenderPreferences: ReaderPreferences;
   private viewport: ViewportMetrics;
+  private committedViewport: ViewportMetrics;
   private locator: Locator | null = null;
   /** Target requested by a queued navigation; protects semantic anchors while layout commits. */
   private pendingNavigationLocator: Locator | null = null;
@@ -223,8 +247,10 @@ export class BrowserEpubReader {
     );
     this.diagnostics = new PublicationDiagnosticCollector(diagnostics);
     this.preferences = cloneAndFreezePlainData(preferences);
+    this.committedRenderPreferences = this.preferences;
     this.compatibilityProfile = compatibilityProfile;
     this.viewport = cloneAndFreezePlainData(viewport);
+    this.committedViewport = this.viewport;
     this.plannerPolicy = mergePlannerPolicy(options.plannerPolicy);
     this.readerEvent = options.onEvent;
     // Copy the catalog so one reader owns later dynamic registrations without
@@ -234,6 +260,7 @@ export class BrowserEpubReader {
     );
     this.inputMap = extensions.inputMap;
     this.markStore = options.markStore ?? new MemoryReaderMarkStore();
+    this.marksSnapshot = cloneAndFreezePlainData(this.markStore.snapshot());
 
     const xmlPlatform = new BrowserDomXmlPlatform(container.ownerDocument);
     const contentPipeline = new PublicationContentDocumentPipeline(
@@ -373,7 +400,10 @@ export class BrowserEpubReader {
       ),
     );
     this.cleanups.push(
-      this.markStore.subscribe(() => {
+      this.markStore.subscribe((snapshot) => {
+        const next = cloneAndFreezePlainData(snapshot);
+        if (next.revision === this.marksSnapshot.revision) return;
+        this.marksSnapshot = next;
         this.publish(this.snapshotValue.status, this.snapshotValue.error);
       }),
     );
@@ -578,18 +608,30 @@ export class BrowserEpubReader {
     });
     if (samePreferences(this.preferences, next)) return;
     const previous = this.preferences;
+    const needsRelayout =
+      this.host.state.plan != null &&
+      (renderPreferencesChanged(previous, next) ||
+        renderPreferencesChanged(this.committedRenderPreferences, next));
     this.preferences = next;
     try {
-      if (this.host.state.plan && renderPreferencesChanged(previous, next)) {
+      if (needsRelayout) {
         await this.navigator.relayout(
-          spreadChanged(previous, next) ? 'spread-change' : 'preferences',
+          spreadChanged(previous, next) ||
+            spreadChanged(this.committedRenderPreferences, next)
+            ? 'spread-change'
+            : 'preferences',
         );
       }
     } catch (error) {
       // The public snapshot must never claim a preference was applied when the
       // renderer rejected that transition. The host owns renderer rollback/error
       // state; the composition root owns preference-state rollback.
-      if (this.preferences === next) this.preferences = previous;
+      if (this.preferences === next) {
+        this.preferences = restoreRenderedPreferences(
+          next,
+          this.committedRenderPreferences,
+        );
+      }
       this.publish(this.snapshotValue.status, error);
       throw error;
     }
@@ -600,16 +642,15 @@ export class BrowserEpubReader {
     this.assertAlive();
     const next = cloneAndFreezePlainData(normalizeViewport(viewport));
     if (sameViewport(this.viewport, next)) return;
-    const previous = this.viewport;
     this.viewport = next;
     try {
       if (this.host.state.plan) {
         await this.navigator.relayout('viewport-resize');
-      }
+      } else this.committedViewport = next;
     } catch (error) {
       // ResizeObserver can race with renderer work. Keep the externally visible
       // viewport aligned with the last successfully committed layout.
-      if (this.viewport === next) this.viewport = previous;
+      if (this.viewport === next) this.viewport = this.committedViewport;
       this.publish(this.snapshotValue.status, error);
       throw error;
     }
@@ -779,6 +820,10 @@ export class BrowserEpubReader {
 
   private handleRendererStateChange(state: RendererHostState): void {
     this.syncLiveDocuments();
+    if (state.status === 'ready' && state.plan) {
+      this.committedRenderPreferences = state.plan.preferences;
+      this.committedViewport = state.plan.viewport;
+    }
     if (state.plan && state.layout?.progression != null) {
       const progression = state.layout.progression;
       const pending = this.pendingNavigationLocator;
@@ -1184,15 +1229,15 @@ export class BrowserEpubReader {
       status,
       publication: this.publication,
       presentation: this.presentation,
-      diagnostics: [...this.diagnostics.all],
-      compatibility: createCompatibilityReport(this.diagnostics.all),
+      diagnostics: this.diagnostics.all,
+      compatibility: this.diagnostics.compatibility,
       preferences: this.preferences,
       viewport: this.viewport,
       renderer,
       locator: this.locator,
       navigationHistory: this.navigationHistory.snapshot,
       search: this.searchController?.state ?? emptySearchState(),
-      marks: this.markStore?.snapshot() ?? { revision: 0, marks: [] },
+      marks: this.marksSnapshot,
       selection: this.selection,
       accessibility,
       appearance: { themes: this.themeRegistry.list() },

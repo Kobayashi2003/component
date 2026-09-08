@@ -28,6 +28,7 @@ import { locatorFromCfi, locatorFromHref } from './targets';
 export class ReaderNavigator {
   private readonly policy: ReaderNavigationPolicy;
   private queue: Promise<void> = Promise.resolve();
+  private pendingRelayout: RelayoutRequest | null = null;
 
   constructor(
     private readonly publication: Publication,
@@ -70,12 +71,25 @@ export class ReaderNavigator {
   }
 
   relayout(reason: LayoutTransactionReason): Promise<void> {
-    return this.enqueue(async () => {
+    // Navigation remains strictly ordered, but repeated layout invalidations
+    // that have not started yet all describe the same desired final state.
+    // Share one queued operation and let its most recent reason win.
+    if (this.pendingRelayout) {
+      this.pendingRelayout.reason = reason;
+      return this.pendingRelayout.promise;
+    }
+
+    let request!: RelayoutRequest;
+    const promise = this.enqueue(async () => {
+      if (this.pendingRelayout === request) this.pendingRelayout = null;
       const current = this.host.state.plan;
       if (!current) return;
       const plan = await this.plans.planForSpine(current.spineIndex);
-      await this.host.present(plan, reason);
+      await this.host.present(plan, request.reason);
     });
+    request = { reason, promise };
+    this.pendingRelayout = request;
+    return promise;
   }
 
   private async performMove(
@@ -185,6 +199,11 @@ export class ReaderNavigator {
     );
     return run;
   }
+}
+
+interface RelayoutRequest {
+  reason: LayoutTransactionReason;
+  readonly promise: Promise<void>;
 }
 
 function visibleSpineIndices(layout: unknown, fallback: number): number[] {

@@ -1,16 +1,30 @@
 import type { PublicationDiagnostic } from '../../epub/publication';
+import { createCompatibilityReport } from '../../epub/compatibility/report';
+import type { CompatibilityReport } from '../../epub/compatibility/model';
+import { cloneAndFreezePlainData } from '../../shared/immutable';
+
+const EMPTY_DIAGNOSTICS: readonly PublicationDiagnostic[] =
+  cloneAndFreezePlainData([]);
 
 /** Publication-scoped diagnostic log that suppresses repeat renderer reports. */
 export class PublicationDiagnosticCollector {
   private readonly keys = new Set<string>();
   private readonly diagnostics: PublicationDiagnostic[] = [];
+  private snapshotValue: readonly PublicationDiagnostic[] = EMPTY_DIAGNOSTICS;
+  private compatibilityValue: CompatibilityReport = cloneAndFreezePlainData(
+    createCompatibilityReport(this.snapshotValue),
+  );
 
   constructor(initial: readonly PublicationDiagnostic[] = []) {
     this.append(initial);
   }
 
   get all(): readonly PublicationDiagnostic[] {
-    return this.diagnostics;
+    return this.snapshotValue;
+  }
+
+  get compatibility(): CompatibilityReport {
+    return this.compatibilityValue;
   }
 
   append(
@@ -22,8 +36,14 @@ export class PublicationDiagnosticCollector {
       this.keys.add(key);
       return true;
     });
-    this.diagnostics.push(...unique);
-    return unique;
+    if (unique.length === 0) return EMPTY_DIAGNOSTICS;
+    const stored = cloneAndFreezePlainData(unique);
+    this.diagnostics.push(...stored);
+    this.snapshotValue = cloneAndFreezePlainData([...this.diagnostics]);
+    this.compatibilityValue = cloneAndFreezePlainData(
+      createCompatibilityReport(this.snapshotValue),
+    );
+    return stored;
   }
 }
 
