@@ -7,7 +7,7 @@ A vintage audio player with station tuning, volume control, local-file playback,
 ```tsx
 import { RetroRadio } from './retro-radio'
 
-<RetroRadio
+;<RetroRadio
   stations={[
     { id: '01', name: 'Warm', frequency: '88.6', glyph: 'W', angle: -46 },
     { id: '02', name: 'Direct', frequency: '101.3', glyph: 'D', angle: 0 },
@@ -19,7 +19,7 @@ import { RetroRadio } from './retro-radio'
 ## Props
 
 - `stations` is required. Each station needs `id`, `name`, `frequency`, and `glyph`; `angle` is optional and overrides the computed dial position.
-- `initialIndex`, `defaultVolume`, and `showBackground` set the initial presentation.
+- `initialIndex` (0), `defaultVolume` (62, range 0–100), and `showBackground` (true) set the initial presentation.
 - `onStationChange`, `onVolumeChange`, `onPlaybackChange`, and `onMusicChange` expose user changes.
 
 ## Notes

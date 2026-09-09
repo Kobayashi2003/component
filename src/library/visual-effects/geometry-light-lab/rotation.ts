@@ -7,12 +7,7 @@ const IDENTITY: Quaternion = [0, 0, 0, 1]
 export function orientationFromControls(
   controls: Pick<GeometryLightControls, 'rotationX' | 'rotationY' | 'rotationZ'>,
 ) {
-  return rotateInViewSpace(
-    IDENTITY,
-    controls.rotationX,
-    controls.rotationY,
-    controls.rotationZ,
-  )
+  return rotateInViewSpace(IDENTITY, controls.rotationX, controls.rotationY, controls.rotationZ)
 }
 
 export function rotateInViewSpace(
@@ -29,7 +24,7 @@ export function rotateInViewSpace(
 }
 
 function axisAngle(x: number, y: number, z: number, degrees: number): Quaternion {
-  const halfAngle = degrees * Math.PI / 360
+  const halfAngle = (degrees * Math.PI) / 360
   const sine = Math.sin(halfAngle)
   return [x * sine, y * sine, z * sine, Math.cos(halfAngle)]
 }

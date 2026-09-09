@@ -1,0 +1,95 @@
+.knob-demo {
+  background: #1b211d;
+  color: #e9eee5;
+  padding: clamp(24px, 5vw, 64px);
+  font-family: Arial, sans-serif;
+}
+.knob-demo header > span,
+.knob-demo__serial {
+  font: 10px monospace;
+  letter-spacing: 0.16em;
+  color: #b4bcac;
+}
+.knob-demo h2 {
+  font-size: clamp(28px, 4vw, 48px);
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  margin: 18px 0 12px;
+}
+.knob-demo p {
+  color: #b4bcac;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.knob-demo__bench {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 36px 0;
+  border: 1px solid #41493c;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #ffffff04, transparent);
+}
+.knob-demo__instrument {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 14px;
+  gap: 20px;
+}
+.knob-demo__instrument + .knob-demo__instrument {
+  border-left: 1px solid #41493c;
+}
+.knob-demo__instrument p {
+  margin: 0;
+  font: 11px monospace;
+}
+.knob-demo__settings {
+  display: grid;
+  grid-template-columns: 1.3fr repeat(3, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+.knob-demo__settings b {
+  font-size: 14px;
+  font-weight: 500;
+}
+.knob-demo__settings p {
+  font-size: 11px;
+}
+.knob-demo__settings label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  font: 11px monospace;
+}
+.knob-demo__settings output {
+  color: #bce66d;
+}
+.knob-demo__settings input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: #bce66d;
+}
+.knob-demo footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #41493c;
+  color: #b4bcac;
+  font: 10px/1.6 monospace;
+}
+@media (max-width: 800px) {
+  .knob-demo__bench {
+    grid-template-columns: 1fr;
+  }
+  .knob-demo__instrument + .knob-demo__instrument {
+    border-left: 0;
+    border-top: 1px solid #41493c;
+  }
+  .knob-demo__settings {
+    grid-template-columns: 1fr;
+  }
+}

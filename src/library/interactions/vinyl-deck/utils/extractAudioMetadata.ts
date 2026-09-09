@@ -13,10 +13,12 @@ export interface EmbeddedAudioMetadata {
 }
 
 function readSyncSafe(bytes: Uint8Array, offset: number) {
-  return ((bytes[offset] & 0x7f) << 21)
-    | ((bytes[offset + 1] & 0x7f) << 14)
-    | ((bytes[offset + 2] & 0x7f) << 7)
-    | (bytes[offset + 3] & 0x7f)
+  return (
+    ((bytes[offset] & 0x7f) << 21) |
+    ((bytes[offset + 1] & 0x7f) << 14) |
+    ((bytes[offset + 2] & 0x7f) << 7) |
+    (bytes[offset + 3] & 0x7f)
+  )
 }
 
 function readUint32(bytes: Uint8Array, offset: number, littleEndian = false) {
@@ -34,11 +36,16 @@ function findTerminator(bytes: Uint8Array, offset: number, wide: boolean) {
 function decodeText(payload: Uint8Array) {
   if (payload.length < 2) return undefined
   const encoding = payload[0]
-  const label = encoding === 0 ? 'latin1' : encoding === 3 ? 'utf-8' : encoding === 2 ? 'utf-16be' : 'utf-16'
+  const label =
+    encoding === 0 ? 'latin1' : encoding === 3 ? 'utf-8' : encoding === 2 ? 'utf-16be' : 'utf-16'
   try {
-    return new TextDecoder(label).decode(payload.subarray(1)).replaceAll('\0', '').trim() || undefined
+    return (
+      new TextDecoder(label).decode(payload.subarray(1)).replaceAll('\0', '').trim() || undefined
+    )
   } catch {
-    return new TextDecoder('utf-8').decode(payload.subarray(1)).replaceAll('\0', '').trim() || undefined
+    return (
+      new TextDecoder('utf-8').decode(payload.subarray(1)).replaceAll('\0', '').trim() || undefined
+    )
   }
 }
 
@@ -60,7 +67,13 @@ function parseApic(payload: Uint8Array) {
 function parseId3(bytes: Uint8Array): EmbeddedAudioMetadata | undefined {
   if (bytes.length < 10 || String.fromCharCode(...bytes.subarray(0, 3)) !== 'ID3') return undefined
   const frameMap: Record<string, keyof EmbeddedAudioMetadata> = {
-    TIT2: 'title', TPE1: 'artist', TALB: 'album', TCON: 'genre', TDRC: 'year', TYER: 'year', TBPM: 'bpm',
+    TIT2: 'title',
+    TPE1: 'artist',
+    TALB: 'album',
+    TCON: 'genre',
+    TDRC: 'year',
+    TYER: 'year',
+    TBPM: 'bpm',
   }
   const metadata: EmbeddedAudioMetadata = {}
   const version = bytes[3]
@@ -87,16 +100,24 @@ function parseFlacPicture(bytes: Uint8Array, start: number, end: number) {
   let cursor = start + 4
   const mimeLength = readUint32(bytes, cursor)
   cursor += 4
-  const mime = new TextDecoder('utf-8').decode(bytes.subarray(cursor, cursor + mimeLength)) || 'image/jpeg'
+  const mime =
+    new TextDecoder('utf-8').decode(bytes.subarray(cursor, cursor + mimeLength)) || 'image/jpeg'
   cursor += mimeLength
   const descriptionLength = readUint32(bytes, cursor)
   cursor += 4 + descriptionLength + 16
   const imageLength = readUint32(bytes, cursor)
   cursor += 4
-  return cursor + imageLength <= end ? new Blob([bytes.slice(cursor, cursor + imageLength)], { type: mime }) : undefined
+  return cursor + imageLength <= end
+    ? new Blob([bytes.slice(cursor, cursor + imageLength)], { type: mime })
+    : undefined
 }
 
-function parseVorbisComments(bytes: Uint8Array, start: number, end: number, metadata: EmbeddedAudioMetadata) {
+function parseVorbisComments(
+  bytes: Uint8Array,
+  start: number,
+  end: number,
+  metadata: EmbeddedAudioMetadata,
+) {
   let cursor = start
   const vendorLength = readUint32(bytes, cursor, true)
   cursor += 4 + vendorLength
@@ -104,7 +125,13 @@ function parseVorbisComments(bytes: Uint8Array, start: number, end: number, meta
   const count = readUint32(bytes, cursor, true)
   cursor += 4
   const keyMap: Record<string, keyof EmbeddedAudioMetadata> = {
-    TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', GENRE: 'genre', DATE: 'year', YEAR: 'year', BPM: 'bpm',
+    TITLE: 'title',
+    ARTIST: 'artist',
+    ALBUM: 'album',
+    GENRE: 'genre',
+    DATE: 'year',
+    YEAR: 'year',
+    BPM: 'bpm',
   }
   for (let index = 0; index < count && cursor + 4 <= end; index += 1) {
     const length = readUint32(bytes, cursor, true)
@@ -115,7 +142,8 @@ function parseVorbisComments(bytes: Uint8Array, start: number, end: number, meta
     const separator = comment.indexOf('=')
     const key = comment.slice(0, separator).toUpperCase()
     const value = comment.slice(separator + 1).trim()
-    if (separator > 0 && value && keyMap[key]) (metadata as Record<string, string | Blob | undefined>)[keyMap[key]] = value
+    if (separator > 0 && value && keyMap[key])
+      (metadata as Record<string, string | Blob | undefined>)[keyMap[key]] = value
   }
 }
 

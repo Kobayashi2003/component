@@ -95,17 +95,22 @@ export function VinylDeck({
   const activeSource = source ?? item?.audio
 
   // Track navigation ------------------------------------------------------------
-  const select = useCallback((step: -1 | 1) => {
-    if (activeItems.length < 2) return
-    const nextIndex = shuffle && step > 0
-      ? (safeIndex + 1 + Math.floor(Math.random() * (activeItems.length - 1))) % activeItems.length
-      : (safeIndex + step + activeItems.length) % activeItems.length
-    setDirection(step > 0 ? 'next' : 'previous')
-    setIndex(nextIndex)
-    onChange?.(activeItems[nextIndex], nextIndex)
-    if (directionTimerRef.current !== undefined) window.clearTimeout(directionTimerRef.current)
-    directionTimerRef.current = window.setTimeout(() => setDirection(null), 380)
-  }, [activeItems, onChange, safeIndex, shuffle])
+  const select = useCallback(
+    (step: -1 | 1) => {
+      if (activeItems.length < 2) return
+      const nextIndex =
+        shuffle && step > 0
+          ? (safeIndex + 1 + Math.floor(Math.random() * (activeItems.length - 1))) %
+            activeItems.length
+          : (safeIndex + step + activeItems.length) % activeItems.length
+      setDirection(step > 0 ? 'next' : 'previous')
+      setIndex(nextIndex)
+      onChange?.(activeItems[nextIndex], nextIndex)
+      if (directionTimerRef.current !== undefined) window.clearTimeout(directionTimerRef.current)
+      directionTimerRef.current = window.setTimeout(() => setDirection(null), 380)
+    },
+    [activeItems, onChange, safeIndex, shuffle],
+  )
 
   const handleEnded = useCallback(() => {
     if (!autoAdvance || activeItems.length < 2) return false
@@ -130,23 +135,32 @@ export function VinylDeck({
   const meterLevels = useVinylDeckMeter(analyserRef, playing, Boolean(activeSource))
 
   // Resource cleanup ------------------------------------------------------------
-  useEffect(() => () => {
-    if (directionTimerRef.current !== undefined) window.clearTimeout(directionTimerRef.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (directionTimerRef.current !== undefined) window.clearTimeout(directionTimerRef.current)
+    },
+    [],
+  )
 
   useEffect(() => () => coverUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
 
   // Controlled / uncontrolled setters -----------------------------------------
-  const changeVolume = useCallback((next: number | ((current: number) => number)) => {
-    const resolved = Math.max(0, Math.min(100, typeof next === 'function' ? next(volume) : next))
-    if (controlledVolume === undefined) setInternalVolume(resolved)
-    onVolumeChange?.(resolved)
-  }, [controlledVolume, onVolumeChange, volume])
+  const changeVolume = useCallback(
+    (next: number | ((current: number) => number)) => {
+      const resolved = Math.max(0, Math.min(100, typeof next === 'function' ? next(volume) : next))
+      if (controlledVolume === undefined) setInternalVolume(resolved)
+      onVolumeChange?.(resolved)
+    },
+    [controlledVolume, onVolumeChange, volume],
+  )
 
-  const changeShadowAngle = useCallback((next: number) => {
-    if (controlledShadowAngle === undefined) setInternalShadowAngle(next)
-    onShadowAngleChange?.(next)
-  }, [controlledShadowAngle, onShadowAngleChange])
+  const changeShadowAngle = useCallback(
+    (next: number) => {
+      if (controlledShadowAngle === undefined) setInternalShadowAngle(next)
+      onShadowAngleChange?.(next)
+    },
+    [controlledShadowAngle, onShadowAngleChange],
+  )
 
   const toggleAutoAdvance = useCallback(() => {
     const next = !autoAdvance
@@ -161,45 +175,53 @@ export function VinylDeck({
   }, [controlledShuffle, onShuffleChange, shuffle])
 
   // Local-file ingestion --------------------------------------------------------
-  const loadAudioFiles = useCallback((files: File[]) => {
-    const generation = uploadGenerationRef.current + 1
-    uploadGenerationRef.current = generation
-    // The previous covers stay live until the new queue is ready; revoking them
-    // now would break the artwork still on screen.
-    const retiredUrls = coverUrlsRef.current
-    const pendingUrls: string[] = []
-    setIndex(0)
-    onAudioFilesChange?.(files)
-    onAudioFileChange?.(files[0])
+  const loadAudioFiles = useCallback(
+    (files: File[]) => {
+      const generation = uploadGenerationRef.current + 1
+      uploadGenerationRef.current = generation
+      // The previous covers stay live until the new queue is ready; revoking them
+      // now would break the artwork still on screen.
+      const retiredUrls = coverUrlsRef.current
+      const pendingUrls: string[] = []
+      setIndex(0)
+      onAudioFilesChange?.(files)
+      onAudioFileChange?.(files[0])
 
-    void Promise.all(files.map(async (file, fileIndex) => {
-      const metadata = await extractAudioMetadata(file)
-      const cover = metadata.artwork ? URL.createObjectURL(metadata.artwork) : undefined
-      if (cover) pendingUrls.push(cover)
-      return {
-        id: String(fileIndex + 1).padStart(2, '0'),
-        title: metadata.title ?? file.name.replace(/\.[^.]+$/, ''),
-        genre: metadata.genre ?? 'Local audio',
-        release: metadata.year ?? 'Local file',
-        author: metadata.artist ?? 'Unknown artist',
-        caption: metadata.album ?? file.name,
-        accent: items[fileIndex % Math.max(1, items.length)]?.accent,
-        secondary: items[fileIndex % Math.max(1, items.length)]?.secondary,
-        cover,
-        audio: file,
-        bpm: metadata.bpm,
-        format: file.type.replace(/^audio\//, '').toUpperCase() || file.name.split('.').pop()?.toUpperCase() || 'AUDIO',
-      } satisfies VinylDeckItem
-    })).then((nextItems) => {
-      if (uploadGenerationRef.current !== generation) {
-        pendingUrls.forEach((url) => URL.revokeObjectURL(url))
-        return
-      }
-      coverUrlsRef.current = pendingUrls
-      setUploadedItems(nextItems)
-      retiredUrls.forEach((url) => URL.revokeObjectURL(url))
-    })
-  }, [items, onAudioFileChange, onAudioFilesChange])
+      void Promise.all(
+        files.map(async (file, fileIndex) => {
+          const metadata = await extractAudioMetadata(file)
+          const cover = metadata.artwork ? URL.createObjectURL(metadata.artwork) : undefined
+          if (cover) pendingUrls.push(cover)
+          return {
+            id: String(fileIndex + 1).padStart(2, '0'),
+            title: metadata.title ?? file.name.replace(/\.[^.]+$/, ''),
+            genre: metadata.genre ?? 'Local audio',
+            release: metadata.year ?? 'Local file',
+            author: metadata.artist ?? 'Unknown artist',
+            caption: metadata.album ?? file.name,
+            accent: items[fileIndex % Math.max(1, items.length)]?.accent,
+            secondary: items[fileIndex % Math.max(1, items.length)]?.secondary,
+            cover,
+            audio: file,
+            bpm: metadata.bpm,
+            format:
+              file.type.replace(/^audio\//, '').toUpperCase() ||
+              file.name.split('.').pop()?.toUpperCase() ||
+              'AUDIO',
+          } satisfies VinylDeckItem
+        }),
+      ).then((nextItems) => {
+        if (uploadGenerationRef.current !== generation) {
+          pendingUrls.forEach((url) => URL.revokeObjectURL(url))
+          return
+        }
+        coverUrlsRef.current = pendingUrls
+        setUploadedItems(nextItems)
+        retiredUrls.forEach((url) => URL.revokeObjectURL(url))
+      })
+    },
+    [items, onAudioFileChange, onAudioFilesChange],
+  )
 
   if (!item) return <section className="vinyl-deck vinyl-deck--empty">No tracks</section>
 
@@ -216,7 +238,11 @@ export function VinylDeck({
 
   // Composition ----------------------------------------------------------------
   return (
-    <section className={`vinyl-deck ${playing ? 'is-playing' : 'is-paused'}`} style={style} aria-label="Vinyl media deck">
+    <section
+      className={`vinyl-deck ${playing ? 'is-playing' : 'is-paused'}`}
+      style={style}
+      aria-label="Vinyl media deck"
+    >
       {/* Environment / optional development controls */}
       {showBackground && (
         <VinylDeckBackground
@@ -232,7 +258,10 @@ export function VinylDeck({
 
       {/* Left metadata rail */}
       <aside className="vinyl-deck__information">
-        <h2 className="vinyl-deck__section-label"><i />Information <small>UNIT / 01</small></h2>
+        <h2 className="vinyl-deck__section-label">
+          <i />
+          Information <small>UNIT / 01</small>
+        </h2>
         <dl>
           {[
             ['01', 'Track', item.title],
@@ -240,7 +269,13 @@ export function VinylDeck({
             ['03', 'Release', item.release],
             ['04', 'Author', item.author],
           ].map(([number, label, value]) => (
-            <div key={label}><b>{number}</b><span><dt>{label}</dt><dd>{value}</dd></span></div>
+            <div key={label}>
+              <b>{number}</b>
+              <span>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </span>
+            </div>
           ))}
         </dl>
       </aside>
@@ -268,12 +303,25 @@ export function VinylDeck({
       {/* Right status / editorial rail */}
       <aside className="vinyl-deck__summary">
         <div className="vinyl-deck__counter">
-          <span><i />Work</span>
-          <strong>{String(safeIndex + 1).padStart(2, '0')} <em>/ {String(activeItems.length).padStart(2, '0')}</em></strong>
-          <div className="vinyl-deck__progress"><i style={{ width: `${((safeIndex + 1) / activeItems.length) * 100}%` }} /></div>
-          <small>{playing ? 'PLAYING' : 'STANDBY'} / {item.format ?? 'AUDIO'}</small>
+          <span>
+            <i />
+            Work
+          </span>
+          <strong>
+            {String(safeIndex + 1).padStart(2, '0')}{' '}
+            <em>/ {String(activeItems.length).padStart(2, '0')}</em>
+          </strong>
+          <div className="vinyl-deck__progress">
+            <i style={{ width: `${((safeIndex + 1) / activeItems.length) * 100}%` }} />
+          </div>
+          <small>
+            {playing ? 'PLAYING' : 'STANDBY'} / {item.format ?? 'AUDIO'}
+          </small>
         </div>
-        <div className="vinyl-deck__statement"><p>{item.caption}</p><small>TRACK / {item.id}</small></div>
+        <div className="vinyl-deck__statement">
+          <p>{item.caption}</p>
+          <small>TRACK / {item.id}</small>
+        </div>
       </aside>
     </section>
   )

@@ -1,11 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import {
-  categories,
-  getCategory,
-  getCategoryEntries,
-  getEntry,
-} from './catalog/catalog'
+import { categories, getCategory, getCategoryEntries, getEntry } from './catalog/catalog'
 import type { CatalogEntry, CategoryDefinition } from './catalog/types'
 import type { CatalogTag, TagGroup } from './catalog/types'
 
@@ -48,7 +43,7 @@ function FullscreenIcon({ expanded }: { expanded: boolean }) {
 }
 
 function parseRoute(): Route {
-  const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+  const parts = window.location.hash.split('?')[0].replace(/^#\/?/, '').split('/').filter(Boolean)
   if (parts[0] === 'category' && parts[1]) return { page: 'category', category: parts[1] }
   if (parts[0] === 'entry' && parts[1] && parts[2]) {
     return { page: 'entry', category: parts[1], slug: parts[2] }
@@ -60,9 +55,12 @@ function useRoute() {
   const [route, setRoute] = useState<Route>(parseRoute)
 
   useEffect(() => {
+    let path = window.location.hash.split('?')[0]
     const onHashChange = () => {
       setRoute(parseRoute())
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      const next = window.location.hash.split('?')[0]
+      if (next !== path) window.scrollTo({ top: 0, behavior: 'instant' })
+      path = next
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -88,7 +86,9 @@ function Shell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="site-header">
         <a className="brand" href="#/" aria-label="Component Atlas home">
-          <span className="brand-mark" aria-hidden="true">CA</span>
+          <span className="brand-mark" aria-hidden="true">
+            CA
+          </span>
           <span>Component Atlas</span>
         </a>
         <button
@@ -118,24 +118,29 @@ function CategoryCard({ category }: { category: CategoryDefinition }) {
     <a className="category-card" href={`#/category/${category.id}`}>
       <h2>{category.title}</h2>
       <p>{category.description}</p>
-      <span className="count">{count.toString().padStart(2, '0')} {count === 1 ? 'entry' : 'entries'}</span>
+      <span className="count">
+        {count.toString().padStart(2, '0')} {count === 1 ? 'entry' : 'entries'}
+      </span>
     </a>
   )
 }
 
 function EntryCard({ entry }: { entry: CatalogEntry }) {
   return (
-    <a className="entry-card" href={`#/entry/${entry.category}/${entry.slug}`}>
+    <article className="entry-card">
       <div className="entry-card-body">
         <div className="entry-card-topline">
           <span>{entry.kind}</span>
           <span>{entry.status}</span>
         </div>
-        <h2>{entry.title}</h2>
+        <h2>
+          <a href={`#/entry/${entry.category}/${entry.slug}`}>{entry.title}</a>
+        </h2>
         <p>{entry.summary}</p>
         <TagList tags={entry.tags} />
+        <CapabilityList entry={entry} />
       </div>
-    </a>
+    </article>
   )
 }
 
@@ -143,7 +148,6 @@ const tagGroupLabels: Record<TagGroup, string> = {
   input: 'Input',
   feature: 'Feature',
   technology: 'Technology',
-  support: 'Support',
   style: 'Style',
 }
 
@@ -158,10 +162,24 @@ function TagList({ tags, large = false }: { tags: CatalogTag[]; large?: boolean 
         <div className="tag-group" key={group} aria-label={tagGroupLabels[group]}>
           {large && <span className="tag-group-label">{tagGroupLabels[group]}</span>}
           {groupTags.map((tag) => (
-            <span className="tag" data-group={group} key={tag.label}>{tag.label}</span>
+            <span className="tag" data-group={group} key={tag.id}>
+              {tag.label}
+            </span>
           ))}
         </div>
       ))}
+    </div>
+  )
+}
+
+function CapabilityList({ entry }: { entry: CatalogEntry }) {
+  const c = entry.capabilities
+  return (
+    <div className="capability-list">
+      {c?.keyboard && <span>Keyboard</span>}
+      {c?.touch && <span>Touch: {c.touch}</span>}
+      {c?.reducedMotion && <span>Reduced motion</span>}
+      <span>{entry.usage}</span>
     </div>
   )
 }
@@ -170,8 +188,14 @@ function HomePage() {
   return (
     <>
       <section className="hero">
-        <div className="hero-kicker"><span /> React components, effects, and experiments</div>
-        <h1>Interesting ideas,<br /><em>made tangible.</em></h1>
+        <div className="hero-kicker">
+          <span /> React components, effects, and experiments
+        </div>
+        <h1>
+          Interesting ideas,
+          <br />
+          <em>made tangible.</em>
+        </h1>
         <p className="hero-copy">
           A curated workshop for visual effects and interaction patterns—implemented as focused,
           reusable React pieces and documented well enough to revisit later.
@@ -184,7 +208,9 @@ function HomePage() {
           <p>Start with a category. Demos are loaded only when you open an entry.</p>
         </div>
         <div className="category-grid">
-          {categories.map((category) => <CategoryCard key={category.id} category={category} />)}
+          {categories.map((category) => (
+            <CategoryCard key={category.id} category={category} />
+          ))}
         </div>
       </section>
     </>
@@ -192,7 +218,12 @@ function HomePage() {
 }
 
 function LoadingBlock({ label = 'Loading entry' }: { label?: string }) {
-  return <div className="loading-block"><span />{label}</div>
+  return (
+    <div className="loading-block">
+      <span />
+      {label}
+    </div>
+  )
 }
 
 function CategoryPage({ categoryId }: { categoryId: string }) {
@@ -204,7 +235,9 @@ function CategoryPage({ categoryId }: { categoryId: string }) {
   return (
     <>
       <section className="page-intro">
-        <a className="back-link" href="#/">← All categories</a>
+        <a className="back-link" href="#/">
+          ← All categories
+        </a>
         <div className="page-intro-row">
           <div>
             <span className="eyebrow">{category.eyebrow}</span>
@@ -213,13 +246,18 @@ function CategoryPage({ categoryId }: { categoryId: string }) {
           <p>{category.description}</p>
         </div>
       </section>
-      <section className="entry-list-section">
-        {categoryEntries.length > 0 ? (
+      <section className="catalog-section">
+        {categoryEntries.length ? (
           <div className="entry-grid">
-            {categoryEntries.map((entry) => <EntryCard key={entry.key} entry={entry} />)}
+            {categoryEntries.map((entry) => (
+              <EntryCard key={entry.key} entry={entry} />
+            ))}
           </div>
         ) : (
-          <div className="empty-state"><span>Open shelf</span><h2>No entries yet.</h2><p>The category is ready for its first focused experiment.</p></div>
+          <div className="empty-state">
+            <h2>No entries yet</h2>
+            <p>New components will appear here.</p>
+          </div>
         )}
       </section>
     </>
@@ -235,7 +273,9 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
   useEffect(() => {
     let active = true
     entry.loadReadme().then((content) => active && setReadme(content))
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [entry])
 
   // Both expansion routes put the stage in a browser-owned top layer, so the
@@ -279,14 +319,21 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
   return (
     <>
       <section className="entry-intro">
-        <a className="back-link" href={`#/category/${entry.category}`}>← {getCategory(entry.category)?.title}</a>
+        <a className="back-link" href={`#/category/${entry.category}`}>
+          ← {getCategory(entry.category)?.title}
+        </a>
         <div className="entry-heading-row">
           <div>
-            <span className="eyebrow">{entry.kind} · {entry.status}</span>
+            <span className="eyebrow">
+              {entry.kind} · {entry.status}
+            </span>
             <h1>{entry.title}</h1>
             <p>{entry.summary}</p>
           </div>
-          <TagList tags={entry.tags} large />
+          <div>
+            <TagList tags={entry.tags} large />
+            <CapabilityList entry={entry} />
+          </div>
         </div>
       </section>
       <section
@@ -298,7 +345,10 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
         {entry.compatibility && (
           <div className="compatibility-banner" role="note">
             <span aria-hidden="true">!</span>
-            <p><strong>Touch compatibility</strong>{entry.compatibility.message}</p>
+            <p>
+              <strong>Touch compatibility</strong>
+              {entry.compatibility.message}
+            </p>
           </div>
         )}
         <div className="demo-stage-label">
@@ -318,7 +368,9 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
           </button>
         </div>
         <div className="demo-stage-content">
-          <Suspense fallback={<LoadingBlock />}><Demo /></Suspense>
+          <Suspense fallback={<LoadingBlock />}>
+            <Demo />
+          </Suspense>
         </div>
       </section>
       {!entry.hideDocumentation && (
@@ -327,7 +379,9 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
             <Suspense fallback={<LoadingBlock label="Loading documentation" />}>
               <MarkdownDocument content={readme} hideTitle />
             </Suspense>
-          ) : <LoadingBlock label="Loading documentation" />}
+          ) : (
+            <LoadingBlock label="Loading documentation" />
+          )}
         </section>
       )}
     </>
@@ -335,7 +389,13 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
 }
 
 function NotFound() {
-  return <section className="not-found"><span>404</span><h1>Nothing lives here yet.</h1><a href="#/">Return to the catalog</a></section>
+  return (
+    <section className="not-found">
+      <span>404</span>
+      <h1>Nothing lives here yet.</h1>
+      <a href="#/">Return to the catalog</a>
+    </section>
+  )
 }
 
 export default function App() {

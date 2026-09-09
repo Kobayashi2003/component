@@ -3,11 +3,16 @@ export type Orientation = readonly [number, number, number, number]
 function multiply(a: Orientation, b: Orientation): Orientation {
   const [x, y, z, w] = a
   const [X, Y, Z, W] = b
-  return [w * X + x * W + y * Z - z * Y, w * Y - x * Z + y * W + z * X, w * Z + x * Y - y * X + z * W, w * W - x * X - y * Y - z * Z]
+  return [
+    w * X + x * W + y * Z - z * Y,
+    w * Y - x * Z + y * W + z * X,
+    w * Z + x * Y - y * X + z * W,
+    w * W - x * X - y * Y - z * Z,
+  ]
 }
 
 function axis(x: number, y: number, z: number, degrees: number): Orientation {
-  const angle = degrees * Math.PI / 360
+  const angle = (degrees * Math.PI) / 360
   return [x * Math.sin(angle), y * Math.sin(angle), z * Math.sin(angle), Math.cos(angle)]
 }
 
@@ -22,14 +27,16 @@ function rotate(view: Orientation, pitch: number, yaw: number, roll = 0): Orient
 // Camera direction in book coordinates: left (x <= 0), below (y >= 0),
 // in front (z > 0). Roll does not change which side of the book is visible.
 export function isAllowedView([x, y, z, w]: Orientation) {
-  return 2 * (x * z - y * w) <= 1e-9
-    && 2 * (y * z + x * w) >= -1e-9
-    && 1 - 2 * (x * x + y * y) >= 0.18
+  return (
+    2 * (x * z - y * w) <= 1e-9 && 2 * (y * z + x * w) >= -1e-9 && 1 - 2 * (x * x + y * y) >= 0.18
+  )
 }
 
 /** Small screen-axis steps slide along the limits without jumping across them. */
 export function orbit(view: Orientation, pitch: number, yaw: number, roll = 0): Orientation {
-  const inputs = [pitch, yaw, roll].map((value) => Number.isFinite(value) ? Math.max(-180, Math.min(180, value)) : 0)
+  const inputs = [pitch, yaw, roll].map((value) =>
+    Number.isFinite(value) ? Math.max(-180, Math.min(180, value)) : 0,
+  )
   const steps = Math.max(1, Math.ceil(Math.max(...inputs.map(Math.abs)) / 2))
   let current = view
   for (let step = 0; step < steps; step++) {
@@ -55,9 +62,21 @@ export const views: Record<string, Orientation> = {
 /** CSS receives the view rotation; the camera orbits a stationary book at origin. */
 export function viewMatrix([x, y, z, w]: Orientation) {
   return `matrix3d(${[
-    1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0,
-    2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0,
-    2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0,
-    0, 0, 0, 1,
+    1 - 2 * (y * y + z * z),
+    2 * (x * y + z * w),
+    2 * (x * z - y * w),
+    0,
+    2 * (x * y - z * w),
+    1 - 2 * (x * x + z * z),
+    2 * (y * z + x * w),
+    0,
+    2 * (x * z + y * w),
+    2 * (y * z - x * w),
+    1 - 2 * (x * x + y * y),
+    0,
+    0,
+    0,
+    0,
+    1,
   ].join(',')})`
 }

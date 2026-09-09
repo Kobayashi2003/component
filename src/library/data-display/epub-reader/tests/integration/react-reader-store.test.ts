@@ -319,6 +319,9 @@ async function main(): Promise<void> {
   {
     const gate = deferred<FakeReader>();
     let attempts = 0;
+    let width = 800;
+    let renderedWidth = width;
+    let resizeCalls = 0;
     let openSignal: AbortSignal | undefined;
     const slow = new ReactEpubReaderStore(
       async (_source, _element, options) => {
@@ -331,7 +334,7 @@ async function main(): Promise<void> {
       ownerDocument: { defaultView: null },
       clientWidth: 800,
       clientHeight: 600,
-      getBoundingClientRect: () => ({ width: 800, height: 600 }),
+      getBoundingClientRect: () => ({ width, height: 600 }),
     } as unknown as HTMLDivElement;
     slow.setSource(new Uint8Array([8]));
     slow.attachViewport(slowContainer);
@@ -339,8 +342,10 @@ async function main(): Promise<void> {
     const triggerResize = (
       slow as unknown as { scheduleResize(): void }
     ).scheduleResize.bind(slow);
+    width = 600;
     triggerResize();
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    width = 400;
     triggerResize();
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
     assert(
@@ -351,12 +356,22 @@ async function main(): Promise<void> {
       !openSignal?.aborted,
       "resize notifications must not abort an in-flight open",
     );
-    gate.resolve(new FakeReader("slow"));
+    gate.resolve(Object.assign(new FakeReader("slow"), {
+      async syncViewportFromElement() {
+        resizeCalls += 1;
+        renderedWidth = slowContainer.getBoundingClientRect().width;
+      },
+    }));
     await Promise.resolve();
     await Promise.resolve();
     assert(
       String(slow.snapshot.status) === "ready",
       "slow open must be allowed to finish",
+    );
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    assert(
+      resizeCalls === 1 && renderedWidth === 400,
+      "resizes during open must coalesce into one sync using the latest container size",
     );
     slow.dispose();
   }

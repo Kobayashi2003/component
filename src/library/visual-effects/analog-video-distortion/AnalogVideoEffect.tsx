@@ -12,7 +12,8 @@ export interface AnalogVideoEffectProps {
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value))
-const randomBetween = (minimum: number, maximum: number) => minimum + Math.random() * (maximum - minimum)
+const randomBetween = (minimum: number, maximum: number) =>
+  minimum + Math.random() * (maximum - minimum)
 
 export function AnalogVideoEffect({
   children,
@@ -54,7 +55,12 @@ export function AnalogVideoEffect({
 
     synchronizeLayers()
     const observer = new MutationObserver(synchronizeLayers)
-    observer.observe(source, { childList: true, subtree: true, characterData: true, attributes: true })
+    observer.observe(source, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    })
     return () => observer.disconnect()
     // The observer already covers every later change to the source subtree, so
     // depending on `children` would only re-clone on each parent render.
@@ -98,7 +104,8 @@ export function AnalogVideoEffect({
         const offset = direction * randomBetween(3, Math.max(4, displacement))
         layer.style.clipPath = `inset(${top}% 0 ${100 - top - height}% 0)`
         layer.style.transform = `translate3d(${offset}px, 0, 0) scaleX(${1 + faultLevel * 0.012})`
-        layer.style.filter = index === 0 && faultLevel > 0.65 ? 'brightness(1.35) contrast(1.1)' : 'none'
+        layer.style.filter =
+          index === 0 && faultLevel > 0.65 ? 'brightness(1.35) contrast(1.1)' : 'none'
         layer.style.opacity = `${0.55 + faultLevel * 0.35}`
       })
 
@@ -255,7 +262,12 @@ export function AnalogVideoEffect({
       }
       if (intensity > 0.55 && Math.random() < 0.38) {
         context.fillStyle = `rgba(232, 255, 50, ${0.12 + intensity * 0.16})`
-        context.fillRect(randomBetween(0, width * 0.18), randomBetween(0, height), randomBetween(width * 0.45, width), randomBetween(0.6, 1.8))
+        context.fillRect(
+          randomBetween(0, width * 0.18),
+          randomBetween(0, height),
+          randomBetween(width * 0.45, width),
+          randomBetween(0.6, 1.8),
+        )
       }
     }
 
@@ -330,11 +342,15 @@ export function AnalogVideoEffect({
 
   return (
     <div ref={rootRef} className={`vhs-effect ${className}`.trim()} style={rootStyle}>
-      <div ref={contentRef} className="vhs-effect__content">{children}</div>
+      <div ref={contentRef} className="vhs-effect__content">
+        {children}
+      </div>
       {[0, 1, 2].map((index) => (
         <div
           key={`tear-${index}`}
-          ref={(node) => { tearRefs.current[index] = node }}
+          ref={(node) => {
+            tearRefs.current[index] = node
+          }}
           className="vhs-effect__clone vhs-effect__tear"
           aria-hidden="true"
         />
@@ -342,7 +358,9 @@ export function AnalogVideoEffect({
       {[0, 1].map((index) => (
         <div
           key={`ghost-${index}`}
-          ref={(node) => { ghostRefs.current[index] = node }}
+          ref={(node) => {
+            ghostRefs.current[index] = node
+          }}
           className={`vhs-effect__clone vhs-effect__ghost vhs-effect__ghost--${index === 0 ? 'cyan' : 'lemon'}`}
           aria-hidden="true"
         />
@@ -351,7 +369,12 @@ export function AnalogVideoEffect({
       <div ref={trackingRef} className="vhs-effect__tracking" aria-hidden="true" />
       <div className="vhs-effect__artifacts" aria-hidden="true">
         {[0, 1, 2].map((index) => (
-          <span key={index} ref={(node) => { artifactRefs.current[index] = node }} />
+          <span
+            key={index}
+            ref={(node) => {
+              artifactRefs.current[index] = node
+            }}
+          />
         ))}
       </div>
       <div className="vhs-effect__scanlines" aria-hidden="true" />

@@ -44,6 +44,36 @@ export async function runBrowserInteractionScenario(): Promise<
   );
   steps.push(`opened vertical EPUB at ${initial.current}/${initial.total}`);
 
+  const seek = required<HTMLInputElement>(
+    '.epub-reader-controls__seek',
+  );
+  const originalSeek = seek.value;
+  setInputValue(seek, String(Number(originalSeek) === 50 ? 60 : 50));
+  await delay(20);
+  setInputValue(seek, originalSeek);
+  await delay(160);
+  click(required<HTMLButtonElement>(
+    '.epub-reader-controls__nav--next',
+  ));
+  const afterCancelledSeek = await waitForPage(
+    (position) => position.current > initial.current,
+    'page turn after cancelling a seek',
+  );
+  await delay(300);
+  await waitForPage(
+    (position) => position.current === afterCancelledSeek.current,
+    'cancelled seek must not pull the reader back after a page turn',
+  );
+  assert(seek.value !== originalSeek, 'slider must follow the new reading position');
+  click(required<HTMLButtonElement>(
+    '.epub-reader-controls__nav--previous',
+  ));
+  await waitForPage(
+    (position) => position.current === initial.current,
+    'restore initial page after seek regression',
+  );
+  steps.push('cancelled seek does not replay after a page turn');
+
   const focusFixture = document.createElement("div");
   const hiddenFocusTarget = document.createElement("button");
   hiddenFocusTarget.hidden = true;

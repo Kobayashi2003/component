@@ -6,14 +6,9 @@ export default {
   category: 'visual-effects',
   kind: 'experiment',
   status: 'experimental',
-  summary: 'Pale lettering outlines a transparent book against a replaceable red background, with a constrained front-left-bottom camera orbit.',
-  style: 'editorial typography',
-  tags: [
-    { label: 'Typography', group: 'feature' },
-    { label: '3D book', group: 'feature' },
-    { label: 'Camera orbit', group: 'input' },
-    { label: 'CSS 3D / SVG', group: 'technology' },
-    { label: 'Keyboard & touch', group: 'support' },
-    { label: 'Reduced motion', group: 'support' },
-  ],
+  summary:
+    'Pale lettering outlines a transparent book against a replaceable red background, with a constrained front-left-bottom camera orbit.',
+  usage: 'showcase',
+  capabilities: { keyboard: true, touch: 'supported', reducedMotion: true },
+  tags: ['pointer-drag', 'typography', '3d-book', 'camera-orbit', 'css-3d'],
 } satisfies CatalogEntryMeta

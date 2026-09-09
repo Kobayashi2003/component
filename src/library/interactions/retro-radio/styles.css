@@ -6,14 +6,12 @@
   --retro-paper: #f4e8cf;
   --retro-brass: #c9a24b;
   --retro-brass-light: #ecd48f;
-  --retro-font-display: "Bodoni MT", Didot, "Songti SC", STSong, Georgia, serif;
-  --retro-font-serif: Georgia, "Songti SC", STSong, serif;
+  --retro-font-display: 'Bodoni MT', Didot, 'Songti SC', STSong, Georgia, serif;
+  --retro-font-serif: Georgia, 'Songti SC', STSong, serif;
   --retro-font-ui:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --retro-font-mech:
-    Consolas, "SFMono-Regular", "DejaVu Sans Mono", "Courier New", monospace;
-  --retro-font-brush: STKaiti, KaiTi, "Kaiti SC", "楷体", serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --retro-font-mech: Consolas, 'SFMono-Regular', 'DejaVu Sans Mono', 'Courier New', monospace;
+  --retro-font-brush: STKaiti, KaiTi, 'Kaiti SC', '楷体', serif;
   position: relative;
   isolation: isolate;
   min-height: 680px;
@@ -39,11 +37,7 @@
   overflow: hidden;
   background-color: #170f08;
   background-image:
-    radial-gradient(
-      ellipse at 50% 4%,
-      rgba(78, 54, 28, 0.42),
-      rgba(10, 7, 3, 0.92) 68%
-    ),
+    radial-gradient(ellipse at 50% 4%, rgba(78, 54, 28, 0.42), rgba(10, 7, 3, 0.92) 68%),
     var(--retro-dark-texture);
   background-repeat: no-repeat, repeat;
 }
@@ -66,12 +60,7 @@
   bottom: 8%;
   left: 4%;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(201, 162, 75, 0.22),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 75, 0.22), transparent);
 }
 
 /* The file input remains keyboard-accessible while the brass label supplies
@@ -108,7 +97,7 @@
   padding: 5px 7px;
   border: 1px solid var(--retro-brass);
   color: var(--retro-brass-light);
-  content: "Select";
+  content: 'Select';
 }
 
 .retro-radio__music-control input {
@@ -249,19 +238,14 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(
-    ellipse at 50% 42%,
-    #16341a,
-    #0c1e0d 60%,
-    #071206
-  );
+  background: radial-gradient(ellipse at 50% 42%, #16341a, #0c1e0d 60%, #071206);
   animation: retro-radio-channel-in 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.retro-radio__screen[data-view="mode"] .retro-radio__crt-mode,
-.retro-radio__screen[data-view="vol"] .retro-radio__crt-volume,
-.retro-radio__screen[data-view="play"] .retro-radio__crt-play,
-.retro-radio__screen[data-view="viz"] .retro-radio__crt-viz {
+.retro-radio__screen[data-view='mode'] .retro-radio__crt-mode,
+.retro-radio__screen[data-view='vol'] .retro-radio__crt-volume,
+.retro-radio__screen[data-view='play'] .retro-radio__crt-play,
+.retro-radio__screen[data-view='viz'] .retro-radio__crt-viz {
   display: flex;
 }
 
@@ -401,11 +385,7 @@
 
 .retro-radio__scanlines {
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.34) 0 1px,
-    transparent 1px 3px
-  );
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.34) 0 1px, transparent 1px 3px);
   opacity: 0.5;
   mix-blend-mode: multiply;
 }
@@ -447,11 +427,7 @@
   border: 0;
   border-radius: 50%;
   background:
-    radial-gradient(
-      circle at 36% 28%,
-      rgba(255, 244, 214, 0.85),
-      transparent 40%
-    ),
+    radial-gradient(circle at 36% 28%, rgba(255, 244, 214, 0.85), transparent 40%),
     radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.5), transparent 60%),
     repeating-conic-gradient(from 0deg, #3a2a15 0 3deg, #241708 3deg 6deg),
     radial-gradient(circle at 50% 45%, #6a5228 0%, #3a2810 72%, #1c1206 100%);
@@ -515,13 +491,9 @@
   position: absolute;
   inset: 24%;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(157, 255, 176, 0.9),
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgba(157, 255, 176, 0.9), transparent 70%);
   animation: retro-radio-pulse 1.4s ease-in-out infinite;
-  content: "";
+  content: '';
 }
 
 /* ========================================================================== 

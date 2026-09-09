@@ -12,14 +12,19 @@ export function LightControls({ lights, onUpdate, onAdd, onRemove }: LightContro
   return (
     <section className="geometry-panel__section">
       <div className="geometry-panel__section-heading">
-        <span>Lights</span><em>{lights.length} / {MAX_LIGHTS}</em>
+        <span>Lights</span>
+        <em>
+          {lights.length} / {MAX_LIGHTS}
+        </em>
       </div>
       <div className="geometry-light-list">
         {lights.map((light, index) => (
           <article key={light.id} className="geometry-light-card">
             <div className="geometry-light-card__header">
               <strong>Light {index + 1}</strong>
-              <span>{Math.round(light.position.x * 100)}, {Math.round(light.position.y * 100)}</span>
+              <span>
+                {Math.round(light.position.x * 100)}, {Math.round(light.position.y * 100)}
+              </span>
               <button
                 type="button"
                 aria-label={`Remove light ${index + 1}`}
@@ -31,7 +36,9 @@ export function LightControls({ lights, onUpdate, onAdd, onRemove }: LightContro
             </div>
             <div className="geometry-light-card__controls">
               <label className="geometry-color-control">
-                <span>Color<em>{light.color.toUpperCase()}</em></span>
+                <span>
+                  Color<em>{light.color.toUpperCase()}</em>
+                </span>
                 <input
                   type="color"
                   value={light.color}

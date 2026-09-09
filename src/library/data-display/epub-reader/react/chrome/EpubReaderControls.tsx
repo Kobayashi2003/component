@@ -88,8 +88,14 @@ function ResolvedEpubReaderControls({
   const seekValue = seekDraft ?? progress;
   useEffect(() => {
     const locator = snapshot?.locator;
-    if (!locator || seekDraft == null || seekDraft === progress || !interactive)
+    if (seekDraft == null) return;
+    if (seekDraft === progress) {
+      // Returning the thumb to the current position cancels the pending seek.
+      // Do not let this draft become a new navigation after an ordinary page turn.
+      setSeekDraft((current) => (current === seekDraft ? null : current));
       return;
+    }
+    if (!locator || !interactive) return;
     const timer = setTimeout(() => {
       // The scrubber has to seek in whatever unit it is displaying, so a
       // publication-scoped bar resolves back to a section plus an offset

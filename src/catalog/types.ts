@@ -1,3 +1,4 @@
+import type { TagId } from './tags'
 import type { ComponentType, LazyExoticComponent } from 'react'
 
 export type CategoryId =
@@ -10,15 +11,15 @@ export type CategoryId =
 
 export type EntryKind = 'component' | 'effect' | 'experiment'
 export type EntryStatus = 'stable' | 'experimental' | 'draft'
-export type TagGroup = 'input' | 'feature' | 'technology' | 'support' | 'style'
+export type TagGroup = 'input' | 'feature' | 'technology' | 'style'
 
 export interface CatalogTag {
+  id: string
   label: string
   group: TagGroup
 }
 
 export interface CompatibilityNotice {
-  touch?: 'limited' | 'unsupported'
   message: string
 }
 
@@ -36,13 +37,19 @@ export interface CatalogEntryMeta {
   kind: EntryKind
   status: EntryStatus
   summary: string
-  style?: string
+  usage: 'reusable' | 'showcase'
+  capabilities?: {
+    touch?: 'supported' | 'limited' | 'unsupported'
+    keyboard?: boolean
+    reducedMotion?: boolean
+  }
   hideDocumentation?: boolean
-  tags: CatalogTag[]
+  tags: TagId[]
   compatibility?: CompatibilityNotice
 }
 
-export interface CatalogEntry extends CatalogEntryMeta {
+export interface CatalogEntry extends Omit<CatalogEntryMeta, 'tags'> {
+  tags: CatalogTag[]
   key: string
   Demo: LazyExoticComponent<ComponentType>
   loadReadme: () => Promise<string>

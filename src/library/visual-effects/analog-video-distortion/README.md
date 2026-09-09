@@ -7,14 +7,14 @@ A damaged-tape and CRT effect wrapper for arbitrary React content.
 ```tsx
 import { AnalogVideoEffect } from './analog-video-distortion'
 
-<AnalogVideoEffect noise={0.15} tearing={0.7} smear={0.6}>
-  <PageContent />
+;<AnalogVideoEffect noise={0.15} tearing={0.7} smear={0.6}>
+  <article>Your content</article>
 </AnalogVideoEffect>
 ```
 
 ## Props
 
-- `noise`, `tearing`, `smear`, `scanlines`, and `colorShift` accept values from `0` to `1`.
+- `noise` (0.15), `tearing` (0.7), `smear` (0.6), `scanlines` (0.25), and `colorShift` (0.4) accept values from `0` to `1`.
 - `className` applies to the wrapper.
 
 ## Notes

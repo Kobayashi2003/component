@@ -1,27 +1,30 @@
 # Cursor Spotlight
 
-A diffused pointer light for dark surfaces and coordinated depth effects.
+A pointer-following light over DOM content. Mark objects explicitly to give them a moving shadow.
 
 ## Usage
 
 ```tsx
 import { CursorSpotlight } from './cursor-spotlight'
 
-<CursorSpotlight radius={320} intensity={28} softness={72}>
-  <Surface />
+;<CursorSpotlight style={{ padding: 60, background: '#30383e' }}>
+  <button data-spotlight-shadow>Lit surface</button>
 </CursorSpotlight>
 ```
 
-## Props
+## Parameters
 
-- `color`, `radius`, `intensity`, `softness`, `smoothing`, and `shadowDistance` control the light.
-- `className` applies to the wrapper.
-
-## CSS variables
-
-Descendants can use `--spotlight-nx`, `--spotlight-ny`, `--spotlight-shadow-x`, `--spotlight-shadow-y`, and `--spotlight-shadow-blur` for coordinated transforms and shadows.
+| Parameter               | Default    | Purpose                                                 |
+| ----------------------- | ---------- | ------------------------------------------------------- |
+| `children`              | required   | Content beneath the light overlay.                      |
+| `color`                 | `#d8efff`  | CSS light color.                                        |
+| `radius`                | `300` px   | Light radius.                                           |
+| `intensity`, `softness` | `32`, `68` | Percentages, 0–100.                                     |
+| `smoothing`             | `0.16`     | Follow factor, 0.01–1; larger is faster.                |
+| `shadowDistance`        | `52` px    | Shadow displacement scale.                              |
+| `className`, `style`    | —          | Applied to the tracking container; set its layout here. |
+| `disabled`              | `false`    | Turns off the effect without disabling child controls.  |
 
 ## Notes
 
-- Touch input is ignored because the effect depends on continuous pointer position.
-- Reduced-motion mode removes opacity transitions and snaps the light to the pointer instead of easing.
+`data-spotlight-shadow` supplies a ready-to-use box shadow and replaces the target’s box-shadow. For custom shadow composition use `--spotlight-shadow-x`, `--spotlight-shadow-y`, and `--spotlight-shadow-blur`; normalized position is available as `--spotlight-nx/ny`. Light is clearest on dark surfaces. Touch has no following light; reduced motion removes easing.

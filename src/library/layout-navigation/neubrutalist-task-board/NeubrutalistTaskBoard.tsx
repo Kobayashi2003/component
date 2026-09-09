@@ -10,7 +10,7 @@ const initialTasks = [
   { id: 4, title: 'Write empty-state copy', label: 'Content', color: 'green', done: false },
 ]
 
-export default function NeubrutalistTaskBoard() {
+export function NeubrutalistTaskBoard() {
   const [tasks, setTasks] = useState(initialTasks)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -21,7 +21,9 @@ export default function NeubrutalistTaskBoard() {
   const completed = tasks.filter((task) => task.done).length
 
   function toggleTask(id: number) {
-    setTasks((current) => current.map((task) => task.id === id ? { ...task, done: !task.done } : task))
+    setTasks((current) =>
+      current.map((task) => (task.id === id ? { ...task, done: !task.done } : task)),
+    )
   }
 
   return (
@@ -32,7 +34,11 @@ export default function NeubrutalistTaskBoard() {
           <h2>Make it unmistakable.</h2>
           <p>Small team, loud ideas, no hidden states.</p>
         </div>
-        <div className="board-progress" role="group" aria-label={`${completed} of ${tasks.length} tasks complete`}>
+        <div
+          className="board-progress"
+          role="group"
+          aria-label={`${completed} of ${tasks.length} tasks complete`}
+        >
           <strong>{String(completed).padStart(2, '0')}</strong>
           <span>/ {String(tasks.length).padStart(2, '0')} done</span>
         </div>
@@ -40,7 +46,13 @@ export default function NeubrutalistTaskBoard() {
 
       <div className="board-toolbar" role="group" aria-label="Task filters">
         {(['all', 'open', 'done'] as Filter[]).map((item) => (
-          <button key={item} className={filter === item ? 'is-active' : ''} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
+          <button
+            key={item}
+            className={filter === item ? 'is-active' : ''}
+            type="button"
+            aria-pressed={filter === item}
+            onClick={() => setFilter(item)}
+          >
             {item === 'all' ? 'All tasks' : item === 'open' ? 'Open' : 'Completed'}
           </button>
         ))}
@@ -48,11 +60,23 @@ export default function NeubrutalistTaskBoard() {
 
       <div className="task-grid">
         {visibleTasks.map((task) => (
-          <article className={`task-card ${task.color} ${task.done ? 'is-done' : ''}`} key={task.id}>
-            <div className="task-meta"><span>{task.label}</span><span>#{String(task.id).padStart(2, '0')}</span></div>
+          <article
+            className={`task-card ${task.color} ${task.done ? 'is-done' : ''}`}
+            key={task.id}
+          >
+            <div className="task-meta">
+              <span>{task.label}</span>
+              <span>#{String(task.id).padStart(2, '0')}</span>
+            </div>
             <h3>{task.title}</h3>
-            <button className="task-toggle" type="button" aria-pressed={task.done} onClick={() => toggleTask(task.id)}>
-              <span aria-hidden="true">{task.done ? '✓' : '+'}</span>{task.done ? 'Completed' : 'Mark complete'}
+            <button
+              className="task-toggle"
+              type="button"
+              aria-pressed={task.done}
+              onClick={() => toggleTask(task.id)}
+            >
+              <span aria-hidden="true">{task.done ? '✓' : '+'}</span>
+              {task.done ? 'Completed' : 'Mark complete'}
             </button>
           </article>
         ))}

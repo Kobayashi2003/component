@@ -1,6 +1,5 @@
 .cursor-distortion {
   position: relative;
-  min-height: 600px;
   isolation: isolate;
   overflow: hidden;
   background: #eeede8;
@@ -22,68 +21,4 @@
 }
 .cursor-distortion__overlay > * {
   pointer-events: auto;
-}
-/* The hint only stands in when the shader surface cannot be created. */
-.cursor-distortion .distortion-hint {
-  display: none;
-}
-.cursor-distortion[data-webgl='unsupported'] .distortion-hint {
-  display: block;
-  color: #555;
-}
-.distortion-demo {
-  min-height: 600px;
-  font-family: Arial, sans-serif;
-}
-.distortion-hint {
-  position: absolute;
-  top: 50%;
-  left: 38%;
-  transform: translate(-50%, -50%);
-  font:
-    10px/1 'DM Mono',
-    monospace;
-  text-transform: uppercase;
-}
-.distortion-controls {
-  position: absolute;
-  top: 50%;
-  right: clamp(18px, 4vw, 42px);
-  width: 210px;
-  padding: 18px;
-  border: 1px solid #c7c6c0;
-  background: rgba(238, 237, 232, 0.92);
-  transform: translateY(-50%);
-}
-.distortion-controls label {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  margin-bottom: 15px;
-  color: #777671;
-  font:
-    10px/1 'DM Mono',
-    monospace;
-  text-transform: uppercase;
-}
-.distortion-controls label:last-child {
-  margin-bottom: 0;
-}
-.distortion-controls output {
-  color: #11110f;
-}
-.distortion-controls input {
-  grid-column: 1 / -1;
-  width: 100%;
-  margin-top: 9px;
-  accent-color: #ff4f3d;
-}
-@media (max-width: 680px) {
-  .distortion-controls {
-    top: auto;
-    right: 18px;
-    bottom: 18px;
-    left: 18px;
-    width: auto;
-    transform: none;
-  }
 }

@@ -7,7 +7,7 @@ An SVG audio deck with track selection, platter dragging, playback controls, loc
 ```tsx
 import { VinylDeck } from './vinyl-deck'
 
-<VinylDeck
+;<VinylDeck
   items={[
     {
       id: '01',
@@ -28,7 +28,9 @@ import { VinylDeck } from './vinyl-deck'
 
 - `items` is required. An item contains track metadata plus optional `cover`, `audio`, color, BPM, and format fields.
 - `source` accepts a URL string, `URL`, `Blob`, `File`, or `MediaStream` and overrides the active item audio.
-- Playback, volume, shuffle, auto-advance, and shadow angle support controlled values, default values, and change callbacks.
+- `initialIndex` defaults to 0. `autoPlay`, `loop`, and `muted` default to false.
+- `volume` / `defaultVolume` (64, 0–100), `shuffle` / `defaultShuffle` (false), `autoAdvance` / `defaultAutoAdvance` (false), and `shadowAngle` / `defaultShadowAngle` (90°) support controlled values with matching change callbacks.
+- `showBackground` defaults to true; `backgroundControls` defaults to false. `audioRef` exposes the underlying audio element.
 - `onChange`, `onTimeUpdate`, `onAudioFilesChange`, and `onError` expose navigation and media state.
 
 ## Notes

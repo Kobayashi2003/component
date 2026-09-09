@@ -56,6 +56,7 @@ export class ReactEpubReaderStore {
   private unsubscribeReader: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private resizeFrame: number | null = null;
+  private resizePendingDuringOpen = false;
   private viewportDetachTicket = 0;
   private source: EpubSource | null = null;
   private options: UseEpubReaderOptions = {};
@@ -533,6 +534,10 @@ export class ReactEpubReaderStore {
         session.saveDelayMs,
         session.persistPreferences,
       );
+      if (this.resizePendingDuringOpen) {
+        this.resizePendingDuringOpen = false;
+        this.scheduleResize();
+      }
       this.invokeHostCallback(this.options.onReady, reader.snapshot);
     } catch (error) {
       if (this.openAbortController === openController)
@@ -571,7 +576,10 @@ export class ReactEpubReaderStore {
       // endless loop for layout-heavy books. A missing controller means the
       // store is only waiting for its previously zero-sized viewport to become
       // measurable, which is the one case where a resize should start opening.
-      if (this.openAbortController) return;
+      if (this.openAbortController) {
+        this.resizePendingDuringOpen = true;
+        return;
+      }
       void this.reopen();
       return;
     }
@@ -607,6 +615,7 @@ export class ReactEpubReaderStore {
   }
 
   private closeReader(): void {
+    this.resizePendingDuringOpen = false;
     this.openAbortController?.abort(
       new DOMException('Publication replaced or closed.', 'AbortError'),
     );

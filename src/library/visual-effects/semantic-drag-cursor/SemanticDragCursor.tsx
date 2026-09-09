@@ -7,6 +7,8 @@ export type SemanticCursorState = 'default' | 'link' | 'drag' | 'view' | 'play'
 export interface SemanticDragCursorProps {
   children: ReactNode
   className?: string
+  style?: CSSProperties
+  disabled?: boolean
   color?: string
   smoothing?: number
   selector?: string
@@ -23,9 +25,7 @@ const defaultLabels: Record<SemanticCursorState, string> = {
   play: 'PLAY',
 }
 
-function isCursorState(
-  value: string | undefined,
-): value is SemanticCursorState {
+function isCursorState(value: string | undefined): value is SemanticCursorState {
   return (
     value === 'default' ||
     value === 'link' ||
@@ -38,6 +38,8 @@ function isCursorState(
 export function SemanticDragCursor({
   children,
   className = '',
+  style: rootStyle,
+  disabled = false,
   color = '#dfff42',
   smoothing = 0.24,
   selector = DEFAULT_SELECTOR,
@@ -53,7 +55,7 @@ export function SemanticDragCursor({
   const [state, setState] = useState<SemanticCursorState>('default')
   const [label, setLabel] = useState('')
   const [grabbing, setGrabbing] = useState(false)
-  const follow = Math.max(0.03, Math.min(1, smoothing))
+  const follow = Math.max(0.01, Math.min(1, smoothing))
 
   const paint = useCallback(() => {
     const speed = reducedMotion.current ? 1 : follow
@@ -65,22 +67,14 @@ export function SemanticDragCursor({
     if (Math.abs(deltaX) + Math.abs(deltaY) < 0.12) {
       current.current = { ...target.current }
     }
-    cursor.current?.style.setProperty(
-      '--semantic-cursor-x',
-      `${current.current.x}px`,
-    )
-    cursor.current?.style.setProperty(
-      '--semantic-cursor-y',
-      `${current.current.y}px`,
-    )
+    cursor.current?.style.setProperty('--semantic-cursor-x', `${current.current.x}px`)
+    cursor.current?.style.setProperty('--semantic-cursor-y', `${current.current.y}px`)
 
     const unsettled =
       Math.abs(target.current.x - current.current.x) +
         Math.abs(target.current.y - current.current.y) >
       0.12
-    frame.current = unsettled
-      ? requestAnimationFrame(() => paintRef.current())
-      : null
+    frame.current = unsettled ? requestAnimationFrame(() => paintRef.current()) : null
   }, [follow])
 
   useEffect(() => {
@@ -88,9 +82,7 @@ export function SemanticDragCursor({
   }, [paint])
 
   useEffect(() => {
-    reducedMotion.current = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
+    reducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const release = () => setGrabbing(false)
     const hide = () => setVisible(false)
     window.addEventListener('pointerup', release)
@@ -106,15 +98,13 @@ export function SemanticDragCursor({
 
   const resolveTarget = (eventTarget: EventTarget | null) => {
     const element =
-      eventTarget instanceof Element
-        ? eventTarget.closest<HTMLElement>(selector)
-        : null
+      eventTarget instanceof Element ? eventTarget.closest<HTMLElement>(selector) : null
     if (!element || !root.current?.contains(element)) return null
     return element
   }
 
   const move = (event: PointerEvent<HTMLDivElement>, immediate = false) => {
-    if (event.pointerType === 'touch') {
+    if (disabled || event.pointerType === 'touch') {
       setVisible(false)
       return
     }
@@ -122,19 +112,15 @@ export function SemanticDragCursor({
     const x = event.clientX - bounds.left
     const y = event.clientY - bounds.top
     target.current = { x, y }
-    if (immediate || reducedMotion.current)
-      current.current = { ...target.current }
+    if (immediate || reducedMotion.current) current.current = { ...target.current }
 
     const semanticTarget = resolveTarget(event.target)
     const nextState = semanticTarget?.dataset.cursor
     const resolvedState = isCursorState(nextState) ? nextState : 'default'
     setState(resolvedState)
-    setLabel(
-      semanticTarget?.dataset.cursorLabel ?? defaultLabels[resolvedState],
-    )
+    setLabel(semanticTarget?.dataset.cursorLabel ?? defaultLabels[resolvedState])
     setVisible(true)
-    if (frame.current === null)
-      frame.current = requestAnimationFrame(() => paintRef.current())
+    if (frame.current === null) frame.current = requestAnimationFrame(() => paintRef.current())
   }
 
   const style = {
@@ -144,8 +130,9 @@ export function SemanticDragCursor({
   return (
     <div
       ref={root}
+      data-disabled={disabled || undefined}
       className={`semantic-cursor-root ${className}`.trim()}
-      style={style}
+      style={{ ...style, ...rootStyle }}
       onPointerEnter={(event) => move(event, true)}
       onPointerMove={move}
       onPointerLeave={() => {

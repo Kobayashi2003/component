@@ -42,15 +42,27 @@ export function GeometryLightControls({
   const contentId = useId()
 
   return (
-    <aside className={`geometry-panel${expanded ? '' : ' geometry-panel--collapsed'}`} aria-label="Geometry lighting controls">
+    <aside
+      className={`geometry-panel${expanded ? '' : ' geometry-panel--collapsed'}`}
+      aria-label="Geometry lighting controls"
+    >
       <header className="geometry-panel__header">
         <div>
           <span className="geometry-panel__eyebrow">Interactive rendering study</span>
           <strong>Geometry Light Lab</strong>
-          {expanded ? <p>Drag the canvas to rotate X/Y. Use the Z slider for precise roll. Drag light markers to relight.</p> : null}
+          {expanded ? (
+            <p>
+              Drag the canvas to rotate X/Y. Use the Z slider for precise roll. Drag light markers
+              to relight.
+            </p>
+          ) : null}
         </div>
         <div className="geometry-panel__actions">
-          {expanded ? <button type="button" onClick={onReset}>Reset</button> : null}
+          {expanded ? (
+            <button type="button" onClick={onReset}>
+              Reset
+            </button>
+          ) : null}
           <button
             type="button"
             aria-expanded={expanded}
@@ -64,10 +76,17 @@ export function GeometryLightControls({
 
       {expanded ? (
         <div id={contentId} className="geometry-panel__content">
-          {error ? <p className="geometry-panel__error" role="alert">{error}</p> : null}
+          {error ? (
+            <p className="geometry-panel__error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <section className="geometry-panel__section">
-            <div className="geometry-panel__section-heading"><span>Geometry</span><em>Ray-marched SDF</em></div>
+            <div className="geometry-panel__section-heading">
+              <span>Geometry</span>
+              <em>Ray-marched SDF</em>
+            </div>
             <div className="geometry-segmented" role="group" aria-label="Geometry">
               {(['sphere', 'cube', 'torus'] as const).map((shape) => (
                 <button
@@ -84,7 +103,10 @@ export function GeometryLightControls({
           </section>
 
           <section className="geometry-panel__section">
-            <div className="geometry-panel__section-heading"><span>Object transform</span><em>Size &amp; XYZ</em></div>
+            <div className="geometry-panel__section-heading">
+              <span>Object transform</span>
+              <em>Size &amp; XYZ</em>
+            </div>
             <div className="geometry-panel__grid">
               {CONTROL_DEFINITIONS.filter((item) => item.group === 'object').map((item) => (
                 <RangeControl
@@ -108,7 +130,10 @@ export function GeometryLightControls({
           />
 
           <section className="geometry-panel__section">
-            <div className="geometry-panel__section-heading"><span>Surface response</span><em>Material</em></div>
+            <div className="geometry-panel__section-heading">
+              <span>Surface response</span>
+              <em>Material</em>
+            </div>
             <div className="geometry-panel__grid">
               {CONTROL_DEFINITIONS.filter((item) => item.group === 'material').map((item) => (
                 <RangeControl
@@ -126,15 +151,18 @@ export function GeometryLightControls({
 
           <section className="geometry-panel__section geometry-panel__channel">
             <div className="geometry-panel__section-heading">
-              <span>Render channel</span><em>Debug view</em>
+              <span>Render channel</span>
+              <em>Debug view</em>
             </div>
             <div className="geometry-channel-options" role="radiogroup" aria-label="Render channel">
-              {([
-                ['final', 'Final'],
-                ['normal', 'Normals'],
-                ['diffuse', 'Diffuse'],
-                ['specular', 'Specular'],
-              ] as const).map(([mode, label]) => (
+              {(
+                [
+                  ['final', 'Final'],
+                  ['normal', 'Normals'],
+                  ['diffuse', 'Diffuse'],
+                  ['specular', 'Specular'],
+                ] as const
+              ).map(([mode, label]) => (
                 <button
                   key={mode}
                   type="button"

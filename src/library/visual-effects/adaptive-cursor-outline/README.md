@@ -1,27 +1,31 @@
 # Adaptive Cursor Outline
 
-A custom cursor that expands into the outline of interactive descendants.
+A decorative pointer outline that fits interactive targets and follows keyboard focus.
 
 ## Usage
 
 ```tsx
 import { AdaptiveCursorOutline } from './adaptive-cursor-outline'
 
-<AdaptiveCursorOutline color="#e6ff69" padding={8}>
-  <button>Regular target</button>
-  <button data-cursor-path="M...Z">Irregular target</button>
+;<AdaptiveCursorOutline style={{ padding: 60 }}>
+  <button>Automatic target</button>
+  <article data-cursor-focus>Extra target</article>
 </AdaptiveCursorOutline>
 ```
 
-## Props
+## Parameters
 
-- `selector` controls which descendants are detected.
-- `color`, `padding`, `duration`, `strokeWidth`, and `cursorSize` control the frame.
-- `data-cursor-path` accepts a normalized `0 0 100 100` SVG path for irregular targets.
-- `className` applies to the wrapper.
+| Parameter                   | Default                                      | Purpose                                                           |
+| --------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| `children`                  | required                                     | Content within the tracking area.                                 |
+| `selector`                  | interactive elements + `[data-cursor-focus]` | Matches buttons, links, inputs, selects and textareas by default. |
+| `color`                     | `#e6ff69`                                    | CSS outline color.                                                |
+| `padding`                   | `8` px                                       | Space around the target.                                          |
+| `duration`                  | `260` ms                                     | Morph duration.                                                   |
+| `strokeWidth`, `cursorSize` | `1.5`, `10` px                               | Outline width and resting dot size.                               |
+| `className`, `style`        | —                                            | Applied to the tracking container; set its layout here.           |
+| `disabled`                  | `false`                                      | Turns off the effect without disabling child controls.            |
 
 ## Notes
 
-- Keyboard focus triggers the same outline.
-- Touch-only devices keep their native cursor behavior and do not receive the primary effect.
-- Reduced-motion mode disables geometry interpolation.
+Use `data-cursor-path` with an SVG path in a 0–100 coordinate space for irregular outlines. This is visual feedback, not keyboard semantics: custom targets still need their own accessible interaction. Touch does not get a hover cursor; reduced motion removes morph transitions.

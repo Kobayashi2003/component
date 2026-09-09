@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { PointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent, ReactNode } from 'react'
 import './styles.css'
 
 export interface CursorDistortionSource {
@@ -13,6 +13,8 @@ export interface CursorDistortionProps {
   drawSource: (source: CursorDistortionSource) => void
   children?: ReactNode
   className?: string
+  style?: CSSProperties
+  disabled?: boolean
   radius?: number
   magnification?: number
   distortion?: number
@@ -101,6 +103,8 @@ export function CursorDistortion({
   drawSource,
   children,
   className = '',
+  style: rootStyle,
+  disabled = false,
   radius = 125,
   magnification = 0.2,
   distortion = 0.016,
@@ -122,6 +126,7 @@ export function CursorDistortion({
   // Lens parameters are uniforms, not context state. Keeping them in a ref lets
   // a slider drag update the shader without rebuilding program and texture.
   const lens = useRef({
+    disabled,
     radius,
     magnification,
     distortion,
@@ -131,6 +136,7 @@ export function CursorDistortion({
 
   useEffect(() => {
     lens.current = {
+      disabled,
       radius,
       magnification,
       distortion,
@@ -160,8 +166,7 @@ export function CursorDistortion({
     if (!sourceContext || !texture || !buffer) return
 
     const vertices = new Float32Array([
-      -1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1,
-      1,
+      -1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1,
     ])
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -198,29 +203,21 @@ export function CursorDistortion({
     const render = () => {
       const value = pointer.current
       const settings = lens.current
-      const follow = reducedMotion
-        ? 1
-        : Math.max(0.02, Math.min(1, settings.smoothing))
+      if (settings.disabled) {
+        value.targetActive = 0
+        value.active = 0
+      }
+      const follow = reducedMotion ? 1 : Math.max(0.01, Math.min(1, settings.smoothing))
       value.x += (value.targetX - value.x) * follow
       value.y += (value.targetY - value.y) * follow
-      value.active +=
-        (value.targetActive - value.active) * (reducedMotion ? 1 : 0.16)
+      value.active += (value.targetActive - value.active) * (reducedMotion ? 1 : 0.16)
       gl.viewport(0, 0, surface.width, surface.height)
       gl.uniform2f(uniforms.pointer, value.x, value.y)
       gl.uniform1f(uniforms.aspect, width / height)
       gl.uniform1f(uniforms.radius, Math.max(48, settings.radius) / height)
-      gl.uniform1f(
-        uniforms.magnification,
-        Math.max(0, Math.min(0.45, settings.magnification)),
-      )
-      gl.uniform1f(
-        uniforms.distortion,
-        Math.max(0, Math.min(0.05, settings.distortion)),
-      )
-      gl.uniform1f(
-        uniforms.aberration,
-        Math.max(0, Math.min(0.025, settings.chromaticAberration)),
-      )
+      gl.uniform1f(uniforms.magnification, Math.max(0, Math.min(0.45, settings.magnification)))
+      gl.uniform1f(uniforms.distortion, Math.max(0, Math.min(0.05, settings.distortion)))
+      gl.uniform1f(uniforms.aberration, Math.max(0, Math.min(0.025, settings.chromaticAberration)))
       gl.uniform1f(uniforms.active, value.active)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -245,27 +242,17 @@ export function CursorDistortion({
       sourceContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       drawSource({ context: sourceContext, width, height, pixelRatio })
       gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        sourceCanvas,
-      )
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas)
       render()
     }
 
-    reducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
+    reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
     return () => {
       observer.disconnect()
-      if (animationFrame.current !== null)
-        cancelAnimationFrame(animationFrame.current)
+      if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current)
       renderFrame.current = null
       gl.deleteTexture(texture)
       gl.deleteBuffer(buffer)
@@ -279,7 +266,7 @@ export function CursorDistortion({
   }
 
   const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'touch') return
+    if (disabled || event.pointerType === 'touch') return
     const bounds = event.currentTarget.getBoundingClientRect()
     pointer.current.targetX = (event.clientX - bounds.left) / bounds.width
     pointer.current.targetY = 1 - (event.clientY - bounds.top) / bounds.height
@@ -290,6 +277,8 @@ export function CursorDistortion({
   return (
     <div
       ref={root}
+      style={rootStyle}
+      data-disabled={disabled || undefined}
       className={`cursor-distortion ${className}`.trim()}
       onPointerEnter={move}
       onPointerMove={move}
@@ -298,11 +287,7 @@ export function CursorDistortion({
         schedule()
       }}
     >
-      <canvas
-        ref={canvas}
-        className="cursor-distortion__canvas"
-        aria-hidden="true"
-      />
+      <canvas ref={canvas} className="cursor-distortion__canvas" aria-hidden="true" />
       {/* One copy of the children serves both the shader overlay and the
           no-WebGL fallback; `data-webgl` decides which parts are shown. */}
       <div className="cursor-distortion__overlay">{children}</div>

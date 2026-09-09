@@ -1,4 +1,4 @@
-export type RetroRadioBackgroundProps = Record<string, never>;
+export type RetroRadioBackgroundProps = Record<string, never>
 
 export function RetroRadioBackground() {
   return (
@@ -6,5 +6,5 @@ export function RetroRadioBackground() {
       <i className="retro-radio__grain" />
       <i className="retro-radio__horizon" />
     </div>
-  );
+  )
 }

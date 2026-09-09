@@ -8,17 +8,10 @@ export default {
   status: 'experimental',
   summary:
     'A proximity field that pulls groups of interface elements toward the pointer, with distance-weighted motion and a soft return.',
-  style: 'magnetic interface motion',
-  tags: [
-    { label: 'Pointer hover', group: 'input' },
-    { label: 'Element field', group: 'feature' },
-    { label: 'Proximity motion', group: 'feature' },
-    { label: 'DOM transforms', group: 'technology' },
-    { label: 'Reduced motion', group: 'support' },
-    { label: 'Touch limited', group: 'support' },
-  ],
+  usage: 'reusable',
+  capabilities: { reducedMotion: true, touch: 'limited' },
+  tags: ['pointer-hover', 'element-field', 'proximity-motion', 'dom-transforms'],
   compatibility: {
-    touch: 'limited',
     message:
       'The field follows continuous pointer movement; touch-only devices keep elements in their resting positions.',
   },

@@ -1,10 +1,7 @@
-import type {
-  CatalogEntry,
-  CatalogEntryMeta,
-  CategoryDefinition,
-} from './types'
+import type { CatalogEntry, CatalogEntryMeta, CategoryDefinition } from './types'
 import type { ComponentType } from 'react'
 import { lazy } from 'react'
+import { resolveTags } from './tags'
 
 export const categories: CategoryDefinition[] = [
   {
@@ -17,7 +14,8 @@ export const categories: CategoryDefinition[] = [
     id: 'interactions',
     title: 'Interactions',
     eyebrow: 'Input & response',
-    description: 'Pointer, keyboard, gesture, drag, selection, and other direct-manipulation ideas.',
+    description:
+      'Pointer, keyboard, gesture, drag, selection, and other direct-manipulation ideas.',
   },
   {
     id: 'layout-navigation',
@@ -50,10 +48,10 @@ const metadataModules = import.meta.glob('../library/*/*/meta.ts', {
   import: 'default',
 }) as Record<string, CatalogEntryMeta>
 
-const demoModules = import.meta.glob('../library/*/*/index.tsx') as Record<
-  string,
-  () => Promise<{ default: ComponentType }>
->
+const demoModules = import.meta.glob([
+  '../library/*/*/demo/index.tsx',
+  '../library/data-display/epub-reader/index.tsx',
+]) as Record<string, () => Promise<{ default: ComponentType }>>
 
 const entryReadmes = import.meta.glob('../library/*/*/README.md', {
   query: '?raw',
@@ -72,7 +70,10 @@ export const entries: CatalogEntry[] = Object.entries(metadataModules)
       throw new Error(`Catalog metadata must match its directory: ${metadataPath}`)
     }
 
-    const demoPath = `../library/${category}/${slug}/index.tsx`
+    const demoPath =
+      slug === 'epub-reader'
+        ? `../library/${category}/${slug}/index.tsx`
+        : `../library/${category}/${slug}/demo/index.tsx`
     const readmePath = `../library/${category}/${slug}/README.md`
     const loadDemo = demoModules[demoPath]
     const loadReadme = entryReadmes[readmePath]
@@ -83,6 +84,12 @@ export const entries: CatalogEntry[] = Object.entries(metadataModules)
 
     return {
       ...metadata,
+      tags: resolveTags(
+        slug === 'epub-reader'
+          ? ['epub', 'pagination', 'typography', 'fixed-layout', 'accessibility']
+          : metadata.tags,
+      ),
+      usage: metadata.usage ?? 'reusable',
       key: `${category}/${slug}`,
       Demo: lazy(loadDemo),
       loadReadme,

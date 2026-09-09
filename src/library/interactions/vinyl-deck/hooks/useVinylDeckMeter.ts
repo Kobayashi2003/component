@@ -27,20 +27,28 @@ export function useVinylDeckMeter(
         if (hasSource && analyser) {
           frequencyData ??= new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount))
           analyser.getByteFrequencyData(frequencyData)
-          setLevels(Array.from({ length: BAND_COUNT }, (_, band) => {
-            const start = Math.floor(((band / BAND_COUNT) ** 1.7) * frequencyData!.length * 0.62)
-            const end = Math.max(start + 1, Math.floor((((band + 1) / BAND_COUNT) ** 1.7) * frequencyData!.length * 0.62))
-            let peak = 0
-            for (let index = start; index < end; index += 1) peak = Math.max(peak, frequencyData![index])
-            return Math.max(0.08, peak / 255)
-          }))
+          setLevels(
+            Array.from({ length: BAND_COUNT }, (_, band) => {
+              const start = Math.floor((band / BAND_COUNT) ** 1.7 * frequencyData!.length * 0.62)
+              const end = Math.max(
+                start + 1,
+                Math.floor(((band + 1) / BAND_COUNT) ** 1.7 * frequencyData!.length * 0.62),
+              )
+              let peak = 0
+              for (let index = start; index < end; index += 1)
+                peak = Math.max(peak, frequencyData![index])
+              return Math.max(0.08, peak / 255)
+            }),
+          )
         } else {
           // No analyser available: keep the meter alive with a synthetic signal.
-          setLevels(Array.from({ length: BAND_COUNT }, (_, band) => {
-            const pulse = Math.sin(time * 0.004 + band * 1.37) * 0.18
-            const carrier = Math.sin(time * 0.0017 + band * 0.63) * 0.12
-            return Math.max(0.12, Math.min(0.72, 0.34 + pulse + carrier))
-          }))
+          setLevels(
+            Array.from({ length: BAND_COUNT }, (_, band) => {
+              const pulse = Math.sin(time * 0.004 + band * 1.37) * 0.18
+              const carrier = Math.sin(time * 0.0017 + band * 0.63) * 0.12
+              return Math.max(0.12, Math.min(0.72, 0.34 + pulse + carrier))
+            }),
+          )
         }
       }
       frame = window.requestAnimationFrame(update)

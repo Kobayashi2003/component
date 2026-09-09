@@ -100,11 +100,14 @@ export function useVinylDeckAudio({
   const resumeOnSourceChangeRef = useRef(false)
   const [playing, setPlayingState] = useState(initiallyPlaying)
 
-  const commitPlaying = useCallback((next: boolean) => {
-    playingRef.current = next
-    setPlayingState(next)
-    onPlaybackChange?.(next)
-  }, [onPlaybackChange])
+  const commitPlaying = useCallback(
+    (next: boolean) => {
+      playingRef.current = next
+      setPlayingState(next)
+      onPlaybackChange?.(next)
+    },
+    [onPlaybackChange],
+  )
 
   useEffect(() => {
     assignRef(externalRef, elementRef.current)
@@ -161,11 +164,8 @@ export function useVinylDeckAudio({
         // Playback is routed through the analyser graph, so a suspended context
         // would otherwise resume the element into silence.
         const context = audioContextRef.current
-        const resume =
-          context?.state === 'suspended' ? context.resume() : Promise.resolve()
-        void resume
-          .then(() => audio.play())
-          .catch(() => commitPlaying(false))
+        const resume = context?.state === 'suspended' ? context.resume() : Promise.resolve()
+        void resume.then(() => audio.play()).catch(() => commitPlaying(false))
       } else {
         commitPlaying(false)
       }
@@ -192,11 +192,12 @@ export function useVinylDeckAudio({
       }
       commitPlaying(false)
     }
-    const handleTimeUpdate = () => onTimeUpdate?.({
-      currentTime: audio.currentTime,
-      duration: Number.isFinite(audio.duration) ? audio.duration : 0,
-      playing: playingRef.current,
-    })
+    const handleTimeUpdate = () =>
+      onTimeUpdate?.({
+        currentTime: audio.currentTime,
+        duration: Number.isFinite(audio.duration) ? audio.duration : 0,
+        playing: playingRef.current,
+      })
     const handleError = (event: Event) => onError?.(audio.error ?? event)
 
     audio.addEventListener('play', handlePlay)
@@ -214,27 +215,30 @@ export function useVinylDeckAudio({
     }
   }, [commitPlaying, onEnded, onError, onTimeUpdate])
 
-  const setPlayback = useCallback(async (next: boolean) => {
-    const audio = elementRef.current
+  const setPlayback = useCallback(
+    async (next: boolean) => {
+      const audio = elementRef.current
 
-    if (!source || !audio) {
-      commitPlaying(next)
-      return
-    }
+      if (!source || !audio) {
+        commitPlaying(next)
+        return
+      }
 
-    if (!next) {
-      audio.pause()
-      return
-    }
+      if (!next) {
+        audio.pause()
+        return
+      }
 
-    try {
-      if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume()
-      await audio.play()
-    } catch (error) {
-      commitPlaying(false)
-      onError?.(error instanceof Event ? error : new Event('audio-playback-error'))
-    }
-  }, [commitPlaying, onError, source])
+      try {
+        if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume()
+        await audio.play()
+      } catch (error) {
+        commitPlaying(false)
+        onError?.(error instanceof Event ? error : new Event('audio-playback-error'))
+      }
+    },
+    [commitPlaying, onError, source],
+  )
 
   const togglePlayback = useCallback(() => {
     void setPlayback(!playingRef.current)

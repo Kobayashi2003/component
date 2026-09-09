@@ -1,6 +1,7 @@
+import './styles.css'
 import { useRef } from 'react'
 import type { PointerEvent } from 'react'
-import { SemanticDragCursor } from './SemanticDragCursor'
+import { SemanticDragCursor } from '..'
 
 const projects = [
   { number: '01', title: 'Monument' },
@@ -27,8 +28,7 @@ export default function SemanticDragCursorShowcase() {
 
   const updateDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (!drag.current.active || !rail.current) return
-    rail.current.scrollLeft =
-      drag.current.startScroll - (event.clientX - drag.current.startX)
+    rail.current.scrollLeft = drag.current.startScroll - (event.clientX - drag.current.startX)
   }
 
   const endDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -41,11 +41,7 @@ export default function SemanticDragCursorShowcase() {
     <SemanticDragCursor className="semantic-cursor-demo">
       <div className="semantic-demo__topline">
         <span>CURSOR STATES / 05—06</span>
-        <a
-          href="#semantic-docs"
-          data-cursor="link"
-          aria-label="Open documentation"
-        >
+        <a href="#semantic-docs" data-cursor="link" aria-label="Open documentation">
           Documentation
         </a>
       </div>
@@ -69,10 +65,7 @@ export default function SemanticDragCursorShowcase() {
       >
         <div className="semantic-project-track">
           {projects.map((project) => (
-            <article
-              className="semantic-project"
-              key={project.number}
-            >
+            <article className="semantic-project" key={project.number}>
               <span>{project.number}</span>
               <div className="semantic-project__visual">
                 <span>{project.title.slice(0, 1)}</span>

@@ -6,6 +6,17 @@ navigation, resource lifetime, and reading-session consistency.
 
 ![EPUB Reader overall architecture](./diagrams/architecture-overview.svg)
 
+The diagram shows runtime composition and selected interactions. Gray diamonds
+mark the owner of composed collaborators; blue arrows show calls or supplied
+inputs, and dashed blue arrows show returned snapshots and events. The Shell
+sends commands through the React handle to the store.
+
+`BrowserEpubReader` composes the Core collaborators: navigation drives
+presentation, and presentation loads publication content. These are selected
+runtime relationships, not a complete import graph or a one-way processing
+pipeline. The diagram focuses on the complete React integration; direct Core
+integration bypasses React.
+
 ## Dependency direction
 
 ```text

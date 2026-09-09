@@ -1,0 +1,134 @@
+.rotary-knob {
+  --knob-accent: #bce66d;
+  --knob-face: #303633;
+  --knob-ink: #e9eee5;
+  width: 200px;
+  text-align: center;
+  color: var(--knob-ink);
+}
+.rotary-knob--ivory {
+  --knob-accent: #edd7a2;
+  --knob-face: #d6cfba;
+}
+.rotary-knob--signal {
+  --knob-accent: #ff865e;
+  --knob-face: #ac4b32;
+}
+.rotary-knob__label {
+  font: 12px monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.rotary-knob__control {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 20px 0 6px;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rotary-knob__control:focus-visible {
+  outline: 2px solid var(--knob-accent);
+  outline-offset: 7px;
+}
+.rotary-knob__control.is-dragging {
+  cursor: grabbing;
+}
+.rotary-knob__control[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.rotary-knob__ticks {
+  position: absolute;
+  inset: 0;
+}
+.rotary-knob__ticks i {
+  position: absolute;
+  inset: 0;
+}
+.rotary-knob__ticks i::before {
+  content: '';
+  display: block;
+  margin: 2px auto;
+  width: 2px;
+  height: 8px;
+  background: #535b53;
+}
+.rotary-knob__ticks i.is-lit::before {
+  background: var(--knob-accent);
+}
+.rotary-knob__ring {
+  position: absolute;
+  inset: 17px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 225deg,
+    var(--knob-accent) var(--knob-progress),
+    #424940 0deg 270deg,
+    transparent 270deg
+  );
+  mask: radial-gradient(circle, transparent 68%, #000 69%);
+}
+.rotary-knob__cap {
+  position: absolute;
+  inset: 29px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 35% 20%, #ffffff19, transparent 70%), var(--knob-face);
+  border: 1px solid #ffffff30;
+  box-shadow:
+    inset 0 2px 3px #ffffff38,
+    inset 0 -5px 8px #0005,
+    0 12px 16px #0008,
+    0 0 0 6px #101411;
+}
+.rotary-knob__cap::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid #ffffff10;
+  border-radius: 50%;
+}
+.rotary-knob__cap i {
+  position: absolute;
+  inset: 8px;
+  transform: rotate(var(--knob-angle));
+  transition: transform var(--knob-settle) ease-out;
+}
+.rotary-knob__cap i::before {
+  content: '';
+  display: block;
+  margin: 2px auto;
+  height: 23px;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--knob-accent);
+  box-shadow: 0 0 8px #0003;
+}
+.rotary-knob--ivory .rotary-knob__cap i::before {
+  background: #3f4834;
+}
+.rotary-knob__value {
+  display: block;
+  font: 36px/1.2 monospace;
+  font-variant-numeric: tabular-nums;
+}
+.rotary-knob__value small {
+  font-size: 13px;
+  color: #a4ad9c;
+  margin-left: 4px;
+}
+.rotary-knob__limits {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 22px 0;
+  font: 10px monospace;
+  color: #a4ad9c;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotary-knob__cap i {
+    transition: none;
+  }
+}

@@ -6,11 +6,9 @@ export default {
   category: 'layout-navigation',
   kind: 'component',
   status: 'experimental',
-  summary: 'A bold task board that pairs hard-edged visual language with fast filtering and clear completion feedback.',
-  tags: [
-    { label: 'Keyboard', group: 'input' },
-    { label: 'Responsive layout', group: 'support' },
-    { label: 'Status feedback', group: 'feature' },
-    { label: 'Neubrutalism', group: 'style' },
-  ],
+  summary:
+    'A bold task board that pairs hard-edged visual language with fast filtering and clear completion feedback.',
+  usage: 'showcase',
+  capabilities: { keyboard: true },
+  tags: ['responsive-layout', 'status-feedback', 'neubrutalism'],
 } satisfies CatalogEntryMeta

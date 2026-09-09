@@ -1,32 +1,38 @@
-# Cursor Distortion Lens
+# Cursor Distortion
 
-A WebGL cursor lens that combines magnification, UV refraction, distortion, and RGB channel separation.
+A pointer lens that distorts canvas artwork. DOM children are static overlays, not distortion targets.
 
 ## Usage
 
 ```tsx
 import { CursorDistortion } from './cursor-distortion'
-<CursorDistortion
+
+;<CursorDistortion
+  style={{ height: 360 }}
   drawSource={({ context, width, height }) => {
-    context.fillText('DESIGN', width / 2, height / 2)
+    context.fillStyle = '#eee'
+    context.fillRect(0, 0, width, height)
+    context.fillStyle = '#111'
+    context.font = '48px sans-serif'
+    context.fillText('Hello', 40, height / 2)
   }}
-  radius={125}
-  magnification={0.2}
 />
 ```
 
-## Props
+## Parameters
 
-- `drawSource` paints the source texture into a 2D canvas before it is uploaded to WebGL.
-- `radius` and `magnification` define the optical lens.
-- `distortion` controls the fragment shader's UV ripple.
-- `chromaticAberration` offsets the red and blue texture samples in opposite directions.
-- `smoothing` controls pointer interpolation; `children` may contain controls and static fallback content.
-- `className` applies to the wrapper.
+| Parameter             | Default           | Purpose                                                         |
+| --------------------- | ----------------- | --------------------------------------------------------------- |
+| `drawSource`          | required callback | Paints the source texture; called on resize or callback change. |
+| `children`            | —                 | Static overlay or fallback content.                             |
+| `radius`              | `125` px          | Lens radius, minimum 48 px.                                     |
+| `magnification`       | `0.2`             | Magnification amount, 0–0.45.                                   |
+| `distortion`          | `0.016`           | UV warp, 0–0.05.                                                |
+| `chromaticAberration` | `0.007`           | RGB separation, 0–0.025.                                        |
+| `smoothing`           | `0.2`             | Follow factor, 0.01–1; larger is faster.                        |
+| `className`, `style`  | —                 | Applied to the tracking container; set its layout here.         |
+| `disabled`            | `false`           | Turns off the effect without disabling child controls.          |
 
 ## Notes
 
-- The shader runs in native WebGL with no Three.js dependency.
-- Redraws occur on resize and whenever the source callback changes.
-- Without WebGL, the canvas is hidden and `children` become the fallback surface.
-- Touch input keeps the source artwork undistorted, and reduced-motion mode removes pointer interpolation.
+Give the container a height. Memoize `drawSource` with `useCallback` when updating other props. Requires WebGL; provide children for a no-WebGL fallback. Touch keeps the artwork static; reduced motion removes pointer easing.

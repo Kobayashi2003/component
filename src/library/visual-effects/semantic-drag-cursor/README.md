@@ -1,37 +1,31 @@
 # Semantic Drag Cursor
 
-A context-aware cursor that combines semantic hover feedback with a directional drag affordance.
+Changes a decorative cursor according to the hovered element’s action. It does not implement dragging, navigation or playback.
 
 ## Usage
 
 ```tsx
 import { SemanticDragCursor } from './semantic-drag-cursor'
-<SemanticDragCursor>
-  <a data-cursor="link" href="/work">
-    Project
+
+;<SemanticDragCursor style={{ padding: 60 }}>
+  <a href="/work" data-cursor="link">
+    Open work
   </a>
-  <figure data-cursor="view">...</figure>
-  <div data-cursor="drag">...</div>
+  <div data-cursor="drag">Your draggable content</div>
 </SemanticDragCursor>
 ```
 
-## Semantic states
+## Parameters
 
-- `default` renders a 10px dot.
-- `link` renders a compact circular arrow, or a custom action label.
-- `view` and `play` render labeled circular cursors.
-- `drag` renders a directional capsule and switches to a high-contrast hold state while pressed.
-- `data-cursor-label` overrides any state's default label, for example `OPEN`.
-
-## Props
-
-- `selector` changes how semantic targets are discovered and defaults to `[data-cursor]`.
-- `color` controls the cursor surface.
-- `smoothing` controls pointer follow speed.
-- `className` applies to the wrapper.
+| Parameter            | Default         | Purpose                                                 |
+| -------------------- | --------------- | ------------------------------------------------------- |
+| `children`           | required        | Content within the tracking area.                       |
+| `selector`           | `[data-cursor]` | Finds semantic targets.                                 |
+| `color`              | `#dfff42`       | CSS cursor color.                                       |
+| `smoothing`          | `0.24`          | Follow factor, 0.01–1; larger is faster.                |
+| `className`, `style` | —               | Applied to the tracking container; set its layout here. |
+| `disabled`           | `false`         | Turns off the effect without disabling child controls.  |
 
 ## Notes
 
-- The component supplies feedback only; draggable descendants retain control of their own data and scroll behavior.
-- Keyboard and touch interactions remain native because the custom cursor is decorative.
-- Reduced-motion mode removes follow interpolation.
+`data-cursor` accepts `default`, `link`, `drag`, `view`, `play`. `data-cursor-label` customizes labels except the built-in drag arrows/HOLD label. Implement the actual interaction yourself. Touch retains native interaction; reduced motion removes pointer easing.

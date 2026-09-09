@@ -1,11 +1,13 @@
 # Neubrutalist Task Board
 
-A style reference for task-management layouts using hard borders, offset shadows, saturated labels, and direct typography.
+A visual task-board demonstration with local filtering and completion state.
 
-## Style reference
+## Embed
 
-- Separate filters, progress, task metadata, and completion actions with strong structural borders.
-- Pair task colors with text labels and explicit completion states so meaning does not depend on color.
-- Collapse the task grid to one column on narrow screens and keep controls keyboard accessible.
+```tsx
+import { NeubrutalistTaskBoard } from './neubrutalist-task-board'
 
-The included task data and filtering state are demo-only.
+;<NeubrutalistTaskBoard />
+```
+
+Tasks are sample data held in local state; this is not a persistent task manager or a data-bound board API.

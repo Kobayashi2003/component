@@ -14,11 +14,7 @@ import {
 } from '../model'
 import { useGeometryLightRenderer } from '../hooks/useGeometryLightRenderer'
 import { useObjectRotation } from '../hooks/useObjectRotation'
-import {
-  orientationFromControls,
-  rotateInViewSpace,
-  type Quaternion,
-} from '../rotation'
+import { orientationFromControls, rotateInViewSpace, type Quaternion } from '../rotation'
 
 const NEW_LIGHT_COLORS = ['#71e6a4', '#f3c969', '#c889ff', '#4dd7e8', '#ff7d9c']
 
@@ -27,9 +23,9 @@ export function GeometryLightLab() {
   const draggingRef = useRef<number | null>(null)
   const nextLightId = useRef(3)
   const [controls, setControls] = useState<ControlValues>(() => ({ ...DEFAULT_CONTROLS }))
-  const [orientation, setOrientation] = useState<Quaternion>(() => (
-    orientationFromControls(DEFAULT_CONTROLS)
-  ))
+  const [orientation, setOrientation] = useState<Quaternion>(() =>
+    orientationFromControls(DEFAULT_CONTROLS),
+  )
   const [geometry, setGeometry] = useState<GeometryType>('cube')
   const [renderMode, setRenderMode] = useState<RenderMode>('final')
   const [lights, setLights] = useState<LightSource[]>(cloneDefaultLights)
@@ -53,7 +49,9 @@ export function GeometryLightLab() {
   }
 
   const updateLight = (id: number, patch: Partial<Omit<LightSource, 'id'>>) => {
-    setLights((current) => current.map((light) => light.id === id ? { ...light, ...patch } : light))
+    setLights((current) =>
+      current.map((light) => (light.id === id ? { ...light, ...patch } : light)),
+    )
   }
 
   const updateDraggedLight = (clientX: number, clientY: number) => {
@@ -74,18 +72,23 @@ export function GeometryLightLab() {
       if (current.length >= MAX_LIGHTS) return current
       const id = nextLightId.current++
       const index = current.length
-      return [...current, {
-        id,
-        color: NEW_LIGHT_COLORS[index % NEW_LIGHT_COLORS.length],
-        position: { x: 0.38 + (index % 3) * 0.14, y: 0.2 + (index % 2) * 0.16 },
-        intensity: 120,
-        radius: 75,
-      }]
+      return [
+        ...current,
+        {
+          id,
+          color: NEW_LIGHT_COLORS[index % NEW_LIGHT_COLORS.length],
+          position: { x: 0.38 + (index % 3) * 0.14, y: 0.2 + (index % 2) * 0.16 },
+          intensity: 120,
+          radius: 75,
+        },
+      ]
     })
   }
 
   const removeLight = (id: number) => {
-    setLights((current) => current.length > 1 ? current.filter((light) => light.id !== id) : current)
+    setLights((current) =>
+      current.length > 1 ? current.filter((light) => light.id !== id) : current,
+    )
   }
 
   const reset = () => {
@@ -101,7 +104,9 @@ export function GeometryLightLab() {
     <section className="geometry-lab" aria-label="Interactive 3D geometry lighting lab">
       <div className="geometry-lab__canvas-label" aria-hidden="true">
         <span>Canvas / WebGL2</span>
-        <span>{lights.length} {lights.length === 1 ? 'light' : 'lights'}</span>
+        <span>
+          {lights.length} {lights.length === 1 ? 'light' : 'lights'}
+        </span>
       </div>
 
       <div
@@ -112,7 +117,11 @@ export function GeometryLightLab() {
         aria-label="Drag horizontally and vertically to rotate the object on X and Y."
         {...rotationHandlers}
       >
-        <canvas ref={canvasRef} className="geometry-lab__canvas" aria-label="Programmatically rendered 3D geometry" />
+        <canvas
+          ref={canvasRef}
+          className="geometry-lab__canvas"
+          aria-label="Programmatically rendered 3D geometry"
+        />
         {lights.map((light, index) => (
           <LightGizmo
             key={light.id}

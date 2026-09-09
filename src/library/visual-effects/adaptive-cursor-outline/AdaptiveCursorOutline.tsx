@@ -5,6 +5,8 @@ import './styles.css'
 export interface AdaptiveCursorOutlineProps {
   children: ReactNode
   className?: string
+  style?: CSSProperties
+  disabled?: boolean
   selector?: string
   color?: string
   padding?: number
@@ -22,8 +24,7 @@ interface Geometry {
   path?: string
 }
 
-const DEFAULT_SELECTOR =
-  '[data-cursor-focus],button,a[href],input,select,textarea'
+const DEFAULT_SELECTOR = '[data-cursor-focus],button,a[href],input,select,textarea'
 
 // Computed border-radius keeps percentages unresolved, so a "50%" corner would
 // read as 50px. Each axis resolves against its own extent, matching CSS.
@@ -42,6 +43,8 @@ function cornerRadius(target: HTMLElement, width: number, height: number) {
 export function AdaptiveCursorOutline({
   children,
   className = '',
+  style: rootStyle,
+  disabled = false,
   selector = DEFAULT_SELECTOR,
   color = '#e6ff69',
   padding = 8,
@@ -66,8 +69,7 @@ export function AdaptiveCursorOutline({
 
   const clearPending = useCallback(() => {
     if (settleTimer.current !== null) window.clearTimeout(settleTimer.current)
-    if (introFrame.current !== null)
-      window.cancelAnimationFrame(introFrame.current)
+    if (introFrame.current !== null) window.cancelAnimationFrame(introFrame.current)
     settleTimer.current = null
     introFrame.current = null
   }, [])
@@ -87,11 +89,7 @@ export function AdaptiveCursorOutline({
     (target: HTMLElement): Geometry => {
       const rootBounds = root.current?.getBoundingClientRect()
       const targetBounds = target.getBoundingClientRect()
-      const corner = cornerRadius(
-        target,
-        targetBounds.width,
-        targetBounds.height,
-      )
+      const corner = cornerRadius(target, targetBounds.width, targetBounds.height)
       return {
         x: targetBounds.left - (rootBounds?.left ?? 0) - padding,
         y: targetBounds.top - (rootBounds?.top ?? 0) - padding,
@@ -142,8 +140,7 @@ export function AdaptiveCursorOutline({
 
   const find = useCallback(
     (value: EventTarget | null) => {
-      const item =
-        value instanceof Element ? value.closest<HTMLElement>(selector) : null
+      const item = value instanceof Element ? value.closest<HTMLElement>(selector) : null
       return item && root.current?.contains(item) ? item : null
     },
     [selector],
@@ -159,7 +156,7 @@ export function AdaptiveCursorOutline({
 
   const move = (event: PointerEvent<HTMLDivElement>) => {
     updatePointer(event.clientX, event.clientY)
-    if (event.pointerType === 'touch') {
+    if (disabled || event.pointerType === 'touch') {
       setVisible(false)
       return
     }
@@ -186,13 +183,11 @@ export function AdaptiveCursorOutline({
   }
 
   const focus = (event: FocusEvent<HTMLDivElement>) => {
+    if (disabled) return
     const target = find(event.target)
     if (!target) return
     const bounds = target.getBoundingClientRect()
-    updatePointer(
-      bounds.left + bounds.width / 2,
-      bounds.top + bounds.height / 2,
-    )
+    updatePointer(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
     setVisible(true)
     activeTarget.current = null
     select(target)
@@ -231,8 +226,9 @@ export function AdaptiveCursorOutline({
   return (
     <div
       ref={root}
+      data-disabled={disabled || undefined}
       className={`adaptive-cursor ${className}`.trim()}
-      style={vars}
+      style={{ ...vars, ...rootStyle }}
       onPointerMove={move}
       onPointerEnter={move}
       onPointerLeave={leave}

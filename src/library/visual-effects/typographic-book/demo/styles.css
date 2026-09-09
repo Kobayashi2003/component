@@ -1,0 +1,30 @@
+.type-book-showcase {
+  width: 100%;
+}
+.type-book-showcase__color {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  background: #171916;
+  color: #d7eded;
+  border-top: 1px solid #d7eded33;
+  font:
+    12px Arial,
+    sans-serif;
+}
+.type-book-showcase__color input {
+  width: 44px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid #d7eded66;
+  background: transparent;
+  cursor: pointer;
+}
+.type-book-showcase__color input:focus-visible {
+  outline: 2px solid #d7eded;
+  outline-offset: 3px;
+}
+.type-book-showcase__color output {
+  font-variant-numeric: tabular-nums;
+}

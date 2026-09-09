@@ -6,10 +6,12 @@ The reader separates host-owned EPUB bytes from resumable Reading Session data. 
 
 The framework-neutral `ReadingSessionRecord` contains:
 
-- the last committed Locator;
+- a resume Locator (the default React adapter stores the spine item and its progression);
 - reader preferences when preference persistence is enabled;
 - bookmarks, highlights, and annotations;
 - an update timestamp.
+
+The default React adapter saves `href`, `spineIndex`, and `locations.progression` for the resume position. It deliberately omits CFI, fragment, DOM-path, and text-quote anchors from that position. Reopening restores an approximate position within the section; changes in layout can change the visible passage. Bookmarks, highlights, and annotations retain their stored Locator anchors for precise navigation. This normalization happens before the storage port is called, so replacing storage alone does not change resume precision.
 
 The React adapter derives a default key from publication bytes and an optional source name. Hosts may provide an explicit key when identity is already known.
 
