@@ -106,7 +106,7 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main>{children}</main>
       <footer>
-        <span>Component Atlas · React experiments.</span>
+        <span>Component Atlas</span>
       </footer>
     </div>
   )
@@ -188,18 +188,16 @@ function HomePage() {
   return (
     <>
       <section className="hero">
-        <div className="hero-kicker">
-          <span /> React components, effects, and experiments
+        <div className="hero-art" aria-hidden="true">
+          <span />
+          <span />
+          <span />
         </div>
         <h1>
-          Interesting ideas,
-          <br />
-          <em>made tangible.</em>
+          Component
+          {' '}
+          <em>Atlas.</em>
         </h1>
-        <p className="hero-copy">
-          A curated workshop for visual effects and interaction patterns—implemented as focused,
-          reusable React pieces and documented well enough to revisit later.
-        </p>
       </section>
 
       <section className="catalog-section">

@@ -2,6 +2,12 @@
   "generatedBy": "scripts/corpus/generate-local-corpus.mjs",
   "cases": [
     {
+      "id": "single-image-spread",
+      "file": "single-image-spread.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
       "id": "valid-reflowable",
       "file": "valid-reflowable.epub",
       "expectPublication": true,

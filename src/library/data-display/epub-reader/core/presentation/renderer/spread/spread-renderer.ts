@@ -6,6 +6,11 @@ import {
   type PublicationDiagnostic,
 } from '../../../epub/publication';
 import type { PublicationContentDocumentCache } from '../../../epub/content';
+import type {
+  RenditionCompatibilityContext,
+  RenditionCompatibilityDirectives,
+} from '../../../epub/compatibility/rendition-policy';
+import type { CompatibilityRunResult } from '../../../epub/compatibility/model';
 import {
   DEFAULT_RENDITION_PLANNER_POLICY,
   planRendition,
@@ -50,6 +55,10 @@ export interface ReadingRendererEnvironment {
   readonly contentHintsForSpine?: (
     spineIndex: number,
   ) => ContentPresentationHints | undefined;
+  /** Evaluate each leaf against the same publication-scoped profile as the root. */
+  readonly resolveRenditionCompatibility?: (
+    context: RenditionCompatibilityContext,
+  ) => CompatibilityRunResult<RenditionCompatibilityDirectives>;
   readonly onPresentationHints?: (
     spineIndex: number,
     hints: ContentPresentationHints,
@@ -448,12 +457,14 @@ export class SyntheticSpreadRenderer implements RendererInstance {
     outerPlan: RenditionPlan,
   ): RenditionPlan {
     const item = this.environment.publication.spine[spineIndex]!;
+    const contentHints = this.environment.contentHintsForSpine?.(spineIndex);
     return planRendition({
       publication: this.environment.publication,
       spineItem: item,
       viewport: outerPlan.viewport,
       preferences: outerPlan.preferences,
-      contentHints: this.environment.contentHintsForSpine?.(spineIndex),
+      contentHints,
+      ...this.compatibilityFor(spineIndex, contentHints, outerPlan),
       policy:
         this.environment.plannerPolicy ?? DEFAULT_RENDITION_PLANNER_POLICY,
     });
@@ -489,8 +500,28 @@ export class SyntheticSpreadRenderer implements RendererInstance {
       viewport,
       preferences: outerPlan.preferences,
       contentHints: activeHints,
+      ...this.compatibilityFor(spineIndex, activeHints, outerPlan),
       policy: noNestedSpread,
     });
+  }
+
+  private compatibilityFor(
+    spineIndex: number,
+    contentHints: ContentPresentationHints | undefined,
+    outerPlan: RenditionPlan,
+  ) {
+    const result = this.environment.resolveRenditionCompatibility?.({
+      publication: this.environment.publication,
+      spineItem: this.environment.publication.spine[spineIndex]!,
+      contentHints,
+      preferences: outerPlan.preferences,
+    });
+    return result
+      ? {
+          compatibility: result.value,
+          compatibilityDiagnostics: result.diagnostics,
+        }
+      : {};
   }
 
   private child(slot: SpreadSlotName): ChildState {

@@ -5,6 +5,7 @@ import {
   resolveLocatorRangeInDocument,
 } from "../../../core";
 import { getActiveReader } from "./configuration";
+import { verifyImageSpread } from "./image-spread";
 import { focusFirst } from "../../../react/accessibility/focus-trap";
 import {
   assert,
@@ -1316,6 +1317,7 @@ export async function runBrowserInteractionScenario(): Promise<
     "comic fit previews matched their controls and None gutter joined facing pages",
   );
 
+  steps.push(await verifyImageSpread());
   return steps;
 }
 

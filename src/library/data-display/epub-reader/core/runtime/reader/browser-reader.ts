@@ -287,6 +287,8 @@ export class BrowserEpubReader {
         themeResolver: this.themeRegistry,
         onDiagnostics: (next) => this.appendDiagnostics(next, this.options),
         contentHintsForSpine: (spineIndex) => this.hints.get(spineIndex),
+        resolveRenditionCompatibility: (context) =>
+          this.resolveRenditionCompatibility(context),
         onPresentationHints: (spineIndex, hints) => {
           this.hints.set(
             spineIndex,
@@ -976,16 +978,12 @@ export class BrowserEpubReader {
         `Spine index ${spineIndex} is outside the publication reading order.`,
       );
     const contentHints = this.hints.get(spineIndex);
-    const compatibility = runRenditionCompatibilityPolicies(
-      this.compatibilityProfile.renditionPolicies,
-      {
-        publication: this.publication,
-        spineItem,
-        contentHints,
-        preferences: this.preferences,
-      },
-      { fitSingleImagePage: false },
-    );
+    const compatibility = this.resolveRenditionCompatibility({
+      publication: this.publication,
+      spineItem,
+      contentHints,
+      preferences: this.preferences,
+    });
     return planRendition({
       publication: this.publication,
       spineItem,
@@ -996,6 +994,16 @@ export class BrowserEpubReader {
       compatibility: compatibility.value,
       compatibilityDiagnostics: compatibility.diagnostics,
     });
+  }
+
+  private resolveRenditionCompatibility(
+    context: import('../../epub/compatibility/rendition-policy').RenditionCompatibilityContext,
+  ) {
+    return runRenditionCompatibilityPolicies(
+      this.compatibilityProfile.renditionPolicies,
+      context,
+      { fitSingleImagePage: false },
+    );
   }
 
   private inputState(): ReaderInputState {

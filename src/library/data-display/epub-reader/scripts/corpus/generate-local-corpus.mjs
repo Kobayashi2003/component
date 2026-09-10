@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const out = join(root, "fixtures", "corpus");
@@ -54,6 +55,25 @@ const mixedNav = `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml
 const mixedPackage = `<package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:test:mixed-layout</dc:identifier><dc:title>Mixed Layout Fixture</dc:title><dc:language>ja</dc:language><meta property="rendition:layout">reflowable</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/><item id="t1" href="text-1.xhtml" media-type="application/xhtml+xml"/><item id="p1" href="plate-1.xhtml" media-type="application/xhtml+xml"/><item id="p2" href="plate-2.xhtml" media-type="application/xhtml+xml"/><item id="t2" href="text-2.xhtml" media-type="application/xhtml+xml"/><item id="p3" href="plate-3.xhtml" media-type="application/xhtml+xml"/><item id="p4" href="plate-4.xhtml" media-type="application/xhtml+xml"/><item id="t3" href="text-3.xhtml" media-type="application/xhtml+xml"/></manifest><spine page-progression-direction="rtl"><itemref idref="t1"/><itemref idref="p1" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-right"/><itemref idref="p2" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-left"/><itemref idref="t2" properties="page-spread-left"/><itemref idref="p3" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-right"/><itemref idref="p4" properties="rendition:layout-pre-paginated rendition:spread-landscape page-spread-left"/><itemref idref="t3"/></spine></package>`;
 
 const cases = [
+  {
+    id: "single-image-spread",
+    file: "single-image-spread.epub",
+    expectPublication: true,
+    expectedCompatibilityStatus: "clean",
+    files: {
+      mimetype: "application/epub+zip",
+      "META-INF/container.xml": container,
+      "EPUB/package.opf": `<package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id">${baseMetadata}<manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/><item id="img" href="plate.png" media-type="image/png"/></manifest><spine><itemref idref="a"/><itemref idref="b"/><itemref idref="c"/></spine></package>`,
+      "EPUB/nav.xhtml": nav.replaceAll("chapter.xhtml", "a.xhtml"),
+      ...Object.fromEntries(
+        ["a", "b", "c"].map((name) => [
+          `EPUB/${name}.xhtml`,
+          `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>${name}</title></head><body style="margin:0"><div><p><img src="plate.png" alt="" style="max-width:100%;max-height:100%"/></p></div>${name === "c" ? "<p>Caption</p>" : ""}</body></html>`,
+        ]),
+      ),
+      "EPUB/plate.png": solidPng(800, 1600),
+    },
+  },
   {
     id: "valid-reflowable",
     file: "valid-reflowable.epub",
@@ -190,7 +210,8 @@ function buildStoredZip(files) {
   let offset = 0;
   for (const [name, content] of Object.entries(files)) {
     const nameBytes = encoder.encode(name);
-    const data = encoder.encode(content);
+    const data =
+      content instanceof Uint8Array ? content : encoder.encode(content);
     const crc = crc32(data);
     const local = new Uint8Array(30 + nameBytes.length + data.length);
     const lv = new DataView(local.buffer);
@@ -250,4 +271,31 @@ function crc32(bytes) {
       crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function solidPng(width, height) {
+  const chunk = (name, data) => {
+    const type = new TextEncoder().encode(name);
+    const bytes = new Uint8Array(data.length + 12);
+    const view = new DataView(bytes.buffer);
+    view.setUint32(0, data.length);
+    bytes.set(type, 4);
+    bytes.set(data, 8);
+    view.setUint32(data.length + 8, crc32(bytes.subarray(4, data.length + 8)));
+    return bytes;
+  };
+  const header = new Uint8Array(13);
+  const view = new DataView(header.buffer);
+  view.setUint32(0, width);
+  view.setUint32(4, height);
+  header[8] = 8;
+  header[9] = 2;
+  const pixels = new Uint8Array((width * 3 + 1) * height).fill(160);
+  for (let y = 0; y < height; y++) pixels[y * (width * 3 + 1)] = 0;
+  return concat([
+    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(pixels)),
+    chunk("IEND", new Uint8Array()),
+  ]);
 }

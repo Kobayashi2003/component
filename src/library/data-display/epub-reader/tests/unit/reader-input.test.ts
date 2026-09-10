@@ -10,13 +10,157 @@ import {
   ReaderInputController,
   touchNavigationAllows,
 } from "../../core/interaction/input";
-import { BrowserReaderInputRouter } from "../../core/interaction/input/browser-input-router";
+import {
+  BrowserReaderInputRouter,
+  isNativeScrollbarTarget,
+} from "../../core/interaction/input/browser-input-router";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
 async function main() {
+  // Native scrollbar ownership must survive a release over content. Its DOM
+  // target is the scrolling div, and mouse drags otherwise look like swipes.
+  {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const commands: string[] = [];
+    const host = {
+      nodeType: 1,
+      localName: "div",
+      style: {},
+      parentElement: null,
+      hasAttribute: () => true,
+      closest: () => null,
+      addEventListener: (type: string, handler: (event: unknown) => void) =>
+        listeners.set(type, handler),
+      removeEventListener: (type: string) => listeners.delete(type),
+      getBoundingClientRect: () => ({
+        left: 10,
+        top: 20,
+        width: 400,
+        height: 300,
+      }),
+      offsetWidth: 800,
+      offsetHeight: 600,
+      clientWidth: 786,
+      clientHeight: 586,
+      clientLeft: 2,
+      clientTop: 2,
+    };
+    const router = new BrowserReaderInputRouter(
+      host as unknown as HTMLElement,
+      () => ({
+        enabled: true,
+        pageProgression: "ltr",
+        contentKind: "fixed-layout",
+        presentation: "paginated",
+        wheelBoundaryNavigation: true,
+        touchNavigation: "both",
+      }),
+      {
+        dispatch: (command) => {
+          commands.push(command.type);
+        },
+      },
+    );
+    const root = { clientWidth: 1000, clientHeight: 800 };
+    const document = {
+      documentElement: root,
+      scrollingElement: root,
+      defaultView: {
+        innerWidth: 1012,
+        innerHeight: 812,
+        getSelection: () => null,
+        getComputedStyle: () => ({
+          overflowX: "auto",
+          overflowY: "auto",
+          borderLeftWidth: "2px",
+          borderRightWidth: "2px",
+          borderTopWidth: "2px",
+          borderBottomWidth: "2px",
+        }),
+      },
+    };
+    Object.assign(host, { ownerDocument: document });
+    const event = (x: number, y: number) => ({
+      target: host,
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+      button: 0,
+      cancelable: true,
+      preventDefault: () => {},
+    });
+    assert(
+      isNativeScrollbarTarget(event(200, 316) as never),
+      "scaled horizontal scrollbar must be recognized",
+    );
+    assert(
+      isNativeScrollbarTarget(event(406, 100) as never),
+      "right vertical scrollbar must be recognized",
+    );
+    assert(
+      !isNativeScrollbarTarget(event(200, 100) as never),
+      "scrollable content must remain interactive",
+    );
+    assert(
+      !isNativeScrollbarTarget(event(10, 100) as never),
+      "borders are not scrollbars",
+    );
+    assert(
+      isNativeScrollbarTarget(event(1005, 100) as never),
+      "document viewport scrollbar must be recognized",
+    );
+    host.clientLeft = 12;
+    assert(
+      isNativeScrollbarTarget(event(13, 100) as never),
+      "left-side RTL scrollbar must be recognized",
+    );
+    host.clientLeft = 2;
+    const originalNow = Date.now;
+    let now = 1000;
+    Date.now = () => now;
+    try {
+      listeners.get("pointerdown")!(event(100, 100));
+      listeners.get("pointerup")!(event(300, 100));
+      assert(commands.length === 1, "ordinary mouse swipe must still navigate");
+      now += 1000;
+      listeners.get("pointerdown")!(event(100, 316));
+      now += 2000;
+      listeners.get("pointerup")!(event(300, 100));
+      listeners.get("click")!(event(300, 100));
+      assert(
+        commands.length === 1,
+        "long scrollbar drag and release click must not dispatch commands",
+      );
+      now += 1000;
+      listeners.get("click")!(event(100, 316));
+      assert(
+        commands.length === 1,
+        "scrollbar track clicks must not dispatch commands",
+      );
+      listeners.get("pointerdown")!(event(100, 316));
+      listeners.get("pointercancel")!(event(100, 316));
+      now += 1000;
+      listeners.get("pointerdown")!(event(100, 100));
+      listeners.get("pointerup")!(event(300, 100));
+      assert(
+        Number(commands.length) === 2,
+        "cancelled native operation must not disable later swipes",
+      );
+      now += 1000;
+      listeners.get("click")!(event(200, 100));
+      assert(
+        Number(commands.length) === 3,
+        "ordinary center clicks must still toggle controls",
+      );
+    } finally {
+      Date.now = originalNow;
+      router.dispose();
+    }
+    assert(listeners.size === 0, "router disposal must remove its listeners");
+  }
   assert(
     commandForKey({ key: "ArrowRight" }, "ltr")?.type === "navigate",
     "keyboard arrows should map to semantic navigation",

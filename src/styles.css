@@ -178,12 +178,14 @@ main {
 }
 
 .hero {
-  display: grid;
-  padding: clamp(52px, 7vw, 82px) var(--page-x) clamp(54px, 7vw, 76px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: clamp(40px, 5vw, 72px) var(--page-x);
   border-bottom: 1px solid var(--line);
 }
 
-.hero-kicker,
 .eyebrow {
   display: flex;
   align-items: center;
@@ -196,20 +198,43 @@ main {
   text-transform: uppercase;
 }
 
-.hero-kicker span {
-  width: 24px;
-  height: 1px;
+.hero-art {
+  order: 2;
+  flex-shrink: 0;
+  display: flex;
+  width: 112px;
+  height: 38px;
+  align-items: center;
+}
+
+.hero-art span {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+
+.hero-art span + span {
+  margin-left: -9px;
+}
+
+.hero-art span:nth-child(2) {
   background: var(--acid);
+}
+
+.hero-art span:nth-child(3) {
+  background: var(--ink);
 }
 
 .hero h1 {
   max-width: 1000px;
-  margin: 22px 0 24px;
+  margin: 0;
   color: var(--ink);
-  font-size: clamp(52px, 7.4vw, 104px);
+  font-size: clamp(36px, 5.5vw, 80px);
   font-weight: 400;
-  line-height: 0.88;
-  letter-spacing: -0.065em;
+  line-height: 1.12;
+  letter-spacing: -0.045em;
 }
 
 .hero h1 em {
@@ -917,7 +942,10 @@ footer {
     display: none;
   }
   .hero h1 {
-    font-size: clamp(48px, 15vw, 76px);
+    font-size: clamp(32px, 7.5vw, 50px);
+  }
+  .hero-art {
+    display: none;
   }
   .catalog-heading {
     align-items: flex-start;

@@ -16,6 +16,7 @@ interface PointerStart {
   readonly x: number;
   readonly y: number;
   readonly target: EventTarget | null;
+  readonly nativeScrollbar: boolean;
 }
 
 /**
@@ -63,6 +64,7 @@ export class BrowserReaderInputRouter {
     const live = new Set(contexts.map((context) => context.document));
     for (const [document, cleanup] of this.documentCleanups) {
       if (!live.has(document)) {
+        this.pointer = null;
         cleanup();
         this.documentCleanups.delete(document);
       }
@@ -232,6 +234,7 @@ export class BrowserReaderInputRouter {
       if (Date.now() < this.suppressClickUntil) return;
       if (
         click.button !== 0 ||
+        isNativeScrollbarTarget(click) ||
         isInteractivePublicationTarget(click.target) ||
         hasMeaningfulSelection(click.target)
       )
@@ -270,6 +273,22 @@ export class BrowserReaderInputRouter {
 
     const onPointerDown = (event: Event) => {
       const state = this.state();
+      const pointer = event as PointerEvent;
+      this.pointer = null;
+      if (!state.enabled || pointer.button !== 0) return;
+      // Native scrollbar controls target their owning element, not a button.
+      // Remember the whole operation, including a release over page content.
+      if (isNativeScrollbarTarget(pointer)) {
+        this.pointer = {
+          id: pointer.pointerId,
+          x: pointer.clientX,
+          y: pointer.clientY,
+          target: pointer.target,
+          nativeScrollbar: true,
+        };
+        this.suppressClickUntil = Date.now() + 450;
+        return;
+      }
       if (
         !this.policy.swipe ||
         !state.enabled ||
@@ -277,7 +296,6 @@ export class BrowserReaderInputRouter {
         !touchNavigationAllows(state.touchNavigation, 'swipe')
       )
         return;
-      const pointer = event as PointerEvent;
       if (
         pointer.button !== 0 ||
         isInteractivePublicationTarget(pointer.target)
@@ -288,10 +306,20 @@ export class BrowserReaderInputRouter {
         x: pointer.clientX,
         y: pointer.clientY,
         target: pointer.target,
+        nativeScrollbar: false,
       };
     };
 
     const onPointerUp = (event: Event) => {
+      const pointer = event as PointerEvent;
+      if (
+        this.pointer?.id === pointer.pointerId &&
+        this.pointer.nativeScrollbar
+      ) {
+        this.pointer = null;
+        this.suppressClickUntil = Date.now() + 450;
+        return;
+      }
       const state = this.state();
       if (
         !this.pointer ||
@@ -303,11 +331,11 @@ export class BrowserReaderInputRouter {
         this.pointer = null;
         return;
       }
-      const pointer = event as PointerEvent;
       if (pointer.pointerId !== this.pointer.id) return;
       const start = this.pointer;
       this.pointer = null;
       if (hasMeaningfulSelection(pointer.target)) return;
+      if (isNativeScrollbarTarget(pointer)) return;
       const dx = pointer.clientX - start.x;
       const dy = pointer.clientY - start.y;
       if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
@@ -323,6 +351,8 @@ export class BrowserReaderInputRouter {
     };
 
     const onPointerCancel = () => {
+      if (this.pointer?.nativeScrollbar)
+        this.suppressClickUntil = Date.now() + 450;
       this.pointer = null;
     };
 
@@ -507,6 +537,69 @@ function asElement(target: EventTarget | null): Element | null {
   if (!target || typeof target !== 'object') return null;
   const node = target as Node;
   return node.nodeType === 1 ? (node as Element) : node.parentElement;
+}
+
+/** Coordinates and metrics stay in the target document's realm, including iframes. */
+export function isNativeScrollbarTarget(
+  event: Pick<MouseEvent, 'target' | 'clientX' | 'clientY'>,
+): boolean {
+  const target = event.target as Node | null;
+  const document =
+    target?.nodeType === 9 ? (target as Document) : target?.ownerDocument;
+  const win = document?.defaultView;
+  if (!win) return false;
+
+  // The root scrollbar belongs to the viewport; its element rect can move with
+  // document scroll and must not be used as the viewport's hit-test rectangle.
+  const root = document.documentElement;
+  if (
+    root &&
+    ((win.innerWidth > root.clientWidth &&
+      event.clientX >= root.clientWidth &&
+      event.clientX < win.innerWidth) ||
+      (win.innerHeight > root.clientHeight &&
+        event.clientY >= root.clientHeight &&
+        event.clientY < win.innerHeight))
+  )
+    return true;
+
+  let element = asElement(event.target) as HTMLElement | null;
+  while (element) {
+    if (
+      element !== root &&
+      element !== document.scrollingElement &&
+      element.offsetWidth > 0 &&
+      element.offsetHeight > 0
+    ) {
+      const rect = element.getBoundingClientRect();
+      const x =
+        ((event.clientX - rect.left) * element.offsetWidth) / rect.width;
+      const y =
+        ((event.clientY - rect.top) * element.offsetHeight) / rect.height;
+      const style = win.getComputedStyle(element);
+      const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      const borderRight = parseFloat(style.borderRightWidth) || 0;
+      const borderTop = parseFloat(style.borderTopWidth) || 0;
+      const borderBottom = parseFloat(style.borderBottomWidth) || 0;
+      const inside =
+        x >= borderLeft &&
+        x < element.offsetWidth - borderRight &&
+        y >= borderTop &&
+        y < element.offsetHeight - borderBottom;
+      if (inside) {
+        const horizontal =
+          /^(auto|scroll|overlay)$/.test(style.overflowX) &&
+          y >= element.clientTop + element.clientHeight;
+        const vertical =
+          /^(auto|scroll|overlay)$/.test(style.overflowY) &&
+          (x < element.clientLeft ||
+            x >= element.clientLeft + element.clientWidth);
+        if (horizontal || vertical) return true;
+      }
+    }
+    element = element.parentElement;
+  }
+  return false;
 }
 
 function viewportWidthForTarget(
