@@ -19,6 +19,37 @@ import type {
   ReaderPublicationPresentation,
 } from '../model';
 import { cloneAndFreezePlainData } from '../../../shared/immutable';
+import {
+  publicationProgress,
+  fixedLayoutPublicationProgress,
+} from '../../../interaction/locator/progress';
+
+export function resolveReadingPosition(
+  publication: Publication,
+  locator: Locator | null,
+  renderer: RendererHostState,
+  presentation: ReaderPublicationPresentation,
+) {
+  const index = locator?.spineIndex ?? 0;
+  const visible = renderer.layout?.visibleSpineIndices ?? [index];
+  const first = Math.min(...visible);
+  const last = Math.max(...visible);
+  const boundary = renderer.layout?.resourceBoundary;
+  const atStart = first === 0 && boundary?.atStart === true;
+  const atEnd =
+    last === publication.spine.length - 1 && boundary?.atEnd === true;
+  const within =
+    locator?.locations.progression ?? renderer.layout?.progression ?? 0;
+  return {
+    atStart,
+    atEnd,
+    publicationProgression: atEnd
+      ? 1
+      : presentation.layout === 'fixed-layout'
+        ? fixedLayoutPublicationProgress(index, publication.spine.length)
+        : publicationProgress(index, publication.spine.length, within),
+  };
+}
 
 export function mergePlannerPolicy(
   input: BrowserEpubReaderOptions['plannerPolicy'],

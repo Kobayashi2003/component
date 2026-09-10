@@ -95,6 +95,12 @@ export function snapshotReflowableLayout(
       pageCount: geometry.pageCount,
       currentPage: geometry.currentPage,
       progression: geometry.progression,
+      resourceBoundary: {
+        atStart: geometry.currentPage === 1,
+        atEnd:
+          geometry.currentPage + visiblePageCount(plan, presentation) - 1 >=
+          geometry.pageCount,
+      },
       writingMode: presentation.writingMode,
       textDirection: presentation.textDirection,
       scrollAxis: presentation.scrollAxis,
@@ -115,6 +121,10 @@ export function snapshotReflowableLayout(
   return {
     measurement,
     progression: scrollProgression(logicalOffset, max),
+    resourceBoundary: {
+      atStart: logicalOffset <= 1,
+      atEnd: logicalOffset >= max - 1,
+    },
     writingMode: presentation.writingMode,
     textDirection: presentation.textDirection,
     scrollAxis: presentation.scrollAxis,

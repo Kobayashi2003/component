@@ -2,6 +2,12 @@
   "generatedBy": "scripts/corpus/generate-local-corpus.mjs",
   "cases": [
     {
+      "id": "svg-image-mixed",
+      "file": "svg-image-mixed.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
       "id": "single-image-spread",
       "file": "single-image-spread.epub",
       "expectPublication": true,
@@ -55,6 +61,12 @@
     {
       "id": "mixed-layout",
       "file": "mixed-layout.epub",
+      "expectPublication": true,
+      "expectedCompatibilityStatus": "clean"
+    },
+    {
+      "id": "svg-image-no-viewbox",
+      "file": "svg-image-no-viewbox.epub",
       "expectPublication": true,
       "expectedCompatibilityStatus": "clean"
     }

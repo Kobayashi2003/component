@@ -7,12 +7,13 @@ export const singleImageFitCompatibilityPolicy: RenditionCompatibilityPolicy = {
   id: SINGLE_IMAGE_FIT_COMPATIBILITY_ID,
   family: 'rendition',
   stage: 'rendition.policy',
-  revision: '1',
+  revision: '2',
   enabledByDefault: true,
   apply(context, directives) {
     const page = context.contentHints?.page;
     const fit =
-      page?.kind === 'single-image-page' &&
+      (page?.kind === 'single-image-page' ||
+        page?.kind === 'single-svg-page') &&
       page.pageLike &&
       page.replacedElementCount === 1 &&
       page.semanticTextLength === 0 &&

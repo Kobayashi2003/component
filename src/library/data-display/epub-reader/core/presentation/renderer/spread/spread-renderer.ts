@@ -261,8 +261,17 @@ export class SyntheticSpreadRenderer implements RendererInstance {
   snapshot(): Partial<SpreadLayoutSnapshot> {
     this.assertAlive();
     if (!this.root) return {};
+    const ordered = [this.left, this.right]
+      .filter((child): child is ChildState => child?.plan != null)
+      .sort((a, b) => a.plan!.spineIndex - b.plan!.spineIndex);
     return {
       spread: true,
+      resourceBoundary: {
+        atStart:
+          ordered[0]?.renderer?.snapshot().resourceBoundary?.atStart === true,
+        atEnd:
+          ordered.at(-1)?.renderer?.snapshot().resourceBoundary?.atEnd === true,
+      },
       gap: this.gap,
       left: childSnapshot(this.left),
       right: childSnapshot(this.right),

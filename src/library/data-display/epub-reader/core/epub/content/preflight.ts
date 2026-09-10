@@ -16,6 +16,7 @@ import {
 import { parseXml, type XmlElementNode } from '../xml';
 import { semanticXmlText } from '../text';
 import { imageDimensions } from './preflight/image-dimensions';
+import { inspectSvgImage } from './preflight/svg-image';
 import {
   inspectPresentation,
   stripCssComments,
@@ -329,6 +330,8 @@ async function classifyPage(
   const text = semanticXmlText(body);
   const images = descendantsByName(body, 'img');
   const svg = descendantsByName(body, 'svg');
+  const svgImage =
+    svg.length === 1 && !text.trim() ? inspectSvgImage(svg[0]!) : undefined;
   const replacedElementCount =
     images.length +
     svg.length +
@@ -337,13 +340,13 @@ async function classifyPage(
     descendantsByName(body, 'embed').length;
 
   if (
-    images.length === 1 &&
+    (images.length === 1 || svgImage != null) &&
     text.trim().length <= 16 &&
     replacedElementCount === 1
   ) {
-    const source = images[0]!.attributes.src?.trim();
-    let viewport: IntrinsicViewport | undefined;
-    if (source) {
+    const source = svgImage?.source ?? images[0]?.attributes.src?.trim();
+    let viewport: IntrinsicViewport | undefined = svgImage?.viewport;
+    if (source && !viewport) {
       try {
         const resolved = resolvePublicationReference(documentPath, source);
         if (!resolved.remote && resolved.path && archive.has(resolved.path)) {
@@ -362,7 +365,7 @@ async function classifyPage(
     }
     const aspect = viewport ? viewport.width / viewport.height : undefined;
     return {
-      kind: 'single-image-page',
+      kind: svgImage ? 'single-svg-page' : 'single-image-page',
       pageLike: true,
       semanticTextLength: text.length,
       replacedElementCount,

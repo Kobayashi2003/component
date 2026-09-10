@@ -239,7 +239,6 @@ main {
 
 .hero h1 em {
   color: var(--acid);
-  font-family: 'Playfair Display', Georgia, serif;
   font-weight: 500;
   letter-spacing: -0.04em;
 }

@@ -1,3 +1,4 @@
+import { resolveReadingPosition, emptyRendererState } from "../../core/runtime/reader/browser-reader/state";
 import { ReaderThemeRegistry } from "../../core/presentation/appearance";
 import { describeReaderPosition } from "../../core/features/accessibility";
 import { MemoryReaderMarkStore } from "../../core/features/annotations/store";
@@ -71,6 +72,35 @@ const publication: Publication = {
     flow: "paginated",
   },
 };
+
+{
+  const locator: Locator = { href: 'EPUB/c2.xhtml', spineIndex: 2, locations: { progression: 0 } }
+  const presentation = {
+    layout: 'mixed' as const,
+    writingMode: 'vertical-rl' as const,
+    chrome: 'standard' as const,
+  }
+  const position = (atEnd: boolean, visibleSpineIndices?: number[]) =>
+    resolveReadingPosition(
+      publication,
+      locator,
+      {
+        ...emptyRendererState(),
+        layout: { progression: 0, resourceBoundary: { atStart: true, atEnd }, visibleSpineIndices },
+      },
+      presentation,
+    )
+  assert(position(true).publicationProgression === 1, 'visible single-page book end reaches 100%')
+  assert(
+    position(false).publicationProgression === 2 / 3,
+    'last prose start must retain partial progress',
+  )
+  assert(locator.locations.progression === 0, 'visible completion must not mutate locator')
+  assert(!position(true, [0, 1]).atEnd, 'a spread before the final section is not book end')
+  assert(position(true, [1, 2]).atEnd, 'visible final leaf determines book end')
+  const unknown = resolveReadingPosition(publication, locator, emptyRendererState(), presentation)
+  assert(!unknown.atStart && !unknown.atEnd, 'unknown geometry must not disable navigation')
+}
 
 const texts = [
   "Alpha beta alpha. Alphabet should not count as whole word alpha. 𐐀alpha. İx match.",

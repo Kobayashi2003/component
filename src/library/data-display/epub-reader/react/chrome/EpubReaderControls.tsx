@@ -62,9 +62,10 @@ function ResolvedEpubReaderControls({
   const sectionProgression =
     snapshot?.locator?.locations.progression ?? layout?.progression ?? 0;
   const resolvedProgress = publicationScoped
-    ? fixedLayout
-      ? fixedLayoutPublicationProgress(spineIndex, spineCount)
-      : publicationProgress(spineIndex, spineCount, sectionProgression)
+    ? (snapshot?.readingPosition?.publicationProgression ??
+      (fixedLayout
+        ? fixedLayoutPublicationProgress(spineIndex, spineCount)
+        : publicationProgress(spineIndex, spineCount, sectionProgression)))
     : sectionProgression;
   const progress = Math.round(resolvedProgress * 100);
   // A composed spread shows two sections at once, so name both. Reporting only
@@ -164,7 +165,7 @@ function ResolvedEpubReaderControls({
         type="button"
         aria-keyshortcuts="PageUp Shift+Space"
         onClick={() => void reader.previous()}
-        disabled={!interactive}
+        disabled={!interactive || snapshot?.readingPosition?.atStart === true}
       >
         {rtl ? (
           <>
@@ -216,7 +217,7 @@ function ResolvedEpubReaderControls({
         type="button"
         aria-keyshortcuts="PageDown Space"
         onClick={() => void reader.next()}
-        disabled={!interactive}
+        disabled={!interactive || snapshot?.readingPosition?.atEnd === true}
       >
         {rtl ? (
           <>

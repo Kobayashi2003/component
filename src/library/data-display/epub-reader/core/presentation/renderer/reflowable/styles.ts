@@ -221,7 +221,7 @@ function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
   const page = plan.contentPage;
   return (
     plan.compatibility.fitSingleImagePage &&
-    page?.kind === 'single-image-page' &&
+    (page?.kind === 'single-image-page' || page?.kind === 'single-svg-page') &&
     page.pageLike &&
     page.replacedElementCount === 1 &&
     page.semanticTextLength === 0 &&
@@ -240,6 +240,12 @@ function usesSingleImagePageLayout(plan: RenditionPlan): boolean {
 function buildSingleImagePageLayoutCss(plan: RenditionPlan): string {
   const width = cssPixels(plan.viewport.width);
   const height = cssPixels(plan.viewport.height);
+  const svg = plan.contentPage?.kind === 'single-svg-page';
+  const intrinsic = plan.contentPage!.intrinsicViewport!;
+  const scale = Math.min(
+    plan.viewport.width / intrinsic.width,
+    plan.viewport.height / intrinsic.height,
+  );
   return `
 html {
   box-sizing: border-box !important;
@@ -264,7 +270,7 @@ body {
   column-gap: 0 !important;
   overflow: hidden !important;
 }
-body img {
+body ${svg ? 'svg' : 'img'} {
   position: fixed !important;
   inset: 0 !important;
   display: block !important;
@@ -278,6 +284,22 @@ body img {
   margin: auto !important;
   object-fit: contain !important;
   break-inside: avoid !important;
+}
+${
+  svg
+    ? `
+/* Scale the canvas itself: an SVG without viewBox must scale its children too. */
+body svg {
+  inset: 50% auto auto 50% !important;
+  width: ${cssPixels(intrinsic.width)} !important;
+  height: ${cssPixels(intrinsic.height)} !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  transform-origin: center !important;
+  transform: translate(-50%, -50%) scale(${scale}) !important;
+}`
+    : ''
 }
 `;
 }

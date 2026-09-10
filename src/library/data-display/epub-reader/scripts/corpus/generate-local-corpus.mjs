@@ -56,6 +56,25 @@ const mixedPackage = `<package xmlns="http://www.idpf.org/2007/opf" version="3.3
 
 const cases = [
   {
+    id: "svg-image-mixed",
+    file: "svg-image-mixed.epub",
+    expectPublication: true,
+    expectedCompatibilityStatus: "clean",
+    files: {
+      mimetype: "application/epub+zip",
+      "META-INF/container.xml": container,
+      "EPUB/package.opf": `<package xmlns="http://www.idpf.org/2007/opf" version="3.3" unique-identifier="id">${baseMetadata}<manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" properties="svg"/><item id="text" href="text.xhtml" media-type="application/xhtml+xml"/><item id="end" href="end.xhtml" media-type="application/xhtml+xml" properties="svg"/><item id="img" href="plate.png" media-type="image/png"/><item id="css" href="style.css" media-type="text/css"/></manifest><spine page-progression-direction="rtl"><itemref idref="cover" properties="rendition:layout-pre-paginated rendition:spread-none rendition:page-spread-center"/><itemref idref="text"/><itemref idref="end" properties="page-spread-left"/></spine></package>`,
+      "EPUB/nav.xhtml": nav.replaceAll("chapter.xhtml", "cover.xhtml"),
+      "EPUB/text.xhtml": mixedChapter,
+      "EPUB/style.css": ".vrtl{writing-mode:vertical-rl}p{line-height:1.75}",
+      ...Object.fromEntries(["cover", "end"].map((name) => [
+        `EPUB/${name}.xhtml`,
+        `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>${name}</title><meta name="viewport" content="width=800,height=1600"/><style>html,body{margin:0;padding:0;font-size:0}</style></head><body><div><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100%" height="100%" viewBox="0 0 800 1600"><image width="800" height="1600" ${name === "cover" ? 'href' : 'xlink:href'}="plate.png"/></svg></div></body></html>`,
+      ])),
+      "EPUB/plate.png": solidPng(800, 1600),
+    },
+  },
+  {
     id: "single-image-spread",
     file: "single-image-spread.epub",
     expectPublication: true,
@@ -187,6 +206,17 @@ const cases = [
     },
   },
 ];
+
+const svgMixed = cases.find((test) => test.id === "svg-image-mixed");
+cases.push({
+  ...svgMixed,
+  id: "svg-image-no-viewbox",
+  file: "svg-image-no-viewbox.epub",
+  files: {
+    ...svgMixed.files,
+    "EPUB/end.xhtml": svgMixed.files["EPUB/end.xhtml"].replace(' viewBox="0 0 800 1600"', ''),
+  },
+});
 
 for (const test of cases)
   writeFileSync(join(out, test.file), buildStoredZip(test.files));

@@ -6,6 +6,7 @@ import {
 } from "../../../core";
 import { getActiveReader } from "./configuration";
 import { verifyImageSpread } from "./image-spread";
+import { verifySvgImage } from "./svg-image";
 import { focusFirst } from "../../../react/accessibility/focus-trap";
 import {
   assert,
@@ -1318,6 +1319,7 @@ export async function runBrowserInteractionScenario(): Promise<
   );
 
   steps.push(await verifyImageSpread());
+  steps.push(await verifySvgImage());
   return steps;
 }
 

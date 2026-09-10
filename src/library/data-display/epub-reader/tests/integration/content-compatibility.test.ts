@@ -148,6 +148,70 @@ async function main() {
   });
 
   const cancelled = new AbortController();
+  const svgCases = [
+    {
+      name: 'xlink viewBox',
+      svg: '<svg viewBox="0 0 800 1600"><image xlink:href="portrait.jpg"/></svg>',
+      fit: true,
+      width: 800,
+    },
+    {
+      name: 'href dimensions',
+      svg: '<svg width="600px" height="1200"><image href="portrait.jpg"/></svg>',
+      fit: true,
+      width: 600,
+    },
+    {
+      name: 'raster fallback',
+      svg: '<svg width="100%" height="100%"><image href="portrait.jpg"/></svg>',
+      fit: true,
+      width: 800,
+    },
+    {
+      name: 'caption',
+      svg: '<svg viewBox="0 0 800 1600"><image href="portrait.jpg"/></svg><p>Caption</p>',
+      fit: false,
+    },
+    {
+      name: 'drawing',
+      svg: '<svg viewBox="0 0 800 1600"><image href="portrait.jpg"/><rect width="10" height="10"/></svg>',
+      fit: false,
+    },
+    {
+      name: 'foreignObject',
+      svg: '<svg viewBox="0 0 800 1600"><image href="portrait.jpg"/><foreignObject/></svg>',
+      fit: false,
+    },
+    {
+      name: 'multiple images',
+      svg: '<svg viewBox="0 0 800 1600"><image href="portrait.jpg"/><image href="portrait.jpg"/></svg>',
+      fit: false,
+    },
+    {
+      name: 'nested SVG',
+      svg: '<svg viewBox="0 0 800 1600"><svg><image href="portrait.jpg"/></svg></svg>',
+      fit: false,
+    },
+    {
+      name: 'missing source and invalid size',
+      svg: '<svg viewBox="0 0 0 NaN"><image/></svg>',
+      fit: false,
+    },
+  ]
+  for (const test of svgCases) {
+    const svgArchive = new MemoryPublicationArchive({
+      'EPUB/text.xhtml': `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink"><body><div>${test.svg}</div></body></html>`,
+      'EPUB/portrait.jpg': fakeJpeg(800, 1200),
+    })
+    const result = await preflightPublicationContent(svgArchive, {
+      ...publication,
+      spine: publication.spine.slice(0, 1),
+    })
+    const page = result.hints.get(0)?.page
+    assert((page?.kind === 'single-svg-page') === test.fit, `SVG classification: ${test.name}`)
+    if (test.fit)
+      assert(page?.intrinsicViewport?.width === test.width, `SVG intrinsic size: ${test.name}`)
+  }
   cancelled.abort(new DOMException("cancelled fixture", "AbortError"));
   let observedCancellation = false;
   try {

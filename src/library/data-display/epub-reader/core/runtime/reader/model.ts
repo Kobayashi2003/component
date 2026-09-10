@@ -123,6 +123,12 @@ export interface BrowserEpubReaderSnapshot {
   readonly viewport: ViewportMetrics;
   readonly renderer: RendererHostState;
   readonly locator: Locator | null;
+  /** Display projection of visible boundaries; never persisted as a locator. */
+  readonly readingPosition?: {
+    readonly atStart: boolean;
+    readonly atEnd: boolean;
+    readonly publicationProgression: number;
+  };
   readonly navigationHistory: ReaderNavigationHistorySnapshot;
   readonly search: ReaderSearchState;
   readonly marks: ReaderMarkStoreSnapshot;

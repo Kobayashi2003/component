@@ -96,6 +96,14 @@ selection, replacement, visibility, transaction ordering, and disposal.
 A locator is the stable semantic position. Page indexes and scroll offsets are
 layout projections and may change with viewport or preferences.
 
+Renderers report visible resource boundaries separately from locator progression.
+The runtime combines these with visible spine indexes into `readingPosition` in
+the immutable snapshot. Chrome uses that projection for publication completion
+and navigation availability; showing the final page never rewrites the saved
+locator to progression 1. Reflowable SVG image pages retain their authored layout:
+preflight recognizes a narrow single-image structure, the rendition compatibility
+policy enables fitting, and the renderer owns canvas scaling and spread placement.
+
 Navigation resolves a target to a publication locator, asks the active renderer
 to restore it, and then records the healed locator returned by the renderer.
 Fallback channels such as DOM paths, text quotes, and progression keep saved

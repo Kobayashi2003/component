@@ -164,6 +164,11 @@ export interface RendererContentDocument {
 }
 
 export interface RendererLayoutSnapshot {
+  /** Visible resource boundaries; independent of the semantic locator anchor. */
+  readonly resourceBoundary?: {
+    readonly atStart: boolean;
+    readonly atEnd: boolean;
+  };
   readonly measurement?: LayoutMeasurement;
   readonly pageCount?: number;
   readonly currentPage?: number;

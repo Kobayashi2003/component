@@ -266,6 +266,7 @@ export class FixedLayoutRenderer implements RendererInstance {
     if (!placement) return {};
     return {
       pageCount: 1,
+      resourceBoundary: { atStart: true, atEnd: true },
       currentPage: 1,
       // A pre-paginated page is one whole page, so there is no position inside
       // it. Reporting that explicitly matters: the reader repairs its locator
